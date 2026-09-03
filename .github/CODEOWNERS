@@ -1,0 +1,27 @@
+# Propriété par domaine. GitHub demande automatiquement la revue du propriétaire
+# sur toute PR qui touche ses fichiers.
+#
+# C'est la DERNIÈRE règle qui correspond qui gagne : garder le général en haut,
+# le spécifique en bas.
+#
+# Pour rendre la revue obligatoire : Settings > Branches > protection de `main`
+# > cocher « Require review from Code Owners ».
+#
+# TODO équipe : remplacer les pseudos par les vrais comptes GitHub de chacun.
+
+# Par défaut, tout le monde peut relire
+*                       @AlexRovere
+
+# Applicatif
+/apps/dashboard/        @AlexRovere
+/apps/etl/              @AlexRovere
+/apps/ml/               @AlexRovere
+
+# Infrastructure et chaîne de build
+/infra/                 @AlexRovere
+/.github/               @AlexRovere
+/docker-compose.yml     @AlexRovere
+
+# Livrables : relus par le Product Owner
+/docs/                  @AlexRovere
+*.md                    @AlexRovere

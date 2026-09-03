@@ -1,0 +1,17 @@
+# Surveillance de la pile on-premise. Les cibles applicatives s'ajoutent au fur
+# et à mesure que les services exposent /metrics.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # - job_name: etl
+  #   static_configs:
+  #     - targets: ["etl:8000"]
+  # - job_name: dashboard
+  #   static_configs:
+  #     - targets: ["dashboard:3000"]

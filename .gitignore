@@ -1,0 +1,40 @@
+# Dépendances
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Builds
+dist/
+.output/
+.nuxt/
+.nitro/
+
+# Environnement local (jamais versionné)
+.env
+.env.local
+*.local
+
+# Terraform : état et variables contiennent des données sensibles
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+
+# Secrets déchiffrés : seul secrets.enc.yaml est versionné
+secrets.yaml
+secrets.dec.yaml
+
+# Données et modèles : trop volumineux, pas versionnables
+data/
+mlruns/
+*.pkl
+*.joblib
+
+# Divers
+*.log
+.DS_Store
+.idea/
+.vscode/

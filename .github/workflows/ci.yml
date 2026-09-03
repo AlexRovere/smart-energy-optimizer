@@ -1,0 +1,117 @@
+name: CI
+
+# Le pipeline agit comme un sas : lint, tests, puis scan de sécurité bloquant,
+# puis build. Un filtrage par chemin évite de tout rejouer à chaque commit,
+# ce qui est l'intérêt d'un monorepo bien câblé.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  # Détermine quels domaines ont changé : les jobs suivants s'y conditionnent.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      etl: ${{ steps.filter.outputs.etl }}
+      ml: ${{ steps.filter.outputs.ml }}
+      dashboard: ${{ steps.filter.outputs.dashboard }}
+      infra: ${{ steps.filter.outputs.infra }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            etl:
+              - 'apps/etl/**'
+            ml:
+              - 'apps/ml/**'
+            dashboard:
+              - 'apps/dashboard/**'
+            infra:
+              - 'infra/**'
+              - 'docker-compose.yml'
+
+  etl:
+    needs: changes
+    if: needs.changes.outputs.etl == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      # TODO : décommenter dès que les dépendances existent.
+      # - run: pip install -r apps/etl/requirements.txt
+      # - run: ruff check apps/etl
+      # - run: pytest apps/etl --cov=apps/etl --cov-fail-under=80
+      - run: echo "TODO ETL - lint et tests unitaires, dont la gestion des null et de data_quality"
+
+  ml:
+    needs: changes
+    if: needs.changes.outputs.ml == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      # - run: pip install -r apps/ml/requirements.txt
+      # - run: ruff check apps/ml
+      # - run: pytest apps/ml
+      - run: echo "TODO ML - lint et tests du contrat de l API de prediction"
+
+  dashboard:
+    needs: changes
+    if: needs.changes.outputs.dashboard == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: apps/dashboard/package-lock.json }
+      # - run: npm ci --prefix apps/dashboard
+      # - run: npm run lint --prefix apps/dashboard
+      # - run: npm test --prefix apps/dashboard
+      # - run: npm run build --prefix apps/dashboard
+      - run: echo "TODO dashboard - lint, tests et build"
+
+  infra:
+    needs: changes
+    if: needs.changes.outputs.infra == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform fmt -check -recursive infra/terraform
+      - run: terraform init -backend=false
+        working-directory: infra/terraform
+      - run: terraform validate
+        working-directory: infra/terraform
+
+  # Quality gate : ce job tourne sur TOUTE modification et bloque à la première
+  # vulnérabilité critique. C'est le critère DevSecOps de l'épreuve EC03.
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Trivy couvre les trois angles en un passage : vulnérabilités des
+      # dépendances, secrets versionnés, et mauvaises configurations (Terraform,
+      # Dockerfile, Compose). exit-code 1 rend le job bloquant.
+      #
+      # gitleaks-action a été écarté volontairement : sa v2 exige une licence
+      # payante pour les comptes d'organisation, le job aurait échoué d'emblée.
+      - name: Scan de sécurité (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true

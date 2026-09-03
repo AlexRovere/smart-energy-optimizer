@@ -1,0 +1,65 @@
+# Pile on-premise. Les services applicatifs sont commentés tant que leur
+# Dockerfile n'existe pas : `docker compose up -d` doit fonctionner dès le J1.
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: enervision-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-enervision}
+      POSTGRES_USER: ${POSTGRES_USER:-enervision}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?renseigner POSTGRES_PASSWORD dans .env}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-enervision}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: enervision-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prom_data:/prometheus
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: enervision-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?renseigner GRAFANA_PASSWORD dans .env}
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # À décommenter dès que le Dockerfile existe.
+  # etl:
+  #   build: ./apps/etl
+  #   environment:
+  #     MOCK_API_URL: ${MOCK_API_URL:?}
+  #     DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}
+  #   depends_on:
+  #     timescaledb: { condition: service_healthy }
+  #   restart: unless-stopped
+  #
+  # dashboard:
+  #   build: ./apps/dashboard
+  #   ports: ["3000:3000"]
+  #   depends_on:
+  #     timescaledb: { condition: service_healthy }
+  #   restart: unless-stopped
+
+volumes:
+  db_data:
+  prom_data:
+  grafana_data:
