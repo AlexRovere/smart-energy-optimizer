@@ -115,9 +115,10 @@ La colonne « Rôle » décrit le mécanisme complet. **Un seul rôle est exploi
 | POST | `/api/admin/users` | `{ email, password, role, sites[] }` | `User` | 401, 403, 409, 422 | `ADMIN` |
 | PUT | `/api/admin/users/{id}` | `{ email?, role?, sites?, is_active? }` | `User` | 401, 403, 404, 422 | `ADMIN` |
 | DELETE | `/api/admin/users/{id}` | | `{ success: true }` | 401, 403, 404 | `ADMIN` |
-| POST | `/api/admin/sites/reload` | | `{ loaded, updated, missing }` | 401, 403, 503 | `ADMIN` |
 
-`sites` est un tableau d'identifiants dans la charge utile ; en base ce sont des lignes de `user_sites`. Le rechargement du référentiel répond au critère « un rechargement met à jour les sites existants sans les dupliquer » de #21, et il fournit au passage l'action réservée à l'administrateur que demande #95.
+`sites` est un tableau d'identifiants dans la charge utile ; en base ce sont des lignes de `user_sites`. Ces quatre routes portent l'action réservée à l'administrateur que demande #95 : un exploitant qui les appelle reçoit `403`.
+
+Il n'y a **pas** de route de rechargement du référentiel : c'est l'ETL qui charge `sites`, écart assumé le 15 septembre et tracé dans [`data.md`](./data.md).
 
 ### Données
 
@@ -159,7 +160,7 @@ Le **temps réel ne passe pas par les fichiers Parquet** : l'applicatif appelle 
 | `/api/alerts` | `/api/v1/alerts` | **les alertes viennent de la source**, on ne les calcule pas |
 | `/api/sensors/status` | `/api/v1/sensors/status` | relais direct |
 
-`/api/sites` n'est pas dans cette table : elle lit **PostgreSQL**, pas la source. Le référentiel y est chargé par `POST /api/admin/sites/reload`, qui appelle `/api/v1/sites` et fait un `UPSERT`. Voir [`data.md`](./data.md).
+`/api/sites` n'est pas dans cette table : elle lit **PostgreSQL**, pas la source. Le référentiel y est chargé par l'**ETL**, qui consomme `/api/v1/sites` et fait un `UPSERT`. Voir [`data.md`](./data.md).
 
 Sur échec : trois tentatives avec attente croissante, puis `503` et bandeau dégradé à l'écran.
 
@@ -433,4 +434,5 @@ Aucun secret en clair dans un fichier versionné : ils passent par SOPS et age (
 | Date | Changement |
 | :--- | :--- |
 | 15 septembre 2026 | Première version, croisement des trois propositions. |
+| 15 septembre 2026 | L'ETL charge le référentiel des sites, la route de rechargement disparaît. Colonnes `sites.site_id`, `site_name`, `site_type`. |
 | 15 septembre 2026 | `snake_case` fixé sur le fil, les entrées suivent. Variables d'environnement réconciliées avec `.env.example` et le `runtimeConfig`. `ML_SERVICE_URL` devient `ML_API_URL`, port 8000. |

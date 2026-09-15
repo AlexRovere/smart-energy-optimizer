@@ -4,10 +4,10 @@ Deux stockages, deux rôles, une seule règle de partage : **rien n'est écrit d
 
 | Stockage | Contenu | Qui écrit | Qui lit |
 |---|---|---|---|
-| PostgreSQL | Référentiel des sites, comptes, rôles, périmètres d'accès | L'applicatif, seul | L'applicatif, seul |
+| PostgreSQL | Référentiel des sites, comptes, rôles, périmètres d'accès | L'applicatif, et l'ETL sur la seule table `sites` | L'applicatif, seul |
 | Volume Parquet | Les mesures, transformées | L'ETL, seul | L'applicatif et le service ML, en lecture seule, via DuckDB |
 
-Le pivot entre les deux est `sites.id` : c'est la même chaîne dans PostgreSQL et dans le chemin de partition Parquet. Aucune jointure entre les deux moteurs, seulement une clé partagée.
+Le pivot entre les deux est `sites.site_id` : c'est la même chaîne dans PostgreSQL, dans le chemin de partition Parquet, dans les colonnes des fichiers et dans les réponses de l'API. **Un seul nom sur les cinq couches**, donc aucune table de correspondance à tenir. Aucune jointure entre les deux moteurs non plus, seulement une clé partagée.
 
 Voir [`architecture.md`](./architecture.md) pour les principes dont ce document découle.
 
@@ -77,9 +77,9 @@ Le référentiel des installations, alimenté depuis `GET /api/v1/sites` et enri
 
 | Colonne | Type | Contraintes | Description | Origine |
 | :--- | :--- | :--- | :--- | :--- |
-| `id` | VARCHAR(16) | PRIMARY KEY | Identifiant technique source (`SITE001`...) | API Mock |
-| `name` | VARCHAR(150) | NOT NULL | Nom affiché | API Mock (`site_name`) |
-| `type` | VARCHAR(50) | NOT NULL | Nature de l'installation | API Mock (`site_type`) |
+| `site_id` | VARCHAR(16) | PRIMARY KEY | Identifiant technique source (`SITE001`...) | API Mock |
+| `site_name` | VARCHAR(150) | NOT NULL | Nom affiché | API Mock |
+| `site_type` | VARCHAR(50) | NOT NULL | Nature de l'installation | API Mock |
 | `location` | VARCHAR(100) | NULL | Emplacement, pour l'affichage | API Mock |
 | `capacity_kw` | INTEGER | NOT NULL, CHECK (`capacity_kw` > 0) | Puissance souscrite | API Mock |
 | `status` | VARCHAR(30) | NOT NULL | État renvoyé par la source | API Mock |
@@ -96,6 +96,25 @@ Le référentiel des installations, alimenté depuis `GET /api/v1/sites` et enri
 
 Pas de contrainte `CHECK` sur `type` ni sur `status` : leur domaine de valeurs n'est pas encore connu. Un `CHECK` posé sur une hypothèse fait échouer l'ETL sur la première valeur inattendue, et le site est alors perdu au lieu d'être chargé. À poser une fois le domaine relevé sur la source, s'il est stable.
 
+### Qui écrit dans `sites`, et jusqu'où
+
+**L'ETL écrit le référentiel des sites.** Écart assumé le 15 septembre 2026 : la version précédente disait que l'applicatif était le seul service à toucher PostgreSQL. Le motif du changement est que le chargement du référentiel est une étape d'ingestion, au même titre que les mesures, et que la couper en deux pour respecter une frontière coûtait plus que la frontière ne rapportait.
+
+Ce qui ne change pas : **le schéma appartient à Drizzle**, dans l'applicatif, et à lui seul. L'ETL écrit des lignes, jamais du DDL. Un seul propriétaire du schéma, deux écrivains de données.
+
+**La frontière est tenue par les droits, pas par une phrase.** Un rôle PostgreSQL dédié, utilisé par l'ETL, avec des privilèges limités à la table `sites` et même à ses colonnes :
+
+```sql
+CREATE ROLE etl LOGIN PASSWORD :'etl_password';
+GRANT SELECT, INSERT ON sites TO etl;
+GRANT UPDATE (site_name, site_type, location, capacity_kw, status,
+              present_in_source, updated_at) ON sites TO etl;
+```
+
+Deux conséquences, et ce sont elles qui rendent l'écart défendable. L'ETL ne peut **pas** lire `users`, `sessions` ni `user_sites` : ce n'est plus une promesse, c'est un refus de la base. Et il ne peut pas écrire `alert_threshold_kw`, donc un rechargement ne peut pas effacer un seuil réglé à l'écran, même par erreur de code.
+
+Cela vaut aussi pour l'épreuve : le moindre privilège appliqué à une base est plus concret qu'un schéma d'architecture, et il se démontre en essayant.
+
 ### `user_sites`
 
 Le périmètre d'accès, site par site.
@@ -103,7 +122,7 @@ Le périmètre d'accès, site par site.
 | Colonne | Type | Contraintes | Description |
 | :--- | :--- | :--- | :--- |
 | `user_id` | UUID | NOT NULL, REFERENCES `users(id)` ON DELETE CASCADE | |
-| `site_id` | VARCHAR(16) | NOT NULL, REFERENCES `sites(id)` ON DELETE RESTRICT | |
+| `site_id` | VARCHAR(16) | NOT NULL, REFERENCES `sites(site_id)` ON DELETE RESTRICT | |
 | `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Date d'attribution du droit |
 
 Clé primaire composite `(user_id, site_id)`, qui interdit la double attribution.
@@ -122,7 +141,7 @@ La clé primaire couvre déjà la recherche par utilisateur, qui est le cas cour
 
 Trois stratégies différentes, pour trois raisons différentes : `SERIAL` pour `roles`, référentiel figé de trois lignes ; `UUID` pour `users`, parce qu'un identifiant de compte ne doit pas être devinable ni révéler l'ordre des inscriptions ; `VARCHAR` pour `sites`, parce que c'est la clé de la source et celle du chemin de partition Parquet, et qu'un identifiant technique interne imposerait une table de correspondance pour rien.
 
-Contrepartie de `sites.id` : le format de l'identifiant source entre dans le schéma. Si la source renumérotait, c'est une migration.
+Contrepartie de `sites.site_id` : le format de l'identifiant source entre dans le schéma. Si la source renumérotait, c'est une migration.
 
 ---
 
@@ -230,7 +249,7 @@ Deux répertoires, deux usages : l'exposé alimente le tableau de bord, celui d'
 
 **Tranché le 15 septembre 2026 : Drizzle**, dont le schéma TypeScript est la source de vérité et dont `drizzle-kit migrate` produit les migrations.
 
-Le critère de #26 demande « une migration **rejouable** ». C'est ce qui départage : `drizzle-kit migrate` tient un journal de ce qui a été appliqué et se relance sans risque, là où un `init.sql` monté dans `docker-entrypoint-initdb.d` ne s'exécute **que sur un répertoire de données vide**, donc jamais après le premier démarrage. Et l'applicatif est le seul service à toucher PostgreSQL : le schéma peut lui appartenir entièrement, et les types TypeScript se génèrent depuis lui au lieu d'être recopiés.
+Le critère de #26 demande « une migration **rejouable** ». C'est ce qui départage : `drizzle-kit migrate` tient un journal de ce qui a été appliqué et se relance sans risque, là où un `init.sql` monté dans `docker-entrypoint-initdb.d` ne s'exécute **que sur un répertoire de données vide**, donc jamais après le premier démarrage. Et l'applicatif reste le seul propriétaire du **schéma**, même si l'ETL écrit désormais des lignes dans `sites` : les types TypeScript se génèrent depuis lui au lieu d'être recopiés, et l'ETL suit le contrat figé plus haut sans jamais produire de DDL.
 
 Deux conditions à ce choix, parce que l'argument d'en face était bon :
 
@@ -313,9 +332,9 @@ erDiagram
         inet ip
     }
     sites {
-        varchar id PK
-        varchar name
-        varchar type
+        varchar site_id PK
+        varchar site_name
+        varchar site_type
         varchar location
         int capacity_kw
         varchar status
