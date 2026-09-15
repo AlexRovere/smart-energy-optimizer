@@ -2,7 +2,7 @@
 
 Référence commune de l'équipe, figée le **lundi 14 septembre 2026** lors de la séance de cadrage du J1 (issue #98), à partir des cinq dossiers de conception individuels.
 
-**Ce fichier est la source de vérité de l'architecture**, et il n'en existe pas de seconde : toute autre copie est un export, jamais l'original. Toute évolution s'y écrit le jour où elle est décidée, avec sa raison, et la section « Points tranchés depuis » garde la trace de ce qui a changé, parce qu'une décision effacée est une décision qui se rediscute. Les décisions datées vivent aussi dans Supervisor, écran Décisions ; les tickets qui les réalisent vivent dans le projet GitHub.
+**Ce fichier est la source de vérité de l'architecture**, et il n'en existe pas de seconde : toute autre copie est un export, jamais l'original. Toute évolution s'y écrit le jour où elle est décidée, avec sa raison, et la section « Points tranchés depuis » garde la trace de ce qui a changé, parce qu'une décision effacée est une décision qui se rediscute. Les tickets qui réalisent ces décisions vivent dans le projet GitHub.
 
 ## Principes retenus
 
@@ -200,16 +200,6 @@ Le motif est qu'une table entreprise serait une dimension sans données : l'API 
 
 ## Où trouver le reste
 
-Ici, dans ce dépôt :
-
 - `data.md` : le modèle relationnel et le contrat des fichiers Parquet. **Arrive séparément**, le schéma relationnel demandant encore un tour de relecture ; l'index de `docs/` l'annonce déjà.
 - [`README.md`](./README.md) : ce que contient chaque document et pour quelle épreuve.
 - Le document de chaque service, dans `apps/<service>/README.md` : ses entrées, ses sorties, son démarrage.
-
-Dans le dépôt de pilotage (Supervisor), qui n'est pas celui-ci :
-
-- `docs/ligne-de-coupe.md` : le socle, le hors périmètre et les règles des dix jours.
-- `docs/couverture-backlog.md` : quel critère d'évaluation est porté par quelle issue.
-- `docs/kpi-pilotage.md` : les six indicateurs suivis chaque soir.
-- `docs/routine-equipe.md` : ce que chaque membre fait chaque jour.
-- `docs/EADL-synthese.md` : les consignes, le calendrier des rendus, l'API Mock.
