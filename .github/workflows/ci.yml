@@ -125,7 +125,7 @@ jobs:
       # gitleaks-action a été écarté volontairement : sa v2 exige une licence
       # payante pour les comptes d'organisation, le job aurait échoué d'emblée.
       - name: Scan de sécurité (Trivy)
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
