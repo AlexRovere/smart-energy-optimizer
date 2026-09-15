@@ -1,10 +1,8 @@
-<script setup lang="ts">
-
-</script>
-
-
 <template>
-  <div>
-    <slot />
-  </div>
+  <UDashboardGroup>
+    <EvSidebar />
+    <UDashboardPanel>
+      <slot />
+    </UDashboardPanel>
+  </UDashboardGroup>
 </template>
