@@ -434,5 +434,5 @@ Aucun secret en clair dans un fichier versionné : ils passent par SOPS et age (
 | Date | Changement |
 | :--- | :--- |
 | 15 septembre 2026 | Première version, croisement des trois propositions. |
-| 15 septembre 2026 | L'ETL charge le référentiel des sites, la route de rechargement disparaît. Colonnes `sites.site_id`, `site_name`, `site_type`. |
+| 15 septembre 2026 | L'ETL charge le référentiel des sites, la route de rechargement disparaît. |
 | 15 septembre 2026 | `snake_case` fixé sur le fil, les entrées suivent. Variables d'environnement réconciliées avec `.env.example` et le `runtimeConfig`. `ML_SERVICE_URL` devient `ML_API_URL`, port 8000. |

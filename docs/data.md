@@ -7,7 +7,9 @@ Deux stockages, deux rôles, une seule règle de partage : **rien n'est écrit d
 | PostgreSQL | Référentiel des sites, comptes, rôles, périmètres d'accès | L'applicatif, et l'ETL sur la seule table `sites` | L'applicatif, seul |
 | Volume Parquet | Les mesures, transformées | L'ETL, seul | L'applicatif et le service ML, en lecture seule, via DuckDB |
 
-Le pivot entre les deux est `sites.site_id` : c'est la même chaîne dans PostgreSQL, dans le chemin de partition Parquet, dans les colonnes des fichiers et dans les réponses de l'API. **Un seul nom sur les cinq couches**, donc aucune table de correspondance à tenir. Aucune jointure entre les deux moteurs non plus, seulement une clé partagée.
+Le pivot entre les deux est `sites.id` : c'est la même chaîne dans PostgreSQL et dans le chemin de partition Parquet. Aucune jointure entre les deux moteurs, seulement une clé partagée.
+
+La table porte `id`, `name` et `type` là où la source dit `site_id`, `site_name` et `site_type` : dans une table nommée `sites`, `sites.site_id` bégaie. La correspondance est dans la colonne « Origine » ci-dessous, et elle se fait à l'écriture, une fois, dans l'ETL.
 
 Voir [`architecture.md`](./architecture.md) pour les principes dont ce document découle.
 
@@ -77,9 +79,9 @@ Le référentiel des installations, alimenté depuis `GET /api/v1/sites` et enri
 
 | Colonne | Type | Contraintes | Description | Origine |
 | :--- | :--- | :--- | :--- | :--- |
-| `site_id` | VARCHAR(16) | PRIMARY KEY | Identifiant technique source (`SITE001`...) | API Mock |
-| `site_name` | VARCHAR(150) | NOT NULL | Nom affiché | API Mock |
-| `site_type` | VARCHAR(50) | NOT NULL | Nature de l'installation | API Mock |
+| `id` | VARCHAR(16) | PRIMARY KEY | Identifiant technique source (`SITE001`...) | API Mock |
+| `name` | VARCHAR(150) | NOT NULL | Nom affiché | API Mock (`site_name`) |
+| `type` | VARCHAR(50) | NOT NULL | Nature de l'installation | API Mock (`site_type`) |
 | `location` | VARCHAR(100) | NULL | Emplacement, pour l'affichage | API Mock |
 | `capacity_kw` | INTEGER | NOT NULL, CHECK (`capacity_kw` > 0) | Puissance souscrite | API Mock |
 | `status` | VARCHAR(30) | NOT NULL | État renvoyé par la source | API Mock |
@@ -107,7 +109,7 @@ Ce qui ne change pas : **le schéma appartient à Drizzle**, dans l'applicatif, 
 ```sql
 CREATE ROLE etl LOGIN PASSWORD :'etl_password';
 GRANT SELECT, INSERT ON sites TO etl;
-GRANT UPDATE (site_name, site_type, location, capacity_kw, status,
+GRANT UPDATE (name, type, location, capacity_kw, status,
               present_in_source, updated_at) ON sites TO etl;
 ```
 
@@ -122,7 +124,7 @@ Le périmètre d'accès, site par site.
 | Colonne | Type | Contraintes | Description |
 | :--- | :--- | :--- | :--- |
 | `user_id` | UUID | NOT NULL, REFERENCES `users(id)` ON DELETE CASCADE | |
-| `site_id` | VARCHAR(16) | NOT NULL, REFERENCES `sites(site_id)` ON DELETE RESTRICT | |
+| `site_id` | VARCHAR(16) | NOT NULL, REFERENCES `sites(id)` ON DELETE RESTRICT | |
 | `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Date d'attribution du droit |
 
 Clé primaire composite `(user_id, site_id)`, qui interdit la double attribution.
@@ -141,7 +143,7 @@ La clé primaire couvre déjà la recherche par utilisateur, qui est le cas cour
 
 Trois stratégies différentes, pour trois raisons différentes : `SERIAL` pour `roles`, référentiel figé de trois lignes ; `UUID` pour `users`, parce qu'un identifiant de compte ne doit pas être devinable ni révéler l'ordre des inscriptions ; `VARCHAR` pour `sites`, parce que c'est la clé de la source et celle du chemin de partition Parquet, et qu'un identifiant technique interne imposerait une table de correspondance pour rien.
 
-Contrepartie de `sites.site_id` : le format de l'identifiant source entre dans le schéma. Si la source renumérotait, c'est une migration.
+Contrepartie de `sites.id` : le format de l'identifiant source entre dans le schéma. Si la source renumérotait, c'est une migration.
 
 ---
 
@@ -332,9 +334,9 @@ erDiagram
         inet ip
     }
     sites {
-        varchar site_id PK
-        varchar site_name
-        varchar site_type
+        varchar id PK
+        varchar name
+        varchar type
         varchar location
         int capacity_kw
         varchar status
