@@ -1,15 +1,20 @@
 # Pile on-premise. Les services applicatifs sont commentés tant que leur
 # Dockerfile n'existe pas : `docker compose up -d` doit fonctionner dès le J1.
 services:
-  timescaledb:
-    image: timescale/timescaledb:latest-pg16
+  # PostgreSQL nu, sans TimescaleDB : la base ne porte plus les mesures, qui
+  # vivent en fichiers Parquet sur le volume partagé. Il ne lui reste que le
+  # référentiel des sites, les comptes, les rôles et les périmètres d'accès.
+  postgres:
+    image: postgres:16-alpine
     container_name: enervision-db
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-enervision}
       POSTGRES_USER: ${POSTGRES_USER:-enervision}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?renseigner POSTGRES_PASSWORD dans .env}
+    # Lié à la boucle locale : pratique pour un client SQL sur son poste,
+    # injoignable depuis le réseau. Aucun service interne n'est exposé.
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -42,24 +47,38 @@ services:
       - prometheus
     restart: unless-stopped
 
-  # À décommenter dès que le Dockerfile existe.
+  # À décommenter service par service, dès que son Dockerfile existe. Le
+  # reverse proxy et le service ML manquent encore : ils viendront avec leurs
+  # tickets. Les montages ci-dessous sont la partie à ne pas improviser.
+  #
   # etl:
   #   build: ./apps/etl
   #   environment:
   #     MOCK_API_URL: ${MOCK_API_URL:?}
-  #     DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}
-  #   depends_on:
-  #     timescaledb: { condition: service_healthy }
+  #     PARQUET_DIR_EXPOSE: /data/expose
+  #     PARQUET_DIR_ENTRAINEMENT: /data/entrainement
+  #   volumes:
+  #     - parquet_data:/data          # seul montage en écriture de tout le système
   #   restart: unless-stopped
   #
   # dashboard:
   #   build: ./apps/dashboard
-  #   ports: ["3000:3000"]
+  #   environment:
+  #     DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  #     PARQUET_DIR_EXPOSE: /data/expose
+  #     ML_API_URL: ${ML_API_URL:-http://ml:8000}
+  #   volumes:
+  #     - parquet_data:/data:ro       # lecture seule, et rien d'autre que l'exposé
   #   depends_on:
-  #     timescaledb: { condition: service_healthy }
+  #     postgres: { condition: service_healthy }
   #   restart: unless-stopped
 
 volumes:
   db_data:
   prom_data:
   grafana_data:
+  # Le volume de données n'appartient à aucun service : l'ETL est le seul à le
+  # monter en écriture, l'applicatif et le ML n'en montent qu'un répertoire
+  # chacun, en lecture seule. C'est ce montage qui applique le cloisonnement,
+  # et il est donc vérifiable ici plutôt que dans du code.
+  parquet_data:

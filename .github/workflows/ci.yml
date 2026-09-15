@@ -10,8 +10,14 @@ on:
   pull_request:
     branches: [main]
 
+# Le jeton est restreint explicitement, donc tout ce qui n'est pas listé ici est
+# refusé. paths-filter interroge l'API des fichiers modifiés quand l'événement
+# est une pull request, d'où pull-requests: read. Sans cette ligne le job
+# changes échoue en « Resource not accessible by integration », et comme il
+# conditionne tous les autres, c'est tout le pipeline qui ne tourne pas.
 permissions:
   contents: read
+  pull-requests: read
   security-events: write
 
 jobs:
@@ -24,8 +30,8 @@ jobs:
       dashboard: ${{ steps.filter.outputs.dashboard }}
       infra: ${{ steps.filter.outputs.infra }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -44,10 +50,13 @@ jobs:
     if: needs.changes.outputs.etl == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.12", cache: pip }
-      # TODO : décommenter dès que les dépendances existent.
+      - uses: actions/checkout@v7
+      # Le cache pip se réactive avec requirements.txt : il en calcule sa clé,
+      # et sans le fichier l'action échoue avant même le premier TODO.
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.12" }
+      # TODO : décommenter dès que les dépendances existent, cache compris.
+      #   with: { python-version: "3.12", cache: pip }
       # - run: pip install -r apps/etl/requirements.txt
       # - run: ruff check apps/etl
       # - run: pytest apps/etl --cov=apps/etl --cov-fail-under=80
@@ -58,9 +67,11 @@ jobs:
     if: needs.changes.outputs.ml == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.12", cache: pip }
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.12" }
+      # TODO : décommenter dès que les dépendances existent, cache compris.
+      #   with: { python-version: "3.12", cache: pip }
       # - run: pip install -r apps/ml/requirements.txt
       # - run: ruff check apps/ml
       # - run: pytest apps/ml
@@ -71,9 +82,15 @@ jobs:
     if: needs.changes.outputs.dashboard == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: npm, cache-dependency-path: apps/dashboard/package-lock.json }
+      - uses: actions/checkout@v7
+      # package-manager-cache: false coupe le cache automatique introduit en v5,
+      # qui s'active seul dès qu'un package.json porte un champ packageManager
+      # et échouerait faute de lockfile, comme le cache explicite retiré juste
+      # avant. Les deux se rallument ensemble.
+      - uses: actions/setup-node@v7
+        with: { node-version: 20, package-manager-cache: false }
+      # TODO : décommenter dès que package-lock.json existe, cache compris.
+      #   with: { node-version: 20, cache: npm, cache-dependency-path: apps/dashboard/package-lock.json }
       # - run: npm ci --prefix apps/dashboard
       # - run: npm run lint --prefix apps/dashboard
       # - run: npm test --prefix apps/dashboard
@@ -85,20 +102,21 @@ jobs:
     if: needs.changes.outputs.infra == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-      - run: terraform fmt -check -recursive infra/terraform
-      - run: terraform init -backend=false
-        working-directory: infra/terraform
-      - run: terraform validate
-        working-directory: infra/terraform
+      - uses: actions/checkout@v7
+      # Terraform est passé hors périmètre au J1 : plus de ressource de
+      # fournisseur à créer, la machine est fournie. Ce job valide désormais la
+      # configuration Ansible et la composition. TODO : décommenter dès que le
+      # playbook et les Dockerfile existent.
+      # - run: pipx install ansible-lint && ansible-lint infra/ansible
+      # - run: docker compose config --quiet
+      - run: echo "TODO infra - ansible-lint du playbook et validation de la composition"
 
   # Quality gate : ce job tourne sur TOUTE modification et bloque à la première
   # vulnérabilité critique. C'est le critère DevSecOps de l'épreuve EC03.
   security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Trivy couvre les trois angles en un passage : vulnérabilités des
       # dépendances, secrets versionnés, et mauvaises configurations (Terraform,
@@ -107,7 +125,7 @@ jobs:
       # gitleaks-action a été écarté volontairement : sa v2 exige une licence
       # payante pour les comptes d'organisation, le job aurait échoué d'emblée.
       - name: Scan de sécurité (Trivy)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
