@@ -113,7 +113,7 @@ flowchart TB
 
 **Deux réseaux internes, et pas un de plus.** Le réseau frontal ne relie que le proxy et l'applicatif : le proxy ne peut donc joindre ni la base, ni le service de prédiction, ni le volume. Le réseau données relie l'applicatif à PostgreSQL et au service ML, ainsi que l'ETL à PostgreSQL pour le seul référentiel des sites (voir « Points tranchés »). Un service compromis ne voit que ce que son réseau lui laisse voir.
 
-**L'ETL rejoint le réseau données, mais seulement pour le référentiel des sites.** Il écrit les sites qui manquent dans PostgreSQL ; il n'appelle ni l'applicatif ni le service ML, et il ne gagne aucune notion d'utilisateur, de compte ou de session. Il continue par ailleurs à ne parler qu'à l'API Mock en sortie, et son lien principal avec le reste du système reste le volume, en montage, pas en route.
+**L'ETL n'appelle aucun service.** Il ne parle ni à l'applicatif ni au service ML, et sort vers l'API Mock seulement. Ses deux liens avec le reste du système sont le **répertoire Parquet**, par montage, et **PostgreSQL**, pour la seule table `sites` du référentiel. Ce second lien est un écart assumé le 15 septembre 2026, borné par un rôle PostgreSQL dédié aux privilèges limités à cette table et à ses colonnes : l'ETL ne peut lire ni les comptes, ni les sessions, ni les périmètres d'accès. Voir `data.md`.
 
 **Les traits pleins sont des réseaux, les pointillés des montages.** La distinction est le cœur du cloisonnement : une route se contrôle dans du code, un montage se lit dans le fichier de composition. Le service ML ne peut pas lire les séries exposées parce que ce répertoire n'est pas monté dans son conteneur, et cela se vérifie sans exécuter le programme.
 
@@ -210,6 +210,8 @@ Les raisons : un service de plus à construire et à maintenir dans un MVP de di
 **DuckDB est bien une bibliothèque, et le stockage un répertoire.** Tranché le mardi 15 septembre 2026, après vérification. Le doute venait de là : « je n'étais pas sûr que DuckDB soit en capacité de fournir une information directement, et que du coup il était obligé d'avoir un conteneur ». Il ne l'est pas. On l'interroge comme on interrogerait PostgreSQL, depuis le processus qui l'embarque.
 
 Et les fichiers vivent dans un répertoire de la machine, pas dans un volume Docker nommé ni dans un conteneur. L'ETL et le service ML sont donc colocalisés, **par simplicité et non par contrainte** : le jour où il faudrait les séparer, passer les fichiers sur un stockage objet lève la contrainte sans toucher au code, DuckDB et pandas lisant un chemin local et une adresse d'objet de la même façon.
+
+**L'ETL écrit le référentiel des sites.** Tranché le mardi 15 septembre 2026. Le chargement du référentiel est une étape d'ingestion au même titre que les mesures, et le couper en deux pour respecter la frontière « seul l'applicatif touche PostgreSQL » coûtait plus que la frontière ne rapportait. Le schéma reste la propriété de l'applicatif, par Drizzle : l'ETL écrit des lignes, jamais du DDL. Et la frontière devient un **droit de base de données** au lieu d'une phrase dans un document.
 
 **Un seul client, cloisonnement par site.** Tranché le mardi 15 septembre 2026, au daily. Le MVP sert un client pilote : il n'y a pas de table entreprise, et la dimension de cloisonnement est le site. Les fichiers Parquet sont partitionnés par site, et le périmètre d'un compte est une liste de sites.
 
