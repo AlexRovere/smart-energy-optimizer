@@ -69,6 +69,79 @@ flowchart LR
     PRED -->|valeur et intervalle| APP
 ```
 
+## Déploiement
+
+Une machine, une composition Docker, **un seul port publié** : le 443 du reverse proxy. Aucun autre service n'est joignable depuis le réseau.
+
+```mermaid
+flowchart TB
+    NET(["Internet"]) -->|"443, seul port publie"| RP
+    MOCK(["API Mock IoT<br/>fournisseur externe"])
+    BK(["Sauvegarde hors site<br/>archive chiffree"])
+
+    subgraph VM["VM on-premise, une composition Docker"]
+        RP["Reverse proxy<br/>terminaison TLS"]
+        APP["Applicatif Nuxt<br/>BFF et dashboard"]
+        PG[("PostgreSQL")]
+        ML["Service ML<br/>MLflow et FastAPI"]
+        ETL["Service ETL"]
+        VOL[("Volume Parquet<br/>dossier expose, dossier entrainement")]
+
+        RP -->|"reseau frontal"| APP
+        APP -->|"reseau donnees"| PG
+        APP -->|"reseau donnees"| ML
+        APP -.->|"montage lecture seule<br/>dossier expose"| VOL
+        ML -.->|"montage lecture seule<br/>dossier entrainement"| VOL
+        ETL -.->|"montage lecture ecriture"| VOL
+    end
+
+    ETL -->|"sortie HTTPS"| MOCK
+    VM --> BK
+```
+
+**Deux réseaux internes, et pas un de plus.** Le réseau frontal ne relie que le proxy et l'applicatif : le proxy ne peut donc joindre ni la base, ni le service de prédiction, ni le volume. Le réseau données relie l'applicatif à PostgreSQL et au service ML. Un service compromis ne voit que ce que son réseau lui laisse voir.
+
+**L'ETL n'est sur aucun réseau interne.** C'est une conséquence, pas un oubli : il n'a aucun accès à PostgreSQL, il n'appelle ni l'applicatif ni le service ML, et il ne parle qu'à l'API Mock, en sortie. Son seul lien avec le reste du système est le volume, et ce lien est un montage, pas une route.
+
+**Les traits pleins sont des réseaux, les pointillés des montages.** La distinction est le cœur du cloisonnement : une route se contrôle dans du code, un montage se lit dans le fichier de composition. Le service ML ne peut pas lire les séries exposées parce que ce répertoire n'est pas monté dans son conteneur, et cela se vérifie sans exécuter le programme.
+
+## Séquence d'un appel authentifié
+
+Une connexion, puis une lecture filtrée assortie d'une prévision. C'est le chemin complet, celui qui met en jeu tous les composants.
+
+```mermaid
+sequenceDiagram
+    participant N as Navigateur
+    participant P as Reverse proxy
+    participant B as Applicatif, BFF
+    participant D as PostgreSQL
+    participant V as Volume Parquet<br/>dossier expose
+    participant M as Service ML
+
+    N->>P: POST /login (identifiants)
+    P->>B: TLS termine, requete transmise
+    B->>D: verification bcrypt
+    D-->>B: compte, role, sites autorises
+    B-->>N: 200 + Set-Cookie httpOnly Secure SameSite
+
+    N->>P: GET /api/sites/{id}/consommation
+    P->>B: requete + cookie
+    B->>B: verification de signature,<br/>resolution du role et des sites autorises
+    B->>V: requete DuckDB filtree sur les sites resolus
+    V-->>B: mesures des seuls sites autorises
+    B->>M: prediction (site, horizon)
+    M->>M: chargement du modele promu
+    M-->>B: valeur, intervalle, version du modele
+    B-->>N: 200 (donnees et prevision du perimetre)
+
+    Note over B,V: l'identifiant de site est injecte par le serveur<br/>apres resolution, jamais lu depuis la requete du client
+    Note over B,M: le service ML n'a aucune notion d'utilisateur :<br/>l'autorisation est resolue avant l'appel
+```
+
+**Deux propriétés se lisent sur ce schéma.** La première : le périmètre n'est jamais fourni par le client. Il est résolu depuis la session, côté serveur, et injecté dans la requête de données ; un identifiant de site reçu du navigateur ne sert qu'à être comparé au périmètre autorisé. La seconde : l'autorisation est entièrement résolue **avant** l'appel au service de prédiction, qui ne reçoit qu'un site et un horizon. C'est ce qui permet au service ML de n'avoir aucune notion d'utilisateur.
+
+Le jeton n'est jamais lisible par un script : il vit dans un cookie `httpOnly`, `Secure`, `SameSite`, et la couche serveur de l'applicatif est seule à le manipuler.
+
 ## Sécurité
 
 - **Un seul port public**, le 443 sur le reverse proxy. Aucun port des services internes n'est publié sur l'hôte.
