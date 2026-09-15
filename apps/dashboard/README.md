@@ -82,6 +82,12 @@ Deux conditions, parce que l'argument d'en face était bon :
 Le script d'amorçage idempotent (trois rôles, sept sites, un compte de démonstration par rôle) est
 repris tel quel de la proposition de contrats d'interfaces.
 
+## Mots de passe : Argon2id
+
+Le module fournit `hashPassword` et `verifyPassword` en **scrypt**. On lui préfère **Argon2id**, première recommandation de la fiche OWASP « Password Storage », avec `m = 19456`, `t = 2` et `p = 1` au minimum. La bibliothèque retenue est `@node-rs/argon2`, qui livre des binaires précompilés : pas de chaîne de compilation à installer dans l'image Docker. Si le build résiste, le scrypt du module est un repli acceptable, deuxième recommandation OWASP, avec `N = 2^17`, `r = 8`, `p = 1`.
+
+bcrypt est écarté : OWASP le réserve aux systèmes hérités, il ne consomme que 4 Ko de mémoire donc se parallélise sur GPU, et il tronque silencieusement l'entrée à 72 octets.
+
 ## Sessions : la révocation vit en base
 
 `nuxt-auth-utils` scelle les données de session **dans le cookie** : le serveur ne garde rien, donc

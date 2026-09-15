@@ -31,12 +31,18 @@ Les profils d'accès globaux. Trois lignes, injectées au démarrage, jamais cr�
 | `id` | UUID | PRIMARY KEY, DEFAULT `gen_random_uuid()` | Identifiant opaque |
 | `role_id` | INTEGER | NOT NULL, REFERENCES `roles(id)` ON DELETE RESTRICT | Un utilisateur a un rôle et un seul |
 | `email` | VARCHAR(255) | UNIQUE, NOT NULL | Identifiant de connexion |
-| `password_hash` | VARCHAR(255) | NOT NULL | Empreinte **bcrypt** |
+| `password_hash` | VARCHAR(255) | NOT NULL | Empreinte **Argon2id**, forme encodée `$argon2id$...` |
 | `last_login` | TIMESTAMPTZ | NULL | Dernière authentification réussie |
 | `is_active` | BOOLEAN | NOT NULL, DEFAULT TRUE | Désactivation sans purge |
 | `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | |
 
-`bcrypt` et pas « bcrypt ou Argon2 » : un document de référence qui laisse le choix produit deux implémentations. C'est aussi ce que demande le critère d'acceptation de #29.
+**Argon2id**, et un seul : un document de référence qui laisse le choix produit deux implémentations.
+
+La fiche OWASP « Password Storage » classe Argon2id en premier (`m = 19456`, `t = 2`, `p = 1` au minimum), scrypt en second, et réserve bcrypt aux systèmes hérités, « where Argon2 and scrypt are not available ». La raison est que bcrypt n'utilise que 4 Ko de mémoire : un GPU en parallélise des milliers d'instances, là où Argon2 force l'attaquant à payer de la RAM. Et bcrypt **tronque silencieusement l'entrée à 72 octets**, ce qui fait qu'un mot de passe plus long est accepté sans que sa fin ne compte.
+
+`nuxt-auth-utils` fournit `hashPassword` et `verifyPassword` en **scrypt**. Argon2id demande donc une bibliothèque, `@node-rs/argon2` de préférence, qui livre des binaires précompilés et évite une chaîne de compilation dans l'image Docker. Repli acceptable si le build résiste : le scrypt du module, avec `N = 2^17`, `r = 8`, `p = 1`.
+
+`VARCHAR(255)` suffit largement : la forme encodée d'un Argon2id tient en une centaine de caractères, paramètres et sel compris.
 
 ### `sessions`
 
@@ -246,7 +252,7 @@ les deux sens, sans quoi ce n'est qu'un argument d'autorité.
 | :--- | :--- | :--- | :--- |
 | Table entreprise | `entreprises`, `roles_entreprises` | non | #26. Abandonnée par son auteur au daily, un seul client pilote |
 | Table `sites` | absente, le référentiel viendrait d'un service data | **oui** | #21 : les sept sites en base, six champs conservés |
-| Hachage | argon2 | **bcrypt** | #29, qui le nomme explicitement |
+| Hachage | argon2 | **Argon2id**, paramètres fixés | La fiche OWASP « Password Storage ». #29 disait bcrypt : **c'est le ticket qui avait tort**, il est révisé |
 | Rôles | `ENUM('admin','manager','operator')` | table `roles`, `ADMIN` / `OPERATOR` / `VIEWER` | Vocabulaire unique, ajout d'un rôle sans migration, modèle relationnel attendu par EC05 |
 | Périmètre d'un compte | `allowed_sites TEXT[]`, `NULL` valant « voit tout » | table `user_sites` | Intégrité référentielle vers `sites`, et **une ligne oubliée donne zéro accès au lieu de tout** |
 | Cloisonnement par site | refusé par #95 | **oui** | Les trois développeurs le proposent, sous trois formes. #95 est le document isolé, il est réécrit |
