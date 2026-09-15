@@ -57,8 +57,16 @@ services:
   #     MOCK_API_URL: ${MOCK_API_URL:?}
   #     PARQUET_DIR_EXPOSE: /data/expose
   #     PARQUET_DIR_ENTRAINEMENT: /data/entrainement
+  #     # Accès borné au référentiel des sites (docs/architecture.md, Points tranchés).
+  #     POSTGRES_HOST: postgres
+  #     POSTGRES_PORT: 5432
+  #     POSTGRES_DB: ${POSTGRES_DB:-enervision}
+  #     POSTGRES_USER: ${POSTGRES_USER:-enervision}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
   #   volumes:
   #     - parquet_data:/data          # seul montage en écriture de tout le système
+  #   depends_on:
+  #     postgres: { condition: service_healthy }
   #   restart: unless-stopped
   #
   # dashboard:

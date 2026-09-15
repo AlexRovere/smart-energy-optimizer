@@ -22,6 +22,7 @@ flowchart TB
     APP --> PG[("PostgreSQL<br/>comptes, roles, referentiel des sites")]
     APP --> ML["Service ML<br/>MLflow + FastAPI"]
     MOCK["API Mock IoT"] --> ETL["Service ETL"]
+    ETL -->|"ecriture, referentiel des sites"| PG
     subgraph VOL["Repertoire de donnees Parquet"]
         BEX[("dossier expose")]
         BML[("dossier entrainement")]
@@ -38,7 +39,7 @@ flowchart TB
 |---|---|---|---|
 | Reverse proxy | Caddy ou Traefik, à confirmer | Terminaison TLS, porte d'entrée unique, en-têtes de sécurité, limitation de débit | Public, 443 |
 | Applicatif | Nuxt, Vue 3, TypeScript | Dashboard, BFF, authentification, autorisation, règles métier, recommandations. Architecture en couches en interne | Réseau interne |
-| ETL | Python | Extraction depuis l'API Mock, nettoyage, transformation, écriture Parquet | Réseau interne |
+| ETL | Python | Extraction depuis l'API Mock, nettoyage, transformation, écriture Parquet, chargement du référentiel des sites en base | Réseau interne |
 | ML | Python, MLflow, FastAPI | Entraînement, registre de modèles, endpoint de prédiction | Réseau interne |
 | Base relationnelle | PostgreSQL | Comptes, rôles, référentiel des sites et leurs réglages. Rien d'autre | Réseau interne |
 | Stockage des mesures | Fichiers Parquet, dans un répertoire de la machine | Deux sous-répertoires : séries exposées, jeux d'entraînement | Montages |
@@ -100,6 +101,7 @@ flowchart TB
         RP -->|"reseau frontal"| APP
         APP -->|"reseau donnees"| PG
         APP -->|"reseau donnees"| ML
+        ETL -->|"reseau donnees, referentiel des sites"| PG
         APP -.->|"montage lecture seule<br/>dossier expose"| VOL
         ML -.->|"montage lecture seule<br/>dossier entrainement"| VOL
         ETL -.->|"montage lecture ecriture"| VOL
@@ -109,9 +111,9 @@ flowchart TB
     VM --> BK
 ```
 
-**Deux réseaux internes, et pas un de plus.** Le réseau frontal ne relie que le proxy et l'applicatif : le proxy ne peut donc joindre ni la base, ni le service de prédiction, ni le volume. Le réseau données relie l'applicatif à PostgreSQL et au service ML. Un service compromis ne voit que ce que son réseau lui laisse voir.
+**Deux réseaux internes, et pas un de plus.** Le réseau frontal ne relie que le proxy et l'applicatif : le proxy ne peut donc joindre ni la base, ni le service de prédiction, ni le volume. Le réseau données relie l'applicatif à PostgreSQL et au service ML, ainsi que l'ETL à PostgreSQL pour le seul référentiel des sites (voir « Points tranchés »). Un service compromis ne voit que ce que son réseau lui laisse voir.
 
-**L'ETL n'est sur aucun réseau interne.** C'est une conséquence, pas un oubli : il n'a aucun accès à PostgreSQL, il n'appelle ni l'applicatif ni le service ML, et il ne parle qu'à l'API Mock, en sortie. Son seul lien avec le reste du système est le volume, et ce lien est un montage, pas une route.
+**L'ETL rejoint le réseau données, mais seulement pour le référentiel des sites.** Il écrit les sites qui manquent dans PostgreSQL ; il n'appelle ni l'applicatif ni le service ML, et il ne gagne aucune notion d'utilisateur, de compte ou de session. Il continue par ailleurs à ne parler qu'à l'API Mock en sortie, et son lien principal avec le reste du système reste le volume, en montage, pas en route.
 
 **Les traits pleins sont des réseaux, les pointillés des montages.** La distinction est le cœur du cloisonnement : une route se contrôle dans du code, un montage se lit dans le fichier de composition. Le service ML ne peut pas lire les séries exposées parce que ce répertoire n'est pas monté dans son conteneur, et cela se vérifie sans exécuter le programme.
 
@@ -212,6 +214,10 @@ Le motif est qu'une table entreprise serait une dimension sans données : l'API 
 **Rôles : le mécanisme, pas les profils.** Tranché le même jour. La table des rôles et la résolution côté serveur existent, mais un seul rôle est exploité au MVP. Les profils restreints se montrent à l'oral et se lisent dans les tests, plutôt que de multiplier les règles métier à vérifier en deux semaines.
 
 **DVC écarté.** Tranché le même jour. Voir la table du hors périmètre ci-dessus : MLflow tient déjà la propriété recherchée.
+
+**L'ETL gagne un accès en écriture à PostgreSQL, strictement borné au référentiel des sites.** Tranché le mardi 15 septembre 2026. Le référentiel des sites vient de l'API Mock, et l'ETL est le seul service qui l'interroge : le faire écrire les sites manquants directement dans la table `sites` évite de dupliquer cet appel côté applicatif ou d'ajouter un service intermédiaire pour une simple synchronisation d'ajout. L'ETL rejoint donc le réseau données, en écriture d'ajout uniquement sur cette table (les sites déjà répertoriés ne sont ni modifiés ni supprimés par ce chemin).
+
+Cela ne revient pas sur le reste du cloisonnement : l'ETL n'a toujours aucune notion de compte, de rôle ou de session, n'appelle ni l'applicatif ni le service ML, et la table `sites` reste créée et administrée ailleurs (migration dédiée, hors périmètre ETL).
 
 ## Où trouver le reste
 
