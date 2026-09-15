@@ -168,7 +168,9 @@ Deux répertoires, deux usages : l'exposé alimente le tableau de bord, celui d'
 
 ## Création du schéma
 
-Pas de migration versionnée pour le MVP : un `init.sql` monté par la composition, appliqué une fois au premier démarrage du conteneur PostgreSQL, plus un jeu d'amorçage de trois rôles et des sept sites. Un outil de migration se justifie quand un schéma évolue en production sur des données qu'on ne peut pas perdre ; ici la base se reconstruit en une commande. La règle qui rend ce choix tenable : **le schéma ne se modifie pas à la main sur la machine**, il se modifie dans `init.sql` et la base est recréée.
+**Point à trancher.** L'applicatif a choisi **Drizzle**, qui apporte son propre outil de migrations. Deux façons de créer le même schéma coexistent donc, et il faut en choisir une. Pour Drizzle : l'applicatif est le seul service à toucher PostgreSQL, le schéma peut lui appartenir entièrement et les types TypeScript se génèrent depuis lui. Pour `init.sql` : rien à installer, la base se recrée en une commande, et le schéma se lit sans connaître l'ORM. Ce qui ne se discute pas, c'est qu'il n'y en ait qu'un.
+
+Ce qui suit décrit l'option `init.sql`, retenue jusqu'à décision contraire : un fichier monté par la composition, appliqué une fois au premier démarrage du conteneur PostgreSQL, plus un jeu d'amorçage de trois rôles et des sept sites. Un outil de migration se justifie quand un schéma évolue en production sur des données qu'on ne peut pas perdre ; ici la base se reconstruit en une commande. La règle qui rend ce choix tenable : **le schéma ne se modifie pas à la main sur la machine**, il se modifie dans `init.sql` et la base est recréée.
 
 À revoir si des données saisies à l'écran (les seuils d'alerte) doivent survivre à une remise à zéro.
 
