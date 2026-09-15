@@ -83,10 +83,7 @@ const systemeItems: NavigationMenuItem[] = [
           class="border border-ev-border rounded-ev-btn p-3.5 flex flex-col gap-2.5"
         >
           <span class="font-ev text-[11px] font-medium tracking-[0.06em] text-ev-text-4">COLLECTE</span>
-          <span class="flex items-center gap-2 font-ev text-xs font-medium text-ev-green">
-            <span class="size-1.75 rounded-full bg-ev-green animate-[ev-pulse-dot_1.6s_ease-in-out_infinite]" />
-            API healthy
-          </span>
+          <EvHealthBadge status="ok" label="API healthy" />
           <span class="font-ev-mono text-[11px] leading-snug text-ev-text-4">
             polling /current · 60 s
           </span>
