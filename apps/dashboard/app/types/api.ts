@@ -98,6 +98,7 @@ export interface StatsSummaryRaw {
   sites: Array<{
     site_id: SiteId;
     site_name: string;
+    site_type?: SiteType;
     current_consumption_kw: number | null;
     capacity_kw: number;
     load_percent: number | null;
