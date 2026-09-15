@@ -29,7 +29,7 @@ flowchart TB
     ETL -->|ecriture| BEX
     ETL -->|ecriture| BML
     APP -->|montage lecture seule, DuckDB| BEX
-    ML -->|montage lecture seule, DuckDB| BML
+    ML -->|montage lecture seule| BML
 ```
 
 ## Les briques
@@ -45,9 +45,13 @@ flowchart TB
 
 ## Données
 
-**Format.** Fichiers Parquet partitionnés par site, puis par période. Interrogés en SQL par **DuckDB**, embarqué chez le consommateur, sans serveur.
+**Format.** Fichiers Parquet partitionnés par site, puis par période. **Le contrat est le format, pas la bibliothèque qui le lit** : Parquet est un format ouvert, et chaque service choisit son outil. Côté Python, `pandas.read_parquet()` suffit : il rend directement le tableau de données que scikit-learn ou Prophet attendent, il délègue à pyarrow, et il accepte `columns` et `filters`, donc il ne lit ni les colonnes ni les partitions dont on n'a pas besoin. Polars ou `pyarrow.dataset` prennent le relais le jour où un jeu dépasserait la mémoire, ce que sept sites et quelques dizaines de mégaoctets ne feront pas. Côté applicatif, **DuckDB** fait le SQL et les agrégats que le tableau de bord demande, là où l'écosystème JavaScript est pauvre.
+
+Dans tous les cas c'est une **bibliothèque embarquée dans le service**, jamais un serveur : il n'existe pas de serveur DuckDB, et l'interface entre les services est le fichier, pas un processus.
 
 **Deux répertoires, deux usages.** Le répertoire exposé alimente le dashboard, celui d'entraînement alimente le modèle. L'ETL est le seul à écrire ; chaque consommateur ne monte que son répertoire, en lecture seule. Un composant ne peut pas lire ce qui n'est pas monté dans son conteneur.
+
+**Schéma.** Un répertoire de fichiers n'impose aucun schéma : une base refuserait une colonne au mauvais type, un fichier l'accepte et c'est le lecteur qui casse, plus tard et ailleurs. Trois règles compensent, détaillées dans [`data.md`](./data.md) : le schéma est **déclaré** à l'écriture et jamais déduit des données du moment, l'écriture est **atomique**, et un test du pipeline compare le schéma produit au schéma de référence.
 
 **Qualité.** Les mesures sont stockées telles que l'API Mock les renvoie, avec leurs indicateurs de qualité, et jamais filtrées. Valeur brute et valeur imputée restent distinctes. Un agrégat qui exclut des sites le signale à l'écran.
 
@@ -63,7 +67,7 @@ flowchart LR
     T -->|ecriture| BEX[("dossier expose<br/>series par site")]
     T -->|ecriture| BML[("dossier entrainement<br/>jeux et variables")]
     BEX -->|DuckDB, filtre sur les sites autorises| APP["BFF, dashboard"]
-    BML -->|DuckDB| ML["Entrainement, MLflow"]
+    BML -->|pyarrow ou Polars| ML["Entrainement, MLflow"]
     ML -->|modele promu| PRED["Endpoint de prediction"]
     APP -->|horizon et site| PRED
     PRED -->|valeur et intervalle| APP
@@ -174,6 +178,7 @@ Le jeton n'est jamais lisible par un script : il vit dans un cookie `httpOnly`, 
 | Terraform | Pas d'API de fournisseur à piloter sur une VM unique. Ansible couvre le besoin réel, la configuration de la machine. |
 | Kubeflow | Même logique que Terraform, côté chaîne ML. MLflow suffit au MVP. |
 | **Plusieurs entreprises clientes** | Le MVP sert un client pilote. Les sites portent le cloisonnement, ce qui suffit à le démontrer ; une table entreprise serait une dimension sans données, la source n'en fournissant aucune. |
+| **Format de table (Delta Lake, Iceberg)** | Un journal de transactions par-dessus les Parquet règlerait d'un coup le schéma imposé, l'écriture atomique et l'historique des versions des jeux. C'est le « plus tard » le mieux justifié de cette table. Écarté parce qu'une couche de métadonnées de plus se comprend et se débogue, et que les trois propriétés s'obtiennent autrement pour le MVP. |
 | **DVC** | MLflow versionne déjà modèles, paramètres et métriques, et la fenêtre temporelle du jeu suffit à identifier les données, l'ETL étant incrémental. Un second outil de versionnement pour une propriété déjà tenue. |
 | **Rôles restreints exploités** | Le mécanisme et la table existent ; les distinguer dans l'interface multiplierait les cas de test des règles métier sans rien ajouter à la démonstration. |
 
@@ -186,9 +191,9 @@ Le jeton n'est jamais lisible par un script : il vit dans un cookie `httpOnly`, 
 
 ## Points tranchés depuis
 
-**Accès aux données : montages, et non service.** Tranché le mardi 15 septembre 2026. Le schéma proposé en séance de cadrage faisait des fichiers Parquet un service interrogé par les autres briques ; c'est la lecture directe qui l'emporte. DuckDB est embarqué chez chaque consommateur et lit les fichiers d'un volume Docker partagé, que l'ETL est seul à monter en écriture.
+**Accès aux données : montages, et non service.** Tranché le mardi 15 septembre 2026. Le schéma proposé en séance de cadrage faisait des fichiers Parquet un service interrogé par les autres briques ; c'est la lecture directe qui l'emporte. Chaque consommateur lit directement les fichiers d'un volume Docker partagé, avec la bibliothèque de son choix, et l'ETL est seul à le monter en écriture.
 
-Les raisons : un service de plus à construire et à maintenir dans un MVP de dix jours ; un service ML qui récupérerait ses jeux d'entraînement par HTTP, cas où une API coûte sans rien apporter puisque DuckDB lit le fichier sans copie ; et surtout un cloisonnement qui redeviendrait du code applicatif au lieu de tenir dans les montages du fichier de composition, donc vérifiable sans lire une ligne de programme.
+Les raisons : un service de plus à construire et à maintenir dans un MVP de dix jours ; un service ML qui récupérerait ses jeux d'entraînement par HTTP, cas où une API coûte sans rien apporter puisque le fichier se lit sans copie ; et surtout un cloisonnement qui redeviendrait du code applicatif au lieu de tenir dans les montages du fichier de composition, donc vérifiable sans lire une ligne de programme.
 
 **Un seul client, cloisonnement par site.** Tranché le mardi 15 septembre 2026, au daily. Le MVP sert un client pilote : il n'y a pas de table entreprise, et la dimension de cloisonnement est le site. Les fichiers Parquet sont partitionnés par site, et le périmètre d'un compte est une liste de sites.
 
