@@ -1,7 +1,7 @@
 <template>
   <UApp>
-    <UContainer>
-      <h1>EnerVision</h1>
-    </UContainer>
+    <NuxtLayout>
+      <NuxtPage />
+    </NuxtLayout>
   </UApp>
 </template>
