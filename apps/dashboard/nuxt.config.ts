@@ -15,6 +15,17 @@ export default defineNuxtConfig({
     mlServiceUrl: '',
     logLevel: 'info'
   },
+  app: {
+    head: {
+      title: 'EnerVision',
+      htmlAttrs: {
+        lang: 'fr',
+      },
+      link: [
+        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
+      ],
+    },
+  },
   typescript: {
     strict: true,
     typeCheck: false,
