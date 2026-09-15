@@ -36,7 +36,7 @@ flowchart TB
 
 | Brique | Techno | Responsabilité | Exposition |
 |---|---|---|---|
-| Reverse proxy | à définir | Terminaison TLS, porte d'entrée unique, en-têtes de sécurité, limitation de débit | Public, 443 |
+| Reverse proxy | Caddy ou Traefik, à confirmer | Terminaison TLS, porte d'entrée unique, en-têtes de sécurité, limitation de débit | Public, 443 |
 | Applicatif | Nuxt, Vue 3, TypeScript | Dashboard, BFF, authentification, autorisation, règles métier, recommandations. Architecture en couches en interne | Réseau interne |
 | ETL | Python | Extraction depuis l'API Mock, nettoyage, transformation, écriture Parquet | Réseau interne |
 | ML | Python, MLflow, FastAPI | Entraînement, registre de modèles, endpoint de prédiction | Réseau interne |
@@ -48,6 +48,8 @@ flowchart TB
 **Format.** Fichiers Parquet partitionnés par site, puis par période. **Le contrat est le format, pas la bibliothèque qui le lit** : Parquet est un format ouvert, et chaque service choisit son outil. Côté Python, `pandas.read_parquet()` suffit : il rend directement le tableau de données que scikit-learn ou Prophet attendent, il délègue à pyarrow, et il accepte `columns` et `filters`, donc il ne lit ni les colonnes ni les partitions dont on n'a pas besoin. Polars ou `pyarrow.dataset` prennent le relais le jour où un jeu dépasserait la mémoire, ce que sept sites et quelques dizaines de mégaoctets ne feront pas. Côté applicatif, **DuckDB** fait le SQL et les agrégats que le tableau de bord demande, là où l'écosystème JavaScript est pauvre.
 
 Dans tous les cas c'est une **bibliothèque embarquée dans le service**, jamais un serveur : il n'existe pas de serveur DuckDB, et l'interface entre les services est le fichier, pas un processus.
+
+**Le temps réel ne passe pas par là.** L'état instantané d'un capteur est demandé directement à l'API Mock par l'applicatif : le passer par l'ETL et les fichiers ajouterait la latence d'un cycle d'ingestion à une donnée dont tout l'intérêt est d'être fraîche. Les fichiers Parquet portent l'**historique nettoyé**, c'est-à-dire ce qui se trace, s'agrège et sert à entraîner.
 
 **Deux répertoires, deux usages.** Le répertoire exposé alimente le dashboard, celui d'entraînement alimente le modèle. L'ETL est le seul à écrire ; chaque consommateur ne monte que son répertoire, en lecture seule. Un composant ne peut pas lire ce qui n'est pas monté dans son conteneur.
 
@@ -151,7 +153,7 @@ Le jeton n'est jamais lisible par un script : il vit dans un cookie `httpOnly`, 
 - **Un seul port public**, le 443 sur le reverse proxy. Aucun port des services internes n'est publié sur l'hôte.
 - **Session** : cookie httpOnly, Secure, SameSite. Le jeton n'est jamais lisible par un script.
 - **Cloisonnement par site** : le rôle et la liste des sites autorisés sont résolus côté serveur, à partir de la session, et **injectés** dans la requête de données. Un identifiant de site reçu du client est comparé au périmètre autorisé, il ne sert jamais de source. Une seule fonction rend cette liste et le filtre est toujours appliqué, y compris pour un administrateur, à qui elle rend la liste complète.
-- **Rôles** : la table existe et le mécanisme est en place, mais **un seul rôle est exploité au MVP**, l'administrateur. Les rôles restreints sont montrés à l'oral, pas construits.
+- **Rôles** : trois au schéma, **`ADMIN`, `OPERATOR`, `VIEWER`**, et un seul vocabulaire dans tout le projet. La table existe et le mécanisme est en place, mais **un seul rôle est exploité au MVP**, `ADMIN`. Les rôles restreints sont montrés à l'oral et se lisent dans les tests, pas construits.
 - **Secrets** : SOPS et age pour ce qui est versionné, chaque membre et la CI ayant sa clé ; secrets de la forge pour la CI. Une procédure écrite permet à chacun de chiffrer et déchiffrer sans assistance.
 - **Machine** : accès SSH par clé, compte mutualisé donc aucun secret en clair déposé et **aucun commit depuis la VM**, l'historique devant rester nominatif.
 
