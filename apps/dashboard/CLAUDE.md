@@ -32,23 +32,28 @@ Reste à faire aujourd'hui (J2) : ESLint, Vitest, NuxtUI, Dockerfile, config env
 
 ## Architecture
 
-Infrastructure on-premise (VM ENI), 5 conteneurs Docker Compose :
+Infrastructure **on-premise** (VM ENI). Conteneurs Docker Compose, un seul port publié (443 reverse proxy).
 
 ```
-Navigateur ──HTTPS──▶ Reverse Proxy ──HTTP──▶ Nuxt (:3000, SSR + API)
-                                                │          │
-                                         TCP/SQL│          │HTTP interne
-                                                ▼          ▼
-                                           PostgreSQL   API Mock (:8000)
-                                        (users, rôles)  Data Parquet (:8001)
-                                                        ML (:8002)
+Navigateur ──HTTPS──▶ Reverse Proxy (443) ──HTTP──▶ Nuxt (:3000, SSR + API)
+                                                       │          │          │
+                                                TCP/SQL│          │HTTP      │ montage lecture seule
+                                                       ▼          ▼          ▼
+                                                  PostgreSQL   Service ML   Répertoire Parquet
+                                               (comptes, rôles,             (dossier exposé)
+                                                réf. des sites)
 ```
+
+**Deux réseaux internes** : frontal (proxy ↔ app) et données (app ↔ PostgreSQL, app ↔ ML).
+L'ETL n'est sur aucun réseau interne — il n'a qu'un montage en écriture sur le volume Parquet.
 
 Le conteneur Nuxt est le seul point d'entrée. Il appelle :
-- **PostgreSQL** pour l'auth et les utilisateurs
+- **PostgreSQL** pour l'auth, les utilisateurs et le référentiel des sites
 - **API Mock** directement pour les données temps réel (sites, lectures, alertes, stats)
-- **Data Parquet** pour les données historiques (ETL → DuckDB)
-- **ML** pour les prédictions (dégradation gracieuse si absent)
+- **Répertoire Parquet** via DuckDB embarqué pour les données historiques (montage lecture seule du dossier exposé)
+- **Service ML** pour les prédictions (dégradation gracieuse si absent)
+
+> **DuckDB est une bibliothèque embarquée dans Nuxt** (`@duckdb/node-api`), pas un serveur. Il n'existe pas de conteneur "Data Parquet". Les fichiers vivent dans un répertoire de la machine, monté dans les conteneurs qui en ont besoin.
 
 ## Structure cible
 
@@ -69,7 +74,7 @@ apps/dashboard/
 │   ├── database/
 │   │   └── schema/         # Schéma Drizzle (source de vérité)
 │   ├── middleware/          # Auth server-side (deny-by-default)
-│   └── utils/              # requireRole, hashPassword, client HTTP Mock API
+│   └── utils/              # requireRole, hashPassword, client HTTP Mock API, DuckDB queries
 ├── shared/
 │   └── schemas/            # Schémas Zod partagés front/back
 ├── tests/                  # *.test.ts (Vitest)
@@ -81,7 +86,7 @@ apps/dashboard/
 ## Sécurité (priorité haute — critère de notation +++)
 
 - Sessions serveur (`httpOnly`, `secure`, `sameSite=strict`), pas de JWT en localStorage
-- RBAC 3 rôles : `admin` (tout), `manager` (tous les sites), `operator` (sites autorisés via `allowed_sites`)
+- RBAC 3 rôles : `ADMIN`, `OPERATOR`, `VIEWER` — un seul exploité au MVP (`ADMIN`), les autres montrés à l'oral et dans les tests. Périmètre scopé par `user_sites` (liste de sites autorisés)
 - Middleware auth server deny-by-default (toutes les `/api/` protégées sauf `/api/auth/*` et `/api/health`)
 - Rate limiting sur `/api/auth/login`
 - Validation Zod sur chaque entrée API
@@ -95,8 +100,8 @@ apps/dashboard/
 |---|---|
 | `DATABASE_URL` | Connection string PostgreSQL |
 | `MOCK_API_URL` | URL de l'API Mock (données temps réel) |
-| `DATA_SERVICE_URL` | URL du service Data Parquet (historiques) |
-| `ML_SERVICE_URL` | URL du service ML (prédictions) |
+| `PARQUET_DIR_EXPOSE` | Chemin du répertoire Parquet exposé (montage lecture seule) |
+| `ML_SERVICE_URL` | URL du service ML (réseau Docker interne) |
 | `NUXT_SESSION_SECRET` | Secret session (≥ 32 chars) |
 | `LOG_LEVEL` | Niveau de log (`debug`, `info`, `warn`, `error`) |
 
@@ -128,7 +133,7 @@ Fichiers de conception et suivi personnel, non versionnés :
 ## Décisions clés (résumé)
 
 - **Pas de table `companies`** — hors sujet MVP, on ne garde que `sites` (décision 15/09)
-- **3 rôles RBAC** suffisent (admin/manager/operator), pas de `viewer`
+- **3 rôles RBAC** : `ADMIN`, `OPERATOR`, `VIEWER` — seul `ADMIN` exploité au MVP, les autres montrés à l'oral
 - **Admin seul** gère les utilisateurs pour le MVP
 - **PostgreSQL Docker** pour les tests d'intégration (même moteur que prod)
 - **E2E Playwright** = stretch goal P2
