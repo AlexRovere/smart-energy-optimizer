@@ -18,6 +18,16 @@ Prophet plutôt qu'un réseau de neurones : la consommation est fortement saison
 
 Repli documenté si le temps manque : une baseline en moyenne mobile, comparée au modèle, avec MLflow conservé.
 
-## Sécurité inter-zones
+## Exposition
 
-Le service tourne côté AWS et n'est appelé que par la VM on-premise : HTTPS obligatoire, jeton de service, et Security Group restreignant l'accès à la seule IP de la VM.
+Conteneur sur la machine sur site, joignable **uniquement** depuis le réseau interne Docker : aucun port publié sur l'hôte, aucun accès depuis l'extérieur. Le seul appelant est l'applicatif. Il n'y a plus de frontière inter-zones à sécuriser, l'architecture hybride ayant été écartée lors de la séance de cadrage du J1.
+
+Le service n'a **aucune notion d'utilisateur** : l'autorisation est résolue par l'applicatif avant l'appel. Il ne monte que le répertoire d'entraînement du volume Parquet, en lecture seule.
+
+## Traçabilité du jeu d'entraînement
+
+Les jeux sont versionnés avec **DVC** : les fichiers restent sur le volume, seuls leurs pointeurs et leurs empreintes entrent dans Git. Un modèle du registre est ainsi rattaché à l'état exact des données qui l'a produit, et réentraînable à l'identique.
+
+## Contrat de l'endpoint
+
+FastAPI **génère** son OpenAPI : le contrat de référence est servi par le service lui-même, il n'est pas recopié ici. Ce qui est figé en séance #102 et ne change plus que par décision tracée : le site, l'horizon et les variables en entrée ; la valeur, l'intervalle de confiance et la version du modèle en sortie.
