@@ -4,10 +4,12 @@ Deux stockages, deux rôles, une seule règle de partage : **rien n'est écrit d
 
 | Stockage | Contenu | Qui écrit | Qui lit |
 |---|---|---|---|
-| PostgreSQL | Référentiel des sites, comptes, rôles, périmètres d'accès | L'applicatif, seul | L'applicatif, seul |
+| PostgreSQL | Référentiel des sites, comptes, rôles, périmètres d'accès | L'applicatif, et l'ETL sur la seule table `sites` | L'applicatif, seul |
 | Volume Parquet | Les mesures, transformées | L'ETL, seul | L'applicatif et le service ML, en lecture seule, via DuckDB |
 
 Le pivot entre les deux est `sites.id` : c'est la même chaîne dans PostgreSQL et dans le chemin de partition Parquet. Aucune jointure entre les deux moteurs, seulement une clé partagée.
+
+La table porte `id`, `name` et `type` là où la source dit `site_id`, `site_name` et `site_type` : dans une table nommée `sites`, `sites.site_id` bégaie. La correspondance est dans la colonne « Origine » ci-dessous, et elle se fait à l'écriture, une fois, dans l'ETL.
 
 Voir [`architecture.md`](./architecture.md) pour les principes dont ce document découle.
 
@@ -95,6 +97,25 @@ Le référentiel des installations, alimenté depuis `GET /api/v1/sites` et enri
 `alert_threshold_kw` à `NULL` signifie **aucune alerte pour ce site**, pas « seuil par défaut ». Un défaut implicite est une alerte qui se déclenche sans que personne ne l'ait demandée.
 
 Pas de contrainte `CHECK` sur `type` ni sur `status` : leur domaine de valeurs n'est pas encore connu. Un `CHECK` posé sur une hypothèse fait échouer l'ETL sur la première valeur inattendue, et le site est alors perdu au lieu d'être chargé. À poser une fois le domaine relevé sur la source, s'il est stable.
+
+### Qui écrit dans `sites`, et jusqu'où
+
+**L'ETL écrit le référentiel des sites.** Écart assumé le 15 septembre 2026 : la version précédente disait que l'applicatif était le seul service à toucher PostgreSQL. Le motif du changement est que le chargement du référentiel est une étape d'ingestion, au même titre que les mesures, et que la couper en deux pour respecter une frontière coûtait plus que la frontière ne rapportait.
+
+Ce qui ne change pas : **le schéma appartient à Drizzle**, dans l'applicatif, et à lui seul. L'ETL écrit des lignes, jamais du DDL. Un seul propriétaire du schéma, deux écrivains de données.
+
+**La frontière est tenue par les droits, pas par une phrase.** Un rôle PostgreSQL dédié, utilisé par l'ETL, avec des privilèges limités à la table `sites` et même à ses colonnes :
+
+```sql
+CREATE ROLE etl LOGIN PASSWORD :'etl_password';
+GRANT SELECT, INSERT ON sites TO etl;
+GRANT UPDATE (name, type, location, capacity_kw, status,
+              present_in_source, updated_at) ON sites TO etl;
+```
+
+Deux conséquences, et ce sont elles qui rendent l'écart défendable. L'ETL ne peut **pas** lire `users`, `sessions` ni `user_sites` : ce n'est plus une promesse, c'est un refus de la base. Et il ne peut pas écrire `alert_threshold_kw`, donc un rechargement ne peut pas effacer un seuil réglé à l'écran, même par erreur de code.
+
+Cela vaut aussi pour l'épreuve : le moindre privilège appliqué à une base est plus concret qu'un schéma d'architecture, et il se démontre en essayant.
 
 ### `user_sites`
 
@@ -230,7 +251,7 @@ Deux répertoires, deux usages : l'exposé alimente le tableau de bord, celui d'
 
 **Tranché le 15 septembre 2026 : Drizzle**, dont le schéma TypeScript est la source de vérité et dont `drizzle-kit migrate` produit les migrations.
 
-Le critère de #26 demande « une migration **rejouable** ». C'est ce qui départage : `drizzle-kit migrate` tient un journal de ce qui a été appliqué et se relance sans risque, là où un `init.sql` monté dans `docker-entrypoint-initdb.d` ne s'exécute **que sur un répertoire de données vide**, donc jamais après le premier démarrage. Et l'applicatif est le seul service à toucher PostgreSQL : le schéma peut lui appartenir entièrement, et les types TypeScript se génèrent depuis lui au lieu d'être recopiés.
+Le critère de #26 demande « une migration **rejouable** ». C'est ce qui départage : `drizzle-kit migrate` tient un journal de ce qui a été appliqué et se relance sans risque, là où un `init.sql` monté dans `docker-entrypoint-initdb.d` ne s'exécute **que sur un répertoire de données vide**, donc jamais après le premier démarrage. Et l'applicatif reste le seul propriétaire du **schéma**, même si l'ETL écrit désormais des lignes dans `sites` : les types TypeScript se génèrent depuis lui au lieu d'être recopiés, et l'ETL suit le contrat figé plus haut sans jamais produire de DDL.
 
 Deux conditions à ce choix, parce que l'argument d'en face était bon :
 
