@@ -25,7 +25,7 @@ Ces points reviennent régulièrement. Ils ont été arbitrés, le motif est éc
 - **Drizzle** est la source de vérité du schéma, et le SQL généré est commité. Le schéma ne se modifie jamais à la main sur la machine. `data.md`, #26.
 - **`snake_case` partout sur le fil**, entrées comprises. Le `camelCase` reste interne, par un `transform` Zod à la frontière. `api.md`.
 - **Le temps réel passe par l'API Mock en direct**, pas par les fichiers Parquet. Ceux-ci servent l'historique. `architecture.md`, `api.md`.
-- **L'applicatif est le seul service à toucher PostgreSQL.** L'ETL écrit des fichiers, il n'a aucun accès à la base.
+- **Un propriétaire du schéma, deux écrivains de données.** Le schéma PostgreSQL appartient à Drizzle, dans l'applicatif, et à lui seul : l'ETL écrit des lignes, jamais du DDL. Il écrit le référentiel `sites` et rien d'autre, et ses droits en base le lui interdisent. `data.md`, #21.
 
 ## Écriture
 
