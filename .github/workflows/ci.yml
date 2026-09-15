@@ -30,8 +30,8 @@ jobs:
       dashboard: ${{ steps.filter.outputs.dashboard }}
       infra: ${{ steps.filter.outputs.infra }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -50,10 +50,10 @@ jobs:
     if: needs.changes.outputs.etl == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Le cache pip se réactive avec requirements.txt : il en calcule sa clé,
       # et sans le fichier l'action échoue avant même le premier TODO.
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with: { python-version: "3.12" }
       # TODO : décommenter dès que les dépendances existent, cache compris.
       #   with: { python-version: "3.12", cache: pip }
@@ -67,8 +67,8 @@ jobs:
     if: needs.changes.outputs.ml == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with: { python-version: "3.12" }
       # TODO : décommenter dès que les dépendances existent, cache compris.
       #   with: { python-version: "3.12", cache: pip }
@@ -82,9 +82,13 @@ jobs:
     if: needs.changes.outputs.dashboard == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20 }
+      - uses: actions/checkout@v7
+      # package-manager-cache: false coupe le cache automatique introduit en v5,
+      # qui s'active seul dès qu'un package.json porte un champ packageManager
+      # et échouerait faute de lockfile, comme le cache explicite retiré juste
+      # avant. Les deux se rallument ensemble.
+      - uses: actions/setup-node@v7
+        with: { node-version: 20, package-manager-cache: false }
       # TODO : décommenter dès que package-lock.json existe, cache compris.
       #   with: { node-version: 20, cache: npm, cache-dependency-path: apps/dashboard/package-lock.json }
       # - run: npm ci --prefix apps/dashboard
@@ -98,7 +102,7 @@ jobs:
     if: needs.changes.outputs.infra == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Terraform est passé hors périmètre au J1 : plus de ressource de
       # fournisseur à créer, la machine est fournie. Ce job valide désormais la
       # configuration Ansible et la composition. TODO : décommenter dès que le
@@ -112,7 +116,7 @@ jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Trivy couvre les trois angles en un passage : vulnérabilités des
       # dépendances, secrets versionnés, et mauvaises configurations (Terraform,
@@ -121,7 +125,7 @@ jobs:
       # gitleaks-action a été écarté volontairement : sa v2 exige une licence
       # payante pour les comptes d'organisation, le job aurait échoué d'emblée.
       - name: Scan de sécurité (Trivy)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.36.0
         with:
           scan-type: fs
           scan-ref: .
