@@ -38,3 +38,7 @@ mlruns/
 .DS_Store
 .idea/
 .vscode/
+.claude
+.hidden
+
+.claude/

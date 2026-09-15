@@ -132,13 +132,17 @@ sequenceDiagram
 
     N->>P: POST /login (identifiants)
     P->>B: TLS termine, requete transmise
-    B->>D: verification bcrypt
-    D-->>B: compte, role, sites autorises
+    B->>D: lecture du compte par courriel
+    D-->>B: empreinte Argon2id, compte actif
+    B->>B: verification Argon2id
+    B->>D: ouverture de session (INSERT)
+    D-->>B: identifiant de session
     B-->>N: 200 + Set-Cookie httpOnly Secure SameSite
 
     N->>P: GET /api/sites/{id}/consommation
-    P->>B: requete + cookie
-    B->>B: verification de signature,<br/>resolution du role et des sites autorises
+    P->>B: requete + cookie (identifiant de session)
+    B->>D: session valide, compte actif, role courant
+    D-->>B: role et sites autorises
     B->>V: requete DuckDB filtree sur les sites resolus
     V-->>B: mesures des seuls sites autorises
     B->>M: prediction (site, horizon)
