@@ -48,9 +48,12 @@ flowchart LR
 | Format | JSON, UTF-8 |
 | Horodatages | ISO 8601, **UTC**, suffixe `Z` |
 | Identifiant de site | `SITE001` à `SITE007`, la chaîne de la source |
+| Nommage des champs | **`snake_case` partout sur le fil**, entrées comprises |
 | Versionnage d'URL | aucun au MVP, client unique |
 | Évolution | **un champ ajouté à une réponse n'est jamais une rupture** ; un champ retiré ou renommé en est une, et passe par une décision tracée |
 | Timeout par défaut sur un appel sortant | 5 s |
+
+`snake_case` et pas `camelCase` : l'essentiel des données est relayé verbatim depuis l'API Mock, qui est en `snake_case`. Convertir la moitié des champs crée une couche de correspondance, et un champ oublié dans cette couche ne lève rien, il devient `undefined`. Le TypeScript garde du `camelCase` en interne, par un `transform` Zod à la frontière.
 
 ### Format d'erreur, partout
 
@@ -71,6 +74,11 @@ export const historyQuerySchema = z.object({
   to:    z.string().datetime(),
   limit: z.coerce.number().int().min(1).max(1000).default(100),
 })
+
+// A la frontiere seulement, le TypeScript retrouve ses habitudes :
+export const settingsBodySchema = z.object({
+  alert_threshold_kw: z.number().int().positive().nullable(),
+}).transform(({ alert_threshold_kw }) => ({ alertThresholdKw: alert_threshold_kw }))
 ```
 
 ---
@@ -105,7 +113,7 @@ La colonne « Rôle » décrit le mécanisme complet. **Un seul rôle est exploi
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | GET | `/api/admin/users` | | `User[]`, sans empreinte | 401, 403 | `ADMIN` |
 | POST | `/api/admin/users` | `{ email, password, role, sites[] }` | `User` | 401, 403, 409, 422 | `ADMIN` |
-| PUT | `/api/admin/users/{id}` | `{ email?, role?, sites?, isActive? }` | `User` | 401, 403, 404, 422 | `ADMIN` |
+| PUT | `/api/admin/users/{id}` | `{ email?, role?, sites?, is_active? }` | `User` | 401, 403, 404, 422 | `ADMIN` |
 | DELETE | `/api/admin/users/{id}` | | `{ success: true }` | 401, 403, 404 | `ADMIN` |
 | POST | `/api/admin/sites/reload` | | `{ loaded, updated, missing }` | 401, 403, 503 | `ADMIN` |
 
@@ -120,9 +128,9 @@ Toutes authentifiées, et **filtrées par le périmètre du compte**. Un identif
 | GET | `/api/sites` | | `Site[]` | 401 | tous |
 | GET | `/api/sites/{id}/current` | | `EnergyReading` | 401, 403, 404, 503 | tous |
 | GET | `/api/sites/{id}/history` | `?from=&to=&limit=` | `EnergyReading[]` | 401, 403, 404, 422 | tous |
-| PUT | `/api/sites/{id}/settings` | `{ alertThresholdKw }` | `Site` | 401, 403, 404, 422 | `ADMIN`, `OPERATOR` |
+| PUT | `/api/sites/{id}/settings` | `{ alert_threshold_kw }` | `Site` | 401, 403, 404, 422 | `ADMIN`, `OPERATOR` |
 | GET | `/api/stats/summary` | | `ParkSummary` | 401, 503 | tous |
-| GET | `/api/alerts` | `?siteId=&severity=` | `Alert[]` | 401, 422, 503 | tous |
+| GET | `/api/alerts` | `?site_id=&severity=` | `Alert[]` | 401, 422, 503 | tous |
 | GET | `/api/sensors/status` | | `SensorStatus` | 401, 503 | tous |
 
 **`403` et non `404` sur un site hors périmètre** : le compte sait que le site existe, il n'y a rien à cacher de plus, et un `404` rendrait indistinguables « n'existe pas » et « pas pour vous » au moment de diagnostiquer.
@@ -133,8 +141,8 @@ Toutes authentifiées, et **filtrées par le périmètre du compte**. Un identif
 
 | Méthode | Route | Entrée | 200 | Dégradé | Rôle |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| POST | `/api/sites/{id}/prediction` | `{ horizonHours }` | `Prediction` | `{ available: false, reason }` | tous |
-| GET | `/api/recommendations` | `?siteId=` | `Recommendation[]` | les recommandations de seuil seules | tous |
+| POST | `/api/sites/{id}/prediction` | `{ horizon_hours }` | `Prediction` | `{ available: false, reason }` | tous |
+| GET | `/api/recommendations` | `?site_id=` | `Recommendation[]` | les recommandations de seuil seules | tous |
 
 **Ce `POST` ne modifie rien.** C'est une lecture, dont l'entrée passe par un corps parce qu'elle est appelée à grandir. Deux conséquences à respecter : un rejeu après timeout est sans risque, et comme le proxy ne peut pas mettre la réponse en cache, **l'applicatif garde le résultat quelques secondes de son côté**.
 
@@ -150,7 +158,8 @@ Le **temps réel ne passe pas par les fichiers Parquet** : l'applicatif appelle 
 | `/api/stats/summary` | `/api/v1/stats/summary` | relais direct |
 | `/api/alerts` | `/api/v1/alerts` | **les alertes viennent de la source**, on ne les calcule pas |
 | `/api/sensors/status` | `/api/v1/sensors/status` | relais direct |
-| `/api/sites` | `/api/v1/sites` | relayé depuis PostgreSQL, alimenté par le rechargement |
+
+`/api/sites` n'est pas dans cette table : elle lit **PostgreSQL**, pas la source. Le référentiel y est chargé par `POST /api/admin/sites/reload`, qui appelle `/api/v1/sites` et fait un `UPSERT`. Voir [`data.md`](./data.md).
 
 Sur échec : trois tentatives avec attente croissante, puis `503` et bandeau dégradé à l'écran.
 
@@ -176,7 +185,7 @@ Si le répertoire est absent ou vide, l'historique est indisponible et le reste 
 
 ## 4. Applicatif vers service ML
 
-Réseau interne uniquement, pas d'authentification, pas d'exposition par le proxy. Base : variable `ML_SERVICE_URL`.
+Réseau interne uniquement, pas d'authentification, pas d'exposition par le proxy. Base : variable `ML_API_URL`.
 
 | Méthode | Route | Entrée | Sortie |
 | :--- | :--- | :--- | :--- |
@@ -359,15 +368,39 @@ Le tableau de bord ne doit **jamais** tomber parce que le service ML est absent 
 
 ## 10. Variables d'environnement
 
-| Variable | Service | Exemple |
-| :--- | :--- | :--- |
-| `DATABASE_URL` | applicatif | `postgresql://user:pass@postgres:5432/enervision` |
-| `MOCK_API_URL` | applicatif, ETL | `http://{ip}:8000` |
-| `PARQUET_DIR_EXPOSE` | applicatif, ETL | `/data/expose` |
-| `PARQUET_DIR_ENTRAINEMENT` | ETL, ML | `/data/entrainement` |
-| `ML_SERVICE_URL` | applicatif | `http://ml:8002` |
-| `NUXT_SESSION_SECRET` | applicatif | généré, 32 caractères au moins |
-| `LOG_LEVEL` | tous | `info` |
+Deux nommages coexistent, et c'est **volontaire** : `.env.example` porte des noms neutres, partagés par les trois services, et la composition les transmet à chaque conteneur sous le nom qu'il attend. Nuxt, lui, ne lit que des variables préfixées `NUXT_`, une par clé de son `runtimeConfig`.
+
+C'est la correspondance qui manquait, et son absence est la raison pour laquelle aucune variable de `.env.example` n'atteignait l'applicatif.
+
+| `.env.example` | Conteneur | Nom dans le conteneur | Clé `runtimeConfig` |
+| :--- | :--- | :--- | :--- |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | applicatif | `NUXT_DATABASE_URL`, composée | `databaseUrl` |
+| `SESSION_SECRET` | applicatif | `NUXT_SESSION_SECRET` | `sessionSecret` |
+| `MOCK_API_URL` | applicatif, ETL | `NUXT_MOCK_API_URL` / `MOCK_API_URL` | `mockApiUrl` |
+| `PARQUET_DIR_EXPOSE` | applicatif, ETL | `NUXT_PARQUET_DIR_EXPOSE` / `PARQUET_DIR_EXPOSE` | `parquetDirExpose` |
+| `PARQUET_DIR_ENTRAINEMENT` | ETL, ML | `PARQUET_DIR_ENTRAINEMENT` | sans objet |
+| `ML_API_URL` | applicatif | `NUXT_ML_API_URL` | `mlApiUrl` |
+| `LOG_LEVEL` | tous | `NUXT_LOG_LEVEL` / `LOG_LEVEL` | `logLevel` |
+
+Exemple du côté de la composition :
+
+```yaml
+dashboard:
+  environment:
+    NUXT_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    NUXT_SESSION_SECRET: ${SESSION_SECRET:?}
+    NUXT_MOCK_API_URL: ${MOCK_API_URL:?}
+    NUXT_PARQUET_DIR_EXPOSE: /data/expose
+    NUXT_ML_API_URL: ${ML_API_URL:-http://ml:8000}
+```
+
+**Trois écarts restent à corriger dans le code**, tous introduits par le scaffold de #110 :
+
+- `runtimeConfig` déclare `dataServiceUrl`, une URL vers un service qui n'existe pas. Il doit devenir `parquetDirExpose`, un chemin. En l'état, **l'applicatif ne sait pas où sont les fichiers Parquet**.
+- `runtimeConfig` déclare `mlServiceUrl` quand `.env.example` et la composition disent `ML_API_URL`.
+- `SESSION_SECRET` n'est pas dans `.env.example`.
+
+Le port du service ML reste `8000`, comme déjà écrit dans la composition, à confirmer avec #117.
 
 Aucun secret en clair dans un fichier versionné : ils passent par SOPS et age (#52).
 
@@ -400,3 +433,4 @@ Aucun secret en clair dans un fichier versionné : ils passent par SOPS et age (
 | Date | Changement |
 | :--- | :--- |
 | 15 septembre 2026 | Première version, croisement des trois propositions. |
+| 15 septembre 2026 | `snake_case` fixé sur le fil, les entrées suivent. Variables d'environnement réconciliées avec `.env.example` et le `runtimeConfig`. `ML_SERVICE_URL` devient `ML_API_URL`, port 8000. |

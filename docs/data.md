@@ -172,18 +172,31 @@ Le schéma est donc **écrit une fois, dans un module unique**, et l'écriture c
 
 ```python
 SCHEMA = pa.schema([
-    ("site_id",               pa.string()),
-    ("horodatage",            pa.timestamp("us", tz="UTC")),
-    ("consommation_kw",       pa.float64()),   # valeur imputee
-    ("consommation_brute_kw", pa.float64()),   # telle que renvoyee, nullable
-    ("data_quality",          pa.string()),
-    ("null_reasons",          pa.list_(pa.string())),
+    ("site_id",             pa.string()),
+    ("timestamp",           pa.timestamp("us", tz="UTC")),
+    ("site_type",           pa.string()),
+    ("consumption_kw",      pa.float64()),   # valeur imputee, jamais nulle
+    ("consumption_kw_raw",  pa.float64()),   # telle que renvoyee, nullable
+    ("consumption_kwh",     pa.float64()),
+    ("voltage_v",           pa.float64()),
+    ("current_a",           pa.float64()),
+    ("power_factor",        pa.float64()),
+    ("temperature_celsius", pa.float64()),
+    ("humidity_percent",    pa.float64()),
+    ("data_quality",        pa.string()),
+    ("null_reasons",        pa.list_(pa.string())),
 ])
 
 table = pa.Table.from_pylist(lignes, schema=SCHEMA)   # leve si un type ne colle pas
 ```
 
-Colonnes indicatives : elles se figent avec #26. Ce qui est acté, c'est **qu'il existe un schéma déclaré et un seul**.
+**Les noms sont ceux de la source**, donc ceux de `EnergyReading` dans [`api.md`](./api.md). Une première version portait des noms français, ce qui imposait une table de correspondance entre le fichier et la réponse HTTP : elle n'était écrite nulle part, et c'est le genre d'écart qui ne se découvre qu'à l'intégration. La règle de qualité ci-dessous dit « stockées telles que l'API les renvoie » ; les stocker sous des noms traduits, c'est déjà ne plus les stocker telles quelles.
+
+**Les douze champs de la source sont conservés**, pas seulement la consommation. `temperature_celsius` et `humidity_percent` en particulier : le daily du 15 septembre a laissé ouverte la question des caractéristiques du modèle sur le constat qu'« il a besoin d'humidité et de température ». Ne pas les écrire trancherait cette question par défaut, et dans le mauvais sens.
+
+`consumption_kw_raw` est la seule colonne qui n'existe pas dans la source : c'est la valeur avant imputation, gardée à côté de la valeur imputée. **C'est `consumption_kw`, la valeur imputée, que l'API sert** ; `data_quality` et `null_reasons` disent ce qu'elle vaut, et la brute reste dans le fichier pour l'audit.
+
+`site_id` est à la fois la clé de partition et une colonne. C'est redondant, la lecture en partitionnement Hive la reconstruit depuis le chemin, mais l'écrire rend le fichier lisible seul, sorti de son arborescence.
 
 Côté lecture, chaque consommateur vérifie ce qu'il reçoit avant de s'en servir. Trois lignes, et une erreur obscure devient un message clair.
 
