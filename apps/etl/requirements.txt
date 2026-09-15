@@ -1,0 +1,6 @@
+requests
+pandas==2.2.3
+pyarrow==23.0.1
+python-dotenv==1.2.2
+psycopg2-binary==2.9.10
+pytest>=8.0.0
