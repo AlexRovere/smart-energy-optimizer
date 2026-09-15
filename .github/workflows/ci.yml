@@ -86,12 +86,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-      - run: terraform fmt -check -recursive infra/terraform
-      - run: terraform init -backend=false
-        working-directory: infra/terraform
-      - run: terraform validate
-        working-directory: infra/terraform
+      # Terraform est passé hors périmètre au J1 : plus de ressource de
+      # fournisseur à créer, la machine est fournie. Ce job valide désormais la
+      # configuration Ansible et la composition. TODO : décommenter dès que le
+      # playbook et les Dockerfile existent.
+      # - run: pipx install ansible-lint && ansible-lint infra/ansible
+      # - run: docker compose config --quiet
+      - run: echo "TODO infra - ansible-lint du playbook et validation de la composition"
 
   # Quality gate : ce job tourne sur TOUTE modification et bloque à la première
   # vulnérabilité critique. C'est le critère DevSecOps de l'épreuve EC03.
