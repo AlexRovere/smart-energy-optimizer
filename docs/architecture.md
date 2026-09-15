@@ -22,7 +22,7 @@ flowchart TB
     APP --> PG[("PostgreSQL<br/>comptes, roles, referentiel des sites")]
     APP --> ML["Service ML<br/>MLflow + FastAPI"]
     MOCK["API Mock IoT"] --> ETL["Service ETL"]
-    subgraph VOL["Volume de donnees Parquet"]
+    subgraph VOL["Repertoire de donnees Parquet"]
         BEX[("dossier expose")]
         BML[("dossier entrainement")]
     end
@@ -41,13 +41,17 @@ flowchart TB
 | ETL | Python | Extraction depuis l'API Mock, nettoyage, transformation, écriture Parquet | Réseau interne |
 | ML | Python, MLflow, FastAPI | Entraînement, registre de modèles, endpoint de prédiction | Réseau interne |
 | Base relationnelle | PostgreSQL | Comptes, rôles, référentiel des sites et leurs réglages. Rien d'autre | Réseau interne |
-| Volume de données | Fichiers Parquet | Deux répertoires : séries exposées, jeux d'entraînement | Montages |
+| Stockage des mesures | Fichiers Parquet, dans un répertoire de la machine | Deux sous-répertoires : séries exposées, jeux d'entraînement | Montages |
 
 ## Données
 
-**Format.** Fichiers Parquet partitionnés par site, puis par période. **Le contrat est le format, pas la bibliothèque qui le lit** : Parquet est un format ouvert, et chaque service choisit son outil. Côté Python, `pandas.read_parquet()` suffit : il rend directement le tableau de données que scikit-learn ou Prophet attendent, il délègue à pyarrow, et il accepte `columns` et `filters`, donc il ne lit ni les colonnes ni les partitions dont on n'a pas besoin. Polars ou `pyarrow.dataset` prennent le relais le jour où un jeu dépasserait la mémoire, ce que sept sites et quelques dizaines de mégaoctets ne feront pas. Côté applicatif, **DuckDB** fait le SQL et les agrégats que le tableau de bord demande, là où l'écosystème JavaScript est pauvre.
+**Format.** Fichiers Parquet partitionnés par site, puis par période. **Le contrat est le format, pas la bibliothèque qui le lit** : Parquet est un format ouvert, et chaque service choisit son outil. Côté Python, `pandas.read_parquet()` suffit : il rend directement le tableau de données que scikit-learn ou Prophet attendent, il délègue à pyarrow, et il accepte `columns` et `filters`, donc il ne lit ni les colonnes ni les partitions dont on n'a pas besoin. Polars ou `pyarrow.dataset` prennent le relais le jour où un jeu dépasserait la mémoire, ce que sept sites et quelques dizaines de mégaoctets ne feront pas. Côté applicatif, **DuckDB** fait le SQL et les agrégats que le tableau de bord demande, par son API Node officielle `@duckdb/node-api` : c'est du TypeScript, pas une dépendance Python, et c'est de loin le meilleur lecteur Parquet de l'écosystème JavaScript.
 
 Dans tous les cas c'est une **bibliothèque embarquée dans le service**, jamais un serveur : il n'existe pas de serveur DuckDB, et l'interface entre les services est le fichier, pas un processus.
+
+**Où vivent les fichiers.** Un **répertoire de la machine**, monté dans les conteneurs qui en ont besoin. Pas un volume Docker nommé : un répertoire de l'hôte se liste, se sauvegarde et s'inspecte avec les outils du système, ce qui compte pour la sauvegarde chiffrée hors site et pour diagnostiquer sans entrer dans un conteneur.
+
+Le chemin arrive par **variable d'environnement** dans chaque service, et c'est le **playbook Ansible** qui crée le répertoire et pose ses droits avant que la pile ne démarre. Rien n'est créé à la main sur la machine, pas même un dossier.
 
 **Le temps réel ne passe pas par là.** L'état instantané d'un capteur est demandé directement à l'API Mock par l'applicatif : le passer par l'ETL et les fichiers ajouterait la latence d'un cycle d'ingestion à une donnée dont tout l'intérêt est d'être fraîche. Les fichiers Parquet portent l'**historique nettoyé**, c'est-à-dire ce qui se trace, s'agrège et sert à entraîner.
 
@@ -91,7 +95,7 @@ flowchart TB
         PG[("PostgreSQL")]
         ML["Service ML<br/>MLflow et FastAPI"]
         ETL["Service ETL"]
-        VOL[("Volume Parquet<br/>dossier expose, dossier entrainement")]
+        VOL[("Repertoire de la machine<br/>dossier expose, dossier entrainement")]
 
         RP -->|"reseau frontal"| APP
         APP -->|"reseau donnees"| PG
@@ -196,6 +200,10 @@ Le jeton n'est jamais lisible par un script : il vit dans un cookie `httpOnly`, 
 **Accès aux données : montages, et non service.** Tranché le mardi 15 septembre 2026. Le schéma proposé en séance de cadrage faisait des fichiers Parquet un service interrogé par les autres briques ; c'est la lecture directe qui l'emporte. Chaque consommateur lit directement les fichiers d'un volume Docker partagé, avec la bibliothèque de son choix, et l'ETL est seul à le monter en écriture.
 
 Les raisons : un service de plus à construire et à maintenir dans un MVP de dix jours ; un service ML qui récupérerait ses jeux d'entraînement par HTTP, cas où une API coûte sans rien apporter puisque le fichier se lit sans copie ; et surtout un cloisonnement qui redeviendrait du code applicatif au lieu de tenir dans les montages du fichier de composition, donc vérifiable sans lire une ligne de programme.
+
+**DuckDB est bien une bibliothèque, et le stockage un répertoire.** Tranché le mardi 15 septembre 2026, après vérification. Le doute venait de là : « je n'étais pas sûr que DuckDB soit en capacité de fournir une information directement, et que du coup il était obligé d'avoir un conteneur ». Il ne l'est pas. On l'interroge comme on interrogerait PostgreSQL, depuis le processus qui l'embarque.
+
+Et les fichiers vivent dans un répertoire de la machine, pas dans un volume Docker nommé ni dans un conteneur. L'ETL et le service ML sont donc colocalisés, **par simplicité et non par contrainte** : le jour où il faudrait les séparer, passer les fichiers sur un stockage objet lève la contrainte sans toucher au code, DuckDB et pandas lisant un chemin local et une adresse d'objet de la même façon.
 
 **Un seul client, cloisonnement par site.** Tranché le mardi 15 septembre 2026, au daily. Le MVP sert un client pilote : il n'y a pas de table entreprise, et la dimension de cloisonnement est le site. Les fichiers Parquet sont partitionnés par site, et le périmètre d'un compte est une liste de sites.
 
