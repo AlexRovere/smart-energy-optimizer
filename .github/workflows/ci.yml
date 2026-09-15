@@ -51,9 +51,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Le cache pip se réactive avec requirements.txt : il en calcule sa clé,
+      # et sans le fichier l'action échoue avant même le premier TODO.
       - uses: actions/setup-python@v5
-        with: { python-version: "3.12", cache: pip }
-      # TODO : décommenter dès que les dépendances existent.
+        with: { python-version: "3.12" }
+      # TODO : décommenter dès que les dépendances existent, cache compris.
+      #   with: { python-version: "3.12", cache: pip }
       # - run: pip install -r apps/etl/requirements.txt
       # - run: ruff check apps/etl
       # - run: pytest apps/etl --cov=apps/etl --cov-fail-under=80
@@ -66,7 +69,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: { python-version: "3.12", cache: pip }
+        with: { python-version: "3.12" }
+      # TODO : décommenter dès que les dépendances existent, cache compris.
+      #   with: { python-version: "3.12", cache: pip }
       # - run: pip install -r apps/ml/requirements.txt
       # - run: ruff check apps/ml
       # - run: pytest apps/ml
@@ -79,7 +84,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: npm, cache-dependency-path: apps/dashboard/package-lock.json }
+        with: { node-version: 20 }
+      # TODO : décommenter dès que package-lock.json existe, cache compris.
+      #   with: { node-version: 20, cache: npm, cache-dependency-path: apps/dashboard/package-lock.json }
       # - run: npm ci --prefix apps/dashboard
       # - run: npm run lint --prefix apps/dashboard
       # - run: npm test --prefix apps/dashboard
