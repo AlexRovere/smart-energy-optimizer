@@ -10,8 +10,14 @@ on:
   pull_request:
     branches: [main]
 
+# Le jeton est restreint explicitement, donc tout ce qui n'est pas listé ici est
+# refusé. paths-filter interroge l'API des fichiers modifiés quand l'événement
+# est une pull request, d'où pull-requests: read. Sans cette ligne le job
+# changes échoue en « Resource not accessible by integration », et comme il
+# conditionne tous les autres, c'est tout le pipeline qui ne tourne pas.
 permissions:
   contents: read
+  pull-requests: read
   security-events: write
 
 jobs:
