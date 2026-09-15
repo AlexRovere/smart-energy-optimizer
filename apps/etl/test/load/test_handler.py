@@ -5,13 +5,13 @@ import pandas as pd
 
 from load.handler import load_sites, load_sites_to_db
 
-SITE_COLUMNS = ["site_id", "site_type", "site_name", "location", "capacity_kw", "status"]
+SITE_COLUMNS = ["id", "type", "name", "location", "capacity_kw", "status"]
 
 
 @patch("load.handler.get_output_dir")
 def test_load_sites_writes_parquet_file(mock_get_output_dir, tmp_path):
     mock_get_output_dir.return_value = str(tmp_path)
-    sites = pd.DataFrame([{"site_id": "SITE001", "site_name": "Bureau Paris La Défense"}])
+    sites = pd.DataFrame([{"id": "SITE001", "name": "Bureau Paris La Défense"}])
 
     target = load_sites(sites)
 
@@ -31,17 +31,17 @@ def test_load_sites_to_db_inserts_only_sites_not_already_present(
     sites = pd.DataFrame(
         [
             {
-                "site_id": "SITE001",
-                "site_type": "office",
-                "site_name": "Bureau Paris La Défense",
+                "id": "SITE001",
+                "type": "office",
+                "name": "Bureau Paris La Défense",
                 "location": "Paris, France",
                 "capacity_kw": 200,
                 "status": "active",
             },
             {
-                "site_id": "SITE002",
-                "site_type": "factory",
-                "site_name": "Usine Lyon Vénissieux",
+                "id": "SITE002",
+                "type": "factory",
+                "name": "Usine Lyon Vénissieux",
                 "location": "Lyon, France",
                 "capacity_kw": 1000,
                 "status": "active",
@@ -54,7 +54,7 @@ def test_load_sites_to_db_inserts_only_sites_not_already_present(
 
     mock_get_existing_site_ids.assert_called_once_with(connection)
     new_sites = mock_insert_sites.call_args.args[1]
-    assert list(new_sites["site_id"]) == ["SITE002"]
+    assert list(new_sites["id"]) == ["SITE002"]
     connection.close.assert_called_once()
     assert inserted == 1
 
@@ -71,9 +71,9 @@ def test_load_sites_to_db_closes_connection_even_if_insert_fails(
     sites = pd.DataFrame(
         [
             {
-                "site_id": "SITE001",
-                "site_type": "office",
-                "site_name": "Bureau Paris La Défense",
+                "id": "SITE001",
+                "type": "office",
+                "name": "Bureau Paris La Défense",
                 "location": "Paris, France",
                 "capacity_kw": 200,
                 "status": "active",

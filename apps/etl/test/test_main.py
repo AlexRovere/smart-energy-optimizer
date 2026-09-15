@@ -16,7 +16,7 @@ def test_run_sites_writes_parquet_without_db_sync_by_default(
     mock_fetch_sites, mock_transform_sites, mock_load_sites, mock_dedupe_sites, mock_load_sites_to_db
 ):
     raw = pd.DataFrame([{"site_id": "SITE001"}])
-    transformed = pd.DataFrame([{"site_id": "SITE001", "site_name": "Bureau Paris"}])
+    transformed = pd.DataFrame([{"id": "SITE001", "name": "Bureau Paris"}])
     mock_fetch_sites.return_value = raw
     mock_transform_sites.return_value = transformed
     mock_load_sites.return_value = "/data/parquet/sites.parquet"
@@ -40,8 +40,8 @@ def test_run_sites_also_syncs_db_when_requested(
     mock_fetch_sites, mock_transform_sites, mock_load_sites, mock_dedupe_sites, mock_load_sites_to_db
 ):
     raw = pd.DataFrame([{"site_id": "SITE001"}])
-    transformed = pd.DataFrame([{"site_id": "SITE001", "site_name": "Bureau Paris"}])
-    deduped = pd.DataFrame([{"site_id": "SITE001", "site_name": "Bureau Paris"}])
+    transformed = pd.DataFrame([{"id": "SITE001", "name": "Bureau Paris"}])
+    deduped = pd.DataFrame([{"id": "SITE001", "name": "Bureau Paris"}])
     mock_fetch_sites.return_value = raw
     mock_transform_sites.return_value = transformed
     mock_load_sites.return_value = "/data/parquet/sites.parquet"

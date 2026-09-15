@@ -22,7 +22,7 @@ def load_sites_to_db(sites: pd.DataFrame) -> int:
     connection = get_connection()
     try:
         existing_ids = get_existing_site_ids(connection)
-        new_sites = sites[~sites["site_id"].isin(existing_ids)]
+        new_sites = sites[~sites["id"].isin(existing_ids)]
         return insert_sites(connection, new_sites)
     finally:
         connection.close()

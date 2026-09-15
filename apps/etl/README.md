@@ -17,11 +17,11 @@ Appelle `GET /api/v1/sites` sur l'API Mock IoT et récupère le référentiel de
 
 ### Transform
 
-Dédoublonne le référentiel sur `site_id`, en gardant la première occurrence rencontrée. Pas d'autre règle métier appliquée à ce stade.
+Nettoie les noms de colonnes (`site_id → id`, `site_type → type`, `site_name → name`...), puis dédoublonne le référentiel sur `id`, en gardant la première occurrence rencontrée. Pas d'autre règle métier appliquée à ce stade.
 
 ### Load
 
-Écrit toujours le référentiel en Parquet (`sites.parquet`, dans le répertoire configuré). Avec `--sync-db`, compare en plus aux sites déjà en base et n'insère que ceux qui manquent — jamais de mise à jour ni de suppression sur les sites existants.
+Écrit toujours le référentiel en Parquet (`sites.parquet`, dans le répertoire configuré). Avec `--sync-db`, compare en plus aux sites déjà en base et n'insère que ceux qui manquent — jamais de mise à jour ni de suppression sur les sites existants. La table `sites` doit déjà exister (créée par ailleurs, hors périmètre ETL) : l'ETL n'y touche jamais.
 
 ## Variables d'environnement
 
