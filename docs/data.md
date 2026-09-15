@@ -38,6 +38,33 @@ Les profils d'accès globaux. Trois lignes, injectées au démarrage, jamais cr�
 
 `bcrypt` et pas « bcrypt ou Argon2 » : un document de référence qui laisse le choix produit deux implémentations. C'est aussi ce que demande le critère d'acceptation de #29.
 
+### `sessions`
+
+L'état des sessions ouvertes. Le cookie ne porte qu'un identifiant opaque, tout le reste vit ici.
+
+| Colonne | Type | Contraintes | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | UUID | PRIMARY KEY, DEFAULT `gen_random_uuid()` | Ce que porte le cookie, et rien d'autre |
+| `user_id` | UUID | NOT NULL, REFERENCES `users(id)` ON DELETE CASCADE | |
+| `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Ouverture |
+| `expires_at` | TIMESTAMPTZ | NOT NULL | Fin de validité, deux heures après l'ouverture |
+| `revoked_at` | TIMESTAMPTZ | NULL | Posé à la déconnexion |
+| `ip` | INET | NULL | Adresse d'ouverture, pour l'audit |
+
+```sql
+CREATE INDEX idx_sessions_user ON sessions (user_id);
+```
+
+**Pourquoi une table, et pas le cookie scellé seul.** `nuxt-auth-utils` chiffre les données de session et les place **dans le cookie** : le serveur ne garde rien, et ne peut donc rien révoquer. `clearUserSession` vide le cookie du navigateur, mais une copie prise avant reste valable jusqu'à expiration. Or #29 exige qu'« un cookie rejoué après déconnexion réponde 401, même s'il n'a pas expiré ».
+
+Un JWT ne change rien à cela : c'est le même principe de jeton qui se porte lui-même, en moins confidentiel puisque sa charge utile est seulement signée, donc lisible. La réponse habituelle du monde JWT, la paire accès plus rafraîchissement, suppose de toute façon un jeton long stocké en base et révocable, c'est-à-dire cette table, plus un mécanisme de rotation.
+
+**Ce que la table donne en plus d'un simple compteur sur `users`.** La révocation est par **session**, donc par appareil : se déconnecter d'un poste partagé ne déconnecte pas le téléphone. La liste des sessions actives existe, avec sa date et son adresse, ce qui donne de la matière à l'audit de sécurité (#58). Et un administrateur peut fermer une session.
+
+**Entretien.** Les lignes dont `expires_at` est dépassé sont supprimées à la connexion suivante du même compte. Rien de planifié, rien à surveiller.
+
+**Évolution notée.** Le stockage habituel pour cet usage est Redis : expiration native par clé, révocation par suppression, et état partagé entre plusieurs instances de l'applicatif. Il n'apporte rien ici, où il n'y a qu'une instance et une base qui ne fait rien, et il coûterait un conteneur, un secret et une question de persistance. Le jour où l'applicatif est répliqué, c'est le changement à faire, et il ne touche que la couche de session.
+
 ### `sites`
 
 Le référentiel des installations, alimenté depuis `GET /api/v1/sites` et enrichi des réglages faits à l'écran.
@@ -100,6 +127,20 @@ Le rôle et les sites autorisés sont résolus **côté serveur**, à partir de 
 **Un seul rôle est exploité au MVP**, `ADMIN` : la table et le mécanisme existent, les profils restreints se montrent à l'oral et se lisent dans les tests plutôt que de multiplier les règles métier à vérifier. Ce qui suit décrit donc le mécanisme complet, dont une seule branche sert aujourd'hui.
 
 `ADMIN` voit tous les sites, sans ligne dans `user_sites`. Cette exception est dangereuse si elle est écrite en ligne dans les requêtes : un `if` inversé donne tout à tout le monde, une ligne manquante donne un tableau de bord vide, et les deux passent les tests heureux. Donc, une règle :
+
+**Le rôle est relu en base à chaque requête, jamais lu dans le cookie.** C'est ce qu'impose le dernier critère de #95 : « retirer un rôle fait échouer l'action correspondante, vérifié, pas supposé ». Un rôle recopié dans un jeton reste vrai jusqu'à l'expiration de ce jeton : rétrograder un administrateur ne changerait rien avant deux heures, et désactiver un compte compromis ne le déconnecterait pas.
+
+Une seule requête suffit et sert les trois vérifications : la session est valide (`revoked_at IS NULL`, `expires_at` non dépassé), le compte est actif (`is_active`), et le rôle est celui d'aujourd'hui.
+
+```sql
+SELECT u.id, r.name AS role, u.is_active
+  FROM sessions s
+  JOIN users u ON u.id = s.user_id
+  JOIN roles r ON r.id = u.role_id
+ WHERE s.id = $1
+   AND s.revoked_at IS NULL
+   AND s.expires_at > NOW();
+```
 
 **Une seule fonction `sitesAutorises(session)` retourne la liste des sites, et le filtre SQL est toujours appliqué.** Jamais de branche qui saute le `WHERE` pour un administrateur : pour `ADMIN`, la fonction retourne la liste complète, et la requête reste la même. Trois tests unitaires, un par rôle, plus un pour l'utilisateur sans aucun site.
 
@@ -168,19 +209,57 @@ Deux répertoires, deux usages : l'exposé alimente le tableau de bord, celui d'
 
 ## Création du schéma
 
-**Point à trancher.** L'applicatif a choisi **Drizzle**, qui apporte son propre outil de migrations. Deux façons de créer le même schéma coexistent donc, et il faut en choisir une. Pour Drizzle : l'applicatif est le seul service à toucher PostgreSQL, le schéma peut lui appartenir entièrement et les types TypeScript se génèrent depuis lui. Pour `init.sql` : rien à installer, la base se recrée en une commande, et le schéma se lit sans connaître l'ORM. Ce qui ne se discute pas, c'est qu'il n'y en ait qu'un.
+**Tranché le 15 septembre 2026 : Drizzle**, dont le schéma TypeScript est la source de vérité et dont `drizzle-kit migrate` produit les migrations.
 
-Ce qui suit décrit l'option `init.sql`, retenue jusqu'à décision contraire : un fichier monté par la composition, appliqué une fois au premier démarrage du conteneur PostgreSQL, plus un jeu d'amorçage de trois rôles et des sept sites. Un outil de migration se justifie quand un schéma évolue en production sur des données qu'on ne peut pas perdre ; ici la base se reconstruit en une commande. La règle qui rend ce choix tenable : **le schéma ne se modifie pas à la main sur la machine**, il se modifie dans `init.sql` et la base est recréée.
+Le critère de #26 demande « une migration **rejouable** ». C'est ce qui départage : `drizzle-kit migrate` tient un journal de ce qui a été appliqué et se relance sans risque, là où un `init.sql` monté dans `docker-entrypoint-initdb.d` ne s'exécute **que sur un répertoire de données vide**, donc jamais après le premier démarrage. Et l'applicatif est le seul service à toucher PostgreSQL : le schéma peut lui appartenir entièrement, et les types TypeScript se génèrent depuis lui au lieu d'être recopiés.
 
-À revoir si des données saisies à l'écran (les seuils d'alerte) doivent survivre à une remise à zéro.
+Deux conditions à ce choix, parce que l'argument d'en face était bon :
+
+- **Le SQL généré est commité** (`drizzle/0000_*.sql`), pour que le schéma se lise sans connaître l'ORM et qu'une revue porte sur du DDL.
+- **Le schéma ne se modifie jamais à la main sur la machine.** Il se modifie dans le schéma TypeScript, la migration est générée, commitée, puis appliquée.
+
+**Amorçage.** Un script idempotent, repris de la proposition de l'applicatif : les trois rôles, les sept sites, et trois comptes de démonstration, un par rôle. Idempotent veut dire qu'un second passage ne crée pas de doublon et n'écrase pas un mot de passe changé depuis.
 
 ---
 
 ## Données personnelles
 
-Les mesures de consommation sont des données d'entreprise, pas des données personnelles. Les **seules** données personnelles du système sont les comptes : `users.email` et `users.last_login`. Elles vivent dans PostgreSQL, sur la machine, et n'en sortent jamais : ni vers le volume Parquet, ni vers le service de prédiction, qui n'a aucune notion d'utilisateur.
+Les mesures de consommation sont des données d'entreprise, pas des données personnelles. Les **seules** données personnelles du système sont les comptes et leurs sessions : `users.email`, `users.last_login` et `sessions.ip`. Une adresse IP est une donnée personnelle, c'est pourquoi les lignes de `sessions` expirées sont purgées et ne servent qu'à l'audit. Elles vivent dans PostgreSQL, sur la machine, et n'en sortent jamais : ni vers le volume Parquet, ni vers le service de prédiction, qui n'a aucune notion d'utilisateur.
 
-`is_active` permet de désactiver un compte sans le purger, ce qui préserve la traçabilité des accès. Une demande d'effacement, elle, exige une suppression réelle de la ligne : le `ON DELETE CASCADE` sur `user_sites` s'en charge, et aucune autre table ne porte de donnée personnelle. À vérifier avant la soutenance : que les journaux applicatifs ne conservent pas l'adresse électronique.
+`is_active` permet de désactiver un compte sans le purger, ce qui préserve la traçabilité des accès. Une demande d'effacement, elle, exige une suppression réelle de la ligne : les `ON DELETE CASCADE` sur `user_sites` et sur `sessions` s'en chargent, et aucune autre table ne porte de donnée personnelle. À vérifier avant la soutenance : que les journaux applicatifs ne conservent pas l'adresse électronique.
+
+---
+
+## Propositions croisées, et ce qui a été retenu
+
+Le daily du 15 septembre a changé la forme de #102 : au lieu d'une séance collective, chacun envoie
+sa proposition à la mi-journée et le PO croise puis arbitre. Quatre sources sont arrivées, la
+proposition d'architecture de la conception, un document de contrats d'interfaces côté applicatif,
+un document de contrats côté ML, et le modèle initial du PO.
+
+**La règle d'arbitrage**, annoncée avec le résultat : une proposition qui contredit un critère
+d'acceptation déjà accepté perd, sauf à changer ce critère explicitement et à le tracer. Et quand
+c'est le ticket qui est isolé contre tout le monde, c'est le ticket qui bouge. La règle vaut dans
+les deux sens, sans quoi ce n'est qu'un argument d'autorité.
+
+| Point | Ce qui était proposé | Retenu | Ce qui tranche |
+| :--- | :--- | :--- | :--- |
+| Table entreprise | `entreprises`, `roles_entreprises` | non | #26. Abandonnée par son auteur au daily, un seul client pilote |
+| Table `sites` | absente, le référentiel viendrait d'un service data | **oui** | #21 : les sept sites en base, six champs conservés |
+| Hachage | argon2 | **bcrypt** | #29, qui le nomme explicitement |
+| Rôles | `ENUM('admin','manager','operator')` | table `roles`, `ADMIN` / `OPERATOR` / `VIEWER` | Vocabulaire unique, ajout d'un rôle sans migration, modèle relationnel attendu par EC05 |
+| Périmètre d'un compte | `allowed_sites TEXT[]`, `NULL` valant « voit tout » | table `user_sites` | Intégrité référentielle vers `sites`, et **une ligne oubliée donne zéro accès au lieu de tout** |
+| Cloisonnement par site | refusé par #95 | **oui** | Les trois développeurs le proposent, sous trois formes. #95 est le document isolé, il est réécrit |
+| Révocation de session | absente des quatre propositions | table `sessions` | #29 : un cookie rejoué après déconnexion répond 401 |
+| Création du schéma | Drizzle contre `init.sql` | **Drizzle**, SQL généré commité | #26 : « une migration rejouable » |
+| Amorçage | script idempotent, trois comptes de démonstration | **retenu tel quel** | Rien à arbitrer, il manquait partout ailleurs |
+| Types | `TEXT`, `TIMESTAMP`, rôle par défaut `operator` | `UUID`, `TIMESTAMPTZ`, pas de rôle par défaut | Correction, pas arbitrage |
+
+Les deux écarts les plus coûteux étaient silencieux. `allowed_sites` à `NULL` valant « aucun
+filtre », combiné à `role` valant `operator` par défaut, faisait qu'un compte inséré avec un email
+et un mot de passe seulement voyait **tout le parc**. Et un rôle recopié dans un cookie scellé
+rendait le dernier critère de #95 invérifiable : rétrograder un administrateur n'aurait rien changé
+avant l'expiration de son cookie.
 
 ---
 
@@ -189,6 +268,7 @@ Les mesures de consommation sont des données d'entreprise, pas des données per
 ```mermaid
 erDiagram
     roles ||--o{ users : "habilite"
+    users ||--o{ sessions : "ouvre"
     users ||--o{ user_sites : "accede a"
     sites ||--o{ user_sites : "est accessible a"
 
@@ -204,6 +284,14 @@ erDiagram
         timestamptz last_login
         boolean is_active
         timestamptz created_at
+    }
+    sessions {
+        uuid id PK
+        uuid user_id FK
+        timestamptz created_at
+        timestamptz expires_at
+        timestamptz revoked_at
+        inet ip
     }
     sites {
         varchar id PK
