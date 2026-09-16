@@ -27,6 +27,13 @@ dist/
 secrets.yaml
 secrets.dec.yaml
 
+# Clés privées : rien de tel n'entre dans le dépôt. Les clés publiques,
+# elles, y ont leur place et sont donc exclues de la règle.
+*.key
+keys.txt
+deploy_key
+!*.pub
+
 # Données et modèles : trop volumineux, pas versionnables
 data/
 mlruns/
