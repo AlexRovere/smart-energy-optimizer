@@ -1,5 +1,5 @@
 // Un seul conteneur PostgreSQL pour toute la suite : chaque fichier de test
-// cree sa propre BASE dedans, ce qui isole sans payer un demarrage de
+// crée sa propre BASE dedans, ce qui isole sans payer un démarrage de
 // conteneur par fichier.
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql'
 import type { TestProject } from 'vitest/node'

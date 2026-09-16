@@ -66,8 +66,8 @@ Sans base réelle, aucun des critères du ticket n'est vérifiable. Cette tâche
 `apps/dashboard/pnpm-workspace.yaml` n'a pas de champ `packages`, et pnpm 10.12 et au-delà refusent d'installer avec `ERROR packages field missing or empty`. Ajouter en tête du fichier, sans toucher au reste :
 
 ```yaml
-# pnpm exige ce champ des la 10.12, meme pour un depot a un seul paquet :
-# sans lui, l'installation echoue avant de lire quoi que ce soit d'autre.
+# pnpm exige ce champ dès la 10.12, même pour un dépôt à un seul paquet :
+# sans lui, l'installation échoue avant de lire quoi que ce soit d'autre.
 packages:
   - .
 
@@ -149,7 +149,7 @@ Créer `apps/dashboard/tests/database/global-setup.ts` :
 
 ```ts
 // Un seul conteneur PostgreSQL pour toute la suite : chaque fichier de test
-// cree sa propre BASE dedans, ce qui isole sans payer un demarrage de
+// crée sa propre BASE dedans, ce qui isole sans payer un démarrage de
 // conteneur par fichier.
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql'
 import type { TestProject } from 'vitest/node'
@@ -200,10 +200,10 @@ export async function creerBaseDeTest(
   options: { migrer?: boolean } = {}
 ): Promise<BaseDeTest> {
   const urlAdministrateur = inject('urlAdministrateur')
-  // Un nom de base ne peut pas porter de tiret sans etre cite : on les retire.
+  // Un nom de base ne peut pas porter de tiret sans être cité : on les retire.
   const nom = `test_${randomUUID().replaceAll('-', '')}`
 
-  // CREATE DATABASE refuse de s'executer dans une transaction, d'ou `unsafe`.
+  // CREATE DATABASE refuse de s'exécuter dans une transaction, d'où `unsafe`.
   const administrateur = postgres(urlAdministrateur, { max: 1 })
   await administrateur.unsafe(`CREATE DATABASE ${nom}`)
   await administrateur.end()
@@ -230,14 +230,14 @@ import { defineVitestConfig } from '@nuxt/test-utils/config'
 export default defineVitestConfig({
   test: {
     globalSetup: ['./tests/database/global-setup.ts'],
-    // Le premier demarrage tire l'image postgres:16-alpine : large, et une
-    // seule fois. Les delais par defaut de Vitest sont de 5 s.
+    // Le premier démarrage tire l'image postgres:16-alpine : large, et une
+    // seule fois. Les délais par défaut de Vitest sont de 5 s.
     testTimeout: 120_000,
     hookTimeout: 120_000,
-    // Un fichier de test a la fois. Chaque fichier a sa propre BASE, donc les
-    // tables sont isolees, mais un ROLE PostgreSQL est global au cluster : deux
-    // fichiers qui posent chacun un mot de passe au role etl se marcheraient
-    // dessus, et l'echec serait intermittent, donc long a diagnostiquer.
+    // Un fichier de test à la fois. Chaque fichier a sa propre BASE, donc les
+    // tables sont isolées, mais un ROLE PostgreSQL est global au cluster : deux
+    // fichiers qui posent chacun un mot de passe au rôle etl se marcheraient
+    // dessus, et l'échec serait intermittent, donc long à diagnostiquer.
     fileParallelism: false
   }
 })
@@ -1591,17 +1591,17 @@ Dans `.env.example`, juste après le bloc « Base de données » :
 
 ```bash
 # URL de connexion de l'applicatif, lue par Nuxt (runtimeConfig.databaseUrl) et
-# par drizzle-kit. Le prefixe NUXT_ est la convention Nuxt : il alimente seul la
-# cle databaseUrl declaree dans nuxt.config.ts.
+# par drizzle-kit. Le préfixe NUXT_ est la convention Nuxt : il alimente seul la
+# clé databaseUrl déclarée dans nuxt.config.ts.
 NUXT_DATABASE_URL=postgresql://enervision:MOT_DE_PASSE@localhost:5432/enervision
 
-# Role PostgreSQL de l'ETL, droits bornes a la table sites et a ses colonnes
-# (docs/data.md). Cree sans LOGIN par la migration 0001, active par l'amorcage.
-# Valeur chiffree avec SOPS, jamais en clair ici.
+# Rôle PostgreSQL de l'ETL, droits bornés à la table sites et à ses colonnes
+# (docs/data.md). Créé sans LOGIN par la migration 0001, activé par l'amorçage.
+# Valeur chiffrée avec SOPS, jamais en clair ici.
 ETL_DB_PASSWORD=
 
-# Mot de passe des trois comptes de demonstration crees par `pnpm db:seed`.
-# Sans elle, l'amorcage s'arrete plutot que de poser un mot de passe devine.
+# Mot de passe des trois comptes de démonstration créés par `pnpm db:seed`.
+# Sans elle, l'amorçage s'arrête plutôt que de poser un mot de passe deviné.
 SEED_PASSWORD=
 ```
 
@@ -1617,10 +1617,10 @@ Dans `docker-compose.yml`, le service `etl` (encore commenté) donne au conteneu
 par :
 
 ```yaml
-  #     # Le role etl, et surtout pas le proprietaire de la base : SELECT et
+  #     # Le rôle etl, et surtout pas le propriétaire de la base : SELECT et
   #     # INSERT sur la seule table sites, UPDATE sur sept de ses colonnes. Il
-  #     # ne peut lire ni les comptes, ni les sessions, ni les perimetres, et
-  #     # ne peut pas ecrire warning_threshold_kw (docs/data.md).
+  #     # ne peut lire ni les comptes, ni les sessions, ni les périmètres, et
+  #     # ne peut pas écrire warning_threshold_kw (docs/data.md).
   #     POSTGRES_USER: etl
   #     POSTGRES_PASSWORD: ${ETL_DB_PASSWORD:?renseigner ETL_DB_PASSWORD dans .env}
 ```
@@ -1634,14 +1634,14 @@ Dans `.github/workflows/ci.yml`, remplacer tout le corps `steps:` du job `dashbo
 ```yaml
     steps:
       - uses: actions/checkout@v7
-      # pnpm s'installe AVANT setup-node : c'est setup-node qui calcule la cle
-      # du cache pnpm, et il lui faut le gestionnaire deja present. La version
-      # est epinglee parce que la 9 ne lit pas ce lockfile, et que la derniere
+      # pnpm s'installe AVANT setup-node : c'est setup-node qui calcule la clé
+      # du cache pnpm, et il lui faut le gestionnaire déjà présent. La version
+      # est épinglée parce que la 9 ne lit pas ce lockfile, et que la dernière
       # refuse un pnpm-workspace.yaml sans champ packages.
       - uses: pnpm/action-setup@v4
         with: { version: 10.11.0 }
       # Node 22 et non 20 : Vitest 5 demande 20.19 au minimum, et `node-version: 20`
-      # resout a la derniere 20.x du moment, ce qui est un pari inutile.
+      # résout à la dernière 20.x du moment, ce qui est un pari inutile.
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -1649,9 +1649,9 @@ Dans `.github/workflows/ci.yml`, remplacer tout le corps `steps:` du job `dashbo
           cache-dependency-path: apps/dashboard/pnpm-lock.yaml
       - run: pnpm --dir apps/dashboard install --frozen-lockfile
       - run: pnpm --dir apps/dashboard lint
-      # Les tests de base demarrent eux-memes un conteneur postgres:16-alpine
-      # par Testcontainers : le demon Docker d'ubuntu-latest suffit, il n'y a
-      # aucun service a declarer ici.
+      # Les tests de base démarrent eux-mêmes un conteneur postgres:16-alpine
+      # par Testcontainers : le démon Docker d'ubuntu-latest suffit, il n'y a
+      # aucun service à déclarer ici.
       - run: pnpm --dir apps/dashboard test
       - run: pnpm --dir apps/dashboard build
 ```

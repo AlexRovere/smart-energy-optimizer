@@ -1,5 +1,5 @@
-# pnpm exige ce champ des la 10.12, meme pour un depot a un seul paquet :
-# sans lui, l'installation echoue avant de lire quoi que ce soit d'autre.
+# pnpm exige ce champ dès la 10.12, même pour un dépôt à un seul paquet :
+# sans lui, l'installation échoue avant de lire quoi que ce soit d'autre.
 packages:
   - .
 

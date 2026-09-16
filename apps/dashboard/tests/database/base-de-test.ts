@@ -21,10 +21,10 @@ export async function creerBaseDeTest(
   options: { migrer?: boolean } = {}
 ): Promise<BaseDeTest> {
   const urlAdministrateur = inject('urlAdministrateur')
-  // Un nom de base ne peut pas porter de tiret sans etre cite : on les retire.
+  // Un nom de base ne peut pas porter de tiret sans être cité : on les retire.
   const nom = `test_${randomUUID().replaceAll('-', '')}`
 
-  // CREATE DATABASE refuse de s'executer dans une transaction, d'ou `unsafe`.
+  // CREATE DATABASE refuse de s'exécuter dans une transaction, d'où `unsafe`.
   const administrateur = postgres(urlAdministrateur, { max: 1 })
   await administrateur.unsafe(`CREATE DATABASE ${nom}`)
   await administrateur.end()
