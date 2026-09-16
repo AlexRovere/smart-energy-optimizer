@@ -142,7 +142,7 @@ Toutes authentifiées, et **filtrées par le périmètre du compte**. Un identif
 
 | Méthode | Route | Entrée | 200 | Dégradé | Rôle |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| POST | `/api/sites/{id}/prediction` | `{ horizon_hours }` | `Prediction` | `{ available: false, reason }` | tous |
+| POST | `/api/sites/{id}/prediction` | `{ horizon_hours }`, **1 à 48, défaut 24** | `Prediction` | `{ available: false, reason }` | tous |
 | GET | `/api/recommendations` | `?site_id=` | `Recommendation[]` | les recommandations de seuil seules | tous |
 
 **Ce `POST` ne modifie rien.** C'est une lecture, dont l'entrée passe par un corps parce qu'elle est appelée à grandir. Deux conséquences à respecter : un rejeu après timeout est sans risque, et comme le proxy ne peut pas mettre la réponse en cache, **l'applicatif garde le résultat quelques secondes de son côté**.
@@ -190,12 +190,18 @@ Réseau interne uniquement, pas d'authentification, pas d'exposition par le prox
 
 | Méthode | Route | Entrée | Sortie |
 | :--- | :--- | :--- | :--- |
-| POST | `/predictions` | `{ site_id, horizon_hours }` | `Prediction` |
+| POST | `/predictions` | `{ site_id, horizon_hours }`, **1 à 48, défaut 24** | `Prediction` |
 | GET | `/health` | | `{ status, model_version }` |
 
 **Pas d'intervalle de confiance.** Il figurait dans la première version de ce contrat, repris d'un critère écrit au J0. Aucun critère d'épreuve ne le demande, et il coûtait des deux côtés : au producteur pour l'établir, au consommateur pour le représenter. Un champ ajouté n'étant jamais une rupture, il pourra revenir si le modèle est en avance.
 
-`granularity` **n'est pas une entrée**, elle est dans la réponse : le modèle dit à quel pas il a travaillé. Un paramètre d'entrée qui n'accepte qu'une valeur ment au consommateur et n'est jamais testé. Le jour où le modèle sait produire un autre pas, l'ajouter en entrée ne casse rien.
+**L'horizon est borné à 48 heures**, valeur par défaut 24, et une demande au-delà reçoit un `422`. Tranché au daily du J3, pour deux raisons qui convergent.
+
+La raison métier : au-delà de deux jours, la prévision n'est plus actionnable. « Le but, c'est qu'il puisse savoir si demain ou après-demain il y aura un pic et qu'il fasse des actions ; s'il sait que dans six mois il va y avoir un pic, c'est trop loin, il n'a aucune plus-value. »
+
+La raison technique : la prédiction est **autorégressive**. Le modèle prévoit une heure, réinjecte sa propre prévision et recommence. Le coût croît donc avec l'horizon, et les biais s'accumulent puisqu'on réintègre des valeurs calculées. Un plafond court n'est pas une limitation subie, c'est ce qui garde la prévision honnête. Refuser vaut mieux que rendre une valeur à laquelle personne ne devrait croire.
+
+`granularity` **n'est pas une entrée**, elle est dans la réponse : le modèle dit à quel pas il a travaillé. Il vaut `hour`, aligné sur l'API Mock. Un paramètre d'entrée qui n'accepte qu'une valeur ment au consommateur et n'est jamais testé. Le jour où le modèle sait produire un autre pas, l'ajouter en entrée ne casse rien.
 
 Le service ML **n'a aucune notion d'utilisateur** : l'autorisation est résolue avant l'appel.
 
@@ -421,7 +427,7 @@ Aucun secret en clair dans un fichier versionné : ils passent par SOPS et age (
 ## 12. Ce qui reste ouvert
 
 - La **granularité temporelle** de la partition Parquet, dans #26. Elle ne change aucun contrat de ce document, seulement le nombre de fichiers qu'une requête ouvre.
-- Les **variables d'entrée** de la prédiction au-delà du site et de l'horizon. Le daily du J2 a laissé la question des caractéristiques météo sans conclusion. Le corps du `POST` est fait pour grandir.
+- Les **variables d'entrée** de la prédiction au-delà du site et de l'horizon. Le daily du J3 a écarté la piste météo : le modèle travaille sur des décalages temporels (`lag 24`, `lag 168`), le jour, le mois, le caractère ouvré, la saison et le type de site. Le choix des décalages utiles reste à affiner par essais.
 - **#44** n'est assigné à personne, donc `source: "forecast"` n'a pas de porteur.
 
 ---
@@ -431,6 +437,7 @@ Aucun secret en clair dans un fichier versionné : ils passent par SOPS et age (
 | Date | Changement |
 | :--- | :--- |
 | 15 septembre 2026 | Première version, croisement des trois propositions. |
+| 16 septembre 2026 | L'horizon de prédiction est borné à 48 heures, défaut 24. Au-delà, `422`. |
 | 16 septembre 2026 | Un seul répertoire Parquet au lieu de deux : celui d'entraînement n'aurait eu ni producteur ni consommateur. |
 | 16 septembre 2026 | L'intervalle de confiance sort du contrat de prédiction : aucun critère d'épreuve ne le demandait. |
 | 16 septembre 2026 | `sites.alert_threshold_kw` devient `warning_threshold_kw`, et `NULL` vaut désormais « 80 % de `capacity_kw` » au lieu de « pas de vigilance ». |
