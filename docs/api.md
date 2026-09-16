@@ -77,8 +77,8 @@ export const historyQuerySchema = z.object({
 
 // A la frontiere seulement, le TypeScript retrouve ses habitudes :
 export const settingsBodySchema = z.object({
-  alert_threshold_kw: z.number().int().positive().nullable(),
-}).transform(({ alert_threshold_kw }) => ({ alertThresholdKw: alert_threshold_kw }))
+  warning_threshold_kw: z.number().int().positive().nullable(),
+}).transform(({ warning_threshold_kw }) => ({ warningThresholdKw: warning_threshold_kw }))
 ```
 
 ---
@@ -129,7 +129,7 @@ Toutes authentifiées, et **filtrées par le périmètre du compte**. Un identif
 | GET | `/api/sites` | | `Site[]` | 401 | tous |
 | GET | `/api/sites/{id}/current` | | `EnergyReading` | 401, 403, 404, 503 | tous |
 | GET | `/api/sites/{id}/history` | `?from=&to=&limit=` | `EnergyReading[]` | 401, 403, 404, 422 | tous |
-| PUT | `/api/sites/{id}/settings` | `{ alert_threshold_kw }` | `Site` | 401, 403, 404, 422 | `ADMIN`, `OPERATOR` |
+| PUT | `/api/sites/{id}/settings` | `{ warning_threshold_kw }` | `Site` | 401, 403, 404, 422 | `ADMIN`, `OPERATOR` |
 | GET | `/api/stats/summary` | | `ParkSummary` | 401, 503 | tous |
 | GET | `/api/alerts` | `?site_id=&severity=` | `Alert[]` | 401, 422, 503 | tous |
 | GET | `/api/sensors/status` | | `SensorStatus` | 401, 503 | tous |
@@ -241,7 +241,7 @@ df = pd.read_parquet(f"{PARQUET_DIR_ENTRAINEMENT}/site_id={site_id}",
   "location": "Paris, France",
   "capacity_kw": 200,
   "status": "active",
-  "alert_threshold_kw": 160,
+  "warning_threshold_kw": 160,
   "present_in_source": true
 }
 ```
@@ -434,5 +434,6 @@ Aucun secret en clair dans un fichier versionné : ils passent par SOPS et age (
 | Date | Changement |
 | :--- | :--- |
 | 15 septembre 2026 | Première version, croisement des trois propositions. |
+| 16 septembre 2026 | `sites.alert_threshold_kw` devient `warning_threshold_kw`, et `NULL` vaut désormais « 80 % de `capacity_kw` » au lieu de « pas de vigilance ». |
 | 15 septembre 2026 | L'ETL charge le référentiel des sites, la route de rechargement disparaît. |
 | 15 septembre 2026 | `snake_case` fixé sur le fil, les entrées suivent. Variables d'environnement réconciliées avec `.env.example` et le `runtimeConfig`. `ML_SERVICE_URL` devient `ML_API_URL`, port 8000. |
