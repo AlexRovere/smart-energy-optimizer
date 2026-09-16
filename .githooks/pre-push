@@ -21,6 +21,20 @@ set -euo pipefail
 zero="0000000000000000000000000000000000000000"
 status=0
 
+# gitleaks absent n'est pas « un secret a été trouvé » : ce sont deux
+# situations différentes, qui appellent des messages différents. Dans les
+# deux cas le push est refusé (échouer fermé reste le bon réflexe), mais un
+# message faux pousse quelqu'un qui n'a simplement pas installé l'outil vers
+# --no-verify en permanence, ce qui désactive le garde-fou pour de bon sans
+# que personne ne le sache.
+gitleaks_available=1
+if ! command -v gitleaks >/dev/null 2>&1; then
+    gitleaks_available=0
+    echo "pre-push : gitleaks est introuvable dans le PATH, le scan de motifs de secrets ne peut pas tourner." >&2
+    echo "pre-push : installez-le (section « Installer sops et age » de docs/secrets.md), ou désactivez ce hook en connaissance de cause (git config --unset core.hooksPath)." >&2
+    echo "pre-push : le contrôle sur secrets.enc.yaml, lui, ne dépend d'aucun outil externe et va quand même s'exécuter." >&2
+fi
+
 # Vérifie que secrets.enc.yaml, tel qu'il existera après le push (à la
 # révision $sha), reste entièrement chiffré. Contrôle de forme, déterministe,
 # sans heuristique : aucune valeur n'est lue ni déchiffrée.
@@ -67,9 +81,13 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         range_desc="$remote_sha..$local_sha"
     fi
 
-    echo "pre-push : scan gitleaks sur $range_desc"
-    if ! gitleaks git . --log-opts="$log_opts" --redact --exit-code 1; then
-        echo "pre-push : gitleaks a trouvé un secret potentiel dans ce qui part, push refusé." >&2
+    if [ "$gitleaks_available" -eq 1 ]; then
+        echo "pre-push : scan gitleaks sur $range_desc"
+        if ! gitleaks git . --log-opts="$log_opts" --redact --exit-code 1; then
+            echo "pre-push : gitleaks a trouvé un secret potentiel dans ce qui part, push refusé." >&2
+            status=1
+        fi
+    else
         status=1
     fi
 
