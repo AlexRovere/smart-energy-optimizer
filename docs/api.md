@@ -172,7 +172,7 @@ Sur échec : trois tentatives avec attente croissante, puis `503` et bandeau dé
 
 ```sql
 SELECT horodatage, consommation_kw, data_quality
-  FROM read_parquet('${PARQUET_DIR_EXPOSE}/site_id=*/**/*.parquet', hive_partitioning := true)
+  FROM read_parquet('${PARQUET_DIR}/site_id=*/**/*.parquet', hive_partitioning := true)
  WHERE site_id IN (...)          -- le perimetre resolu, jamais le parametre du client
    AND horodatage BETWEEN ? AND ?
  ORDER BY horodatage;
@@ -221,7 +221,7 @@ Extraction. Base : `MOCK_API_URL`. `GET /api/v1/sites` pour le référentiel, `/
 Le service ML lit le répertoire avec **pandas**, pas avec DuckDB et pas par une route.
 
 ```python
-df = pd.read_parquet(f"{PARQUET_DIR_EXPOSE}/site_id={site_id}",
+df = pd.read_parquet(f"{PARQUET_DIR}/site_id={site_id}",
                      columns=["horodatage", "consommation_kw"])
 ```
 
@@ -375,7 +375,8 @@ C'est la correspondance qui manquait, et son absence est la raison pour laquelle
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | applicatif | `NUXT_DATABASE_URL`, composée | `databaseUrl` |
 | `SESSION_SECRET` | applicatif | `NUXT_SESSION_SECRET` | `sessionSecret` |
 | `MOCK_API_URL` | applicatif, ETL | `NUXT_MOCK_API_URL` / `MOCK_API_URL` | `mockApiUrl` |
-| `PARQUET_DIR_EXPOSE` | applicatif, ETL | `NUXT_PARQUET_DIR_EXPOSE` / `PARQUET_DIR_EXPOSE` | `parquetDirExpose` |
+| `PARQUET_DIR_HOST` | composition seule | sans objet, sert au montage | sans objet |
+| `PARQUET_DIR` | applicatif, ETL, ML | `NUXT_PARQUET_DIR` / `PARQUET_DIR` | `parquetDir` |
 | `ML_API_URL` | applicatif | `NUXT_ML_API_URL` | `mlApiUrl` |
 | `LOG_LEVEL` | tous | `NUXT_LOG_LEVEL` / `LOG_LEVEL` | `logLevel` |
 
@@ -387,13 +388,13 @@ dashboard:
     NUXT_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     NUXT_SESSION_SECRET: ${SESSION_SECRET:?}
     NUXT_MOCK_API_URL: ${MOCK_API_URL:?}
-    NUXT_PARQUET_DIR_EXPOSE: /data/expose
+    NUXT_PARQUET_DIR: /data
     NUXT_ML_API_URL: ${ML_API_URL:-http://ml:8000}
 ```
 
 **Trois écarts restent à corriger dans le code**, tous introduits par le scaffold de #110 :
 
-- `runtimeConfig` déclare `dataServiceUrl`, une URL vers un service qui n'existe pas. Il doit devenir `parquetDirExpose`, un chemin. En l'état, **l'applicatif ne sait pas où sont les fichiers Parquet**.
+- `runtimeConfig` déclare `dataServiceUrl`, une URL vers un service qui n'existe pas. Il doit devenir `parquetDir`, un chemin. En l'état, **l'applicatif ne sait pas où sont les fichiers Parquet**.
 - `runtimeConfig` déclare `mlServiceUrl` quand `.env.example` et la composition disent `ML_API_URL`.
 - `SESSION_SECRET` n'est pas dans `.env.example`.
 
