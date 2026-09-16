@@ -491,7 +491,7 @@ export const userSites = pgTable(
 corepack pnpm@10.11.0 db:generate
 ```
 
-Attendu : création de `server/database/migrations/0000_<adjectif>_<nom>.sql` et du dossier `meta/`. Ouvrir le fichier et **relire le DDL** : cinq `CREATE TABLE`, deux `CREATE INDEX`, les contraintes `CHECK`, et les cinq clés étrangères avec leur `ON DELETE`.
+Attendu : création de `server/database/migrations/0000_<adjectif>_<nom>.sql` et du dossier `meta/`. Ouvrir le fichier et **relire le DDL** : cinq `CREATE TABLE`, deux `CREATE INDEX`, les deux contraintes `CHECK`, et les **quatre** clés étrangères avec leur `ON DELETE` (`users.role_id`, `sessions.user_id`, `user_sites.user_id`, `user_sites.site_id`).
 
 - [ ] **Étape 5 : lancer les tests et vérifier qu'ils passent**
 
