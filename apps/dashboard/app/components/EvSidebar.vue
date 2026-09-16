@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui'
 
+const { sites } = useSites()
+
 const pilotageItems: NavigationMenuItem[] = [
   {
     label: 'Vue d\'ensemble',
@@ -11,6 +13,11 @@ const pilotageItems: NavigationMenuItem[] = [
     label: 'Sites & capteurs',
     icon: 'i-heroicons-building-office-2',
     to: '/sites',
+    children: sites.value.map(s => ({
+      label: `${s.site_id}-${s.site_name}`,
+      to: `/sites/${s.site_id}`,
+      health: s.health
+    }))
   },
   {
     label: 'Prédiction IA',
@@ -57,6 +64,18 @@ const systemeItems: NavigationMenuItem[] = [
           <span class="font-ev-mono text-[10px] font-medium tracking-[0.16em] text-ev-text-muted px-2 pt-2">
             PILOTAGE
           </span>
+        </template>
+
+        <template #item-trailing="{ item }">
+          <span
+            v-if="item.health"
+            class="size-2 rounded-full shrink-0"
+            :class="{
+              'bg-ev-green': item.health === 'ok',
+              'bg-ev-amber': item.health === 'degraded',
+              'bg-ev-red': item.health === 'critical'
+            }"
+          />
         </template>
       </UNavigationMenu>
 

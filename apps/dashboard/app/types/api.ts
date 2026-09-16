@@ -118,6 +118,18 @@ export interface StatsSummary {
   sites: StatsSummaryRaw['sites'];
 }
 
+/** Forme utilisée dans les tableaux de sites (summary + santé capteurs). */
+export interface SiteSummary {
+  site_id: SiteId;
+  site_name: string;
+  site_type?: SiteType;
+  current_consumption_kw: number | null;
+  capacity_kw: number;
+  load_percent: number | null;
+  data_quality: DataQuality;
+  health: SensorHealth;
+}
+
 export interface HealthResponse {
   status: 'healthy' | 'degraded' | 'down';
   timestamp: string;

@@ -1,0 +1,137 @@
+import { describe, expect, it } from 'vitest'
+import { useSites } from '../../app/composables/useSites'
+import type { SiteId } from '../../app/types/api'
+
+describe('useSites', () => {
+  it('returns all 7 sites', () => {
+    const { sites } = useSites()
+    expect(sites.value).toHaveLength(7)
+  })
+
+  it('each site has required fields', () => {
+    const { sites } = useSites()
+    for (const s of sites.value) {
+      expect(s.site_id).toBeTruthy()
+      expect(s.site_name).toBeTruthy()
+      expect(s.capacity_kw).toBeGreaterThan(0)
+      expect(['ok', 'degraded', 'critical']).toContain(s.health)
+    }
+  })
+
+  it('getSite returns the matching site', () => {
+    const { getSite } = useSites()
+    const site = getSite('SITE001')
+    expect(site).not.toBeNull()
+    expect(site!.site_id).toBe('SITE001')
+  })
+
+  it('getSite returns null for unknown id', () => {
+    const { getSite } = useSites()
+    // @ts-expect-error expected wrong type
+    expect(getSite('UNKNOWN')).toBeNull()
+  })
+
+  it('getSiteSensors returns 5 sensor families for a valid site', () => {
+    const { getSiteSensors } = useSites()
+    const sensors = getSiteSensors('SITE001')
+    expect(sensors).toHaveLength(5)
+  })
+
+  it('getSiteSensors returns empty array for unknown site', () => {
+    const { getSiteSensors } = useSites()
+    // @ts-expect-error expected wrong type
+    expect(getSiteSensors('UNKNOWN')).toEqual([])
+  })
+
+  it('getSiteAlerts returns only alerts for the given site', () => {
+    const { getSiteAlerts } = useSites()
+    const alerts = getSiteAlerts('SITE002')
+    expect(alerts.length).toBeGreaterThan(0)
+    expect(alerts.every(a => a.site_id === 'SITE002')).toBe(true)
+  })
+
+  it('getSiteAlerts returns empty array for a site with no alerts', () => {
+    const { getSiteAlerts } = useSites()
+    const alerts = getSiteAlerts('SITE006')
+    expect(alerts).toEqual([])
+  })
+
+  it('getSiteHealth returns critical for SITE003', () => {
+    const { getSiteHealth } = useSites()
+    expect(getSiteHealth('SITE003')).toBe('critical')
+  })
+
+  it('getSiteHealth returns ok for a healthy site', () => {
+    const { getSiteHealth } = useSites()
+    expect(getSiteHealth('SITE001')).toBe('ok')
+  })
+
+  it('SITE003 has null consumption', () => {
+    const { getSite } = useSites()
+    const site = getSite('SITE003')
+    expect(site!.current_consumption_kw).toBeNull()
+  })
+})
+
+describe('getSiteInfo', () => {
+  it('returns site info with location for SITE001', () => {
+    const { getSiteInfo } = useSites()
+    const info = getSiteInfo('SITE001' as SiteId)
+    expect(info).not.toBeNull()
+    expect(info!.location).toBeTruthy()
+    expect(info!.status).toBe('active')
+    expect(info!.threshold_kw).toBe(240)
+  })
+
+  it('returns null for unknown id', () => {
+    const { getSiteInfo } = useSites()
+    // @ts-expect-error expected wrong type
+    expect(getSiteInfo('UNKNOWN')).toBeNull()
+  })
+})
+
+describe('getCurrentReading', () => {
+  it('returns current reading with electrical data for SITE001', () => {
+    const { getCurrentReading } = useSites()
+    const r = getCurrentReading('SITE001' as SiteId)
+    expect(r).not.toBeNull()
+    expect(r!.voltage_v).toBeGreaterThan(0)
+    expect(r!.power_factor).toBeGreaterThan(0)
+    expect(r!.temperature_celsius).toBeGreaterThan(0)
+  })
+
+  it('returns null for unknown id', () => {
+    const { getCurrentReading } = useSites()
+    // @ts-expect-error expected wrong type
+    expect(getCurrentReading('UNKNOWN')).toBeNull()
+  })
+
+  it('SITE003 reading has null consumption and electrical data', () => {
+    const { getCurrentReading } = useSites()
+    const r = getCurrentReading('SITE003' as SiteId)
+    expect(r).not.toBeNull()
+    expect(r!.consumption_kw).toBeNull()
+    expect(r!.voltage_v).toBeNull()
+  })
+})
+
+describe('getReadings', () => {
+  it('returns 24 hourly readings for SITE001', () => {
+    const { getReadings } = useSites()
+    const readings = getReadings('SITE001' as SiteId)
+    expect(readings).toHaveLength(24)
+    expect(readings[0]!.site_id).toBe('SITE001')
+  })
+
+  it('readings are sorted oldest first', () => {
+    const { getReadings } = useSites()
+    const readings = getReadings('SITE001' as SiteId)
+    expect(readings[0]!.timestamp < readings[23]!.timestamp).toBe(true)
+  })
+
+  it('returns empty array for unknown id', () => {
+    const { getReadings } = useSites()
+    // @ts-expect-error expected wrong type
+    expect(getReadings('UNKNOWN')).toEqual([])
+  })
+})
