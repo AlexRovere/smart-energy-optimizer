@@ -1,6 +1,6 @@
 # Dashboard EnerVision
 
-Application **Nuxt 4** fullstack — le même conteneur sert l'interface et l'API REST.
+Application **Nuxt 4** fullstack : le même conteneur sert l'interface et l'API REST.
 
 ## Architecture
 
@@ -56,7 +56,7 @@ Application **Nuxt 4** fullstack — le même conteneur sert l'interface et l'AP
 
 ## Sécurité
 
-- Sessions serveur : cookies `httpOnly`, `secure`, `sameSite=strict` — pas de JWT côté client.
+- Sessions serveur : cookies `httpOnly`, `secure`, `sameSite=strict`, et pas de JWT côté client.
 - Autorisation : trois rôles au schéma, **`ADMIN`, `OPERATOR`, `VIEWER`**, et le périmètre d'un compte est une **liste de sites** portée par la table `user_sites` (cf. [`docs/data.md`](../../docs/data.md)). **Un seul rôle est exploité au MVP**, `ADMIN` : le mécanisme est construit et testé, les profils restreints se montrent à l'oral. Une seule fonction rend la liste des sites autorisés et le filtre est toujours appliqué, jamais une branche qui saute le `WHERE`.
 - Validation entrées : Zod sur chaque route API (schémas partagés front/back).
 - Rate limiting sur `/api/auth/login`.
