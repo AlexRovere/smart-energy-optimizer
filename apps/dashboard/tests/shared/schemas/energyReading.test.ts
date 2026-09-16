@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { energyReadingSchema } from '../../../shared/schemas/energyReading'
+import { energyReadingSchema } from '../../../shared/energyReadingSchema'
 
 const VALID_READING = {
   timestamp: '2026-09-16T14:00:00Z',
@@ -22,7 +22,7 @@ describe('energyReadingSchema', () => {
     expect(result.success).toBe(true)
   })
 
-  it('retourne les valeurs parsées à l'identique', () => {
+  it('retourne les valeurs parsées à l\'identique', () => {
     const result = energyReadingSchema.safeParse(VALID_READING)
     expect(result.success).toBe(true)
     if (!result.success) return
