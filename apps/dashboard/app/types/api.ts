@@ -144,11 +144,43 @@ export interface AuthSessionTODO {
   expires_at: string;
 }
 
-/** Prédiction ML : horizon, pas, confiance, format des recommandations. Absent. */
-export interface PredictionTODO {
-  site_id: SiteId;
-  horizon_hours: number;
-  points: Array<{ timestamp: string; predicted_kw: number; ci_low?: number; ci_high?: number }>;
-  confidence: number;
-  recommendations: Array<{ id: string; label: string; gain_kw: number; window: string; confidence: number }>;
+/** Prédiction ML : horizon, pas, confiance, format des recommandations. */
+export interface PredictionPoint {
+  timestamp: string
+  predicted_consumption_kw: number
+  confidence_lower: number
+  confidence_upper: number
+}
+
+export interface Prediction {
+  site_id: SiteId
+  predicted_at: string
+  horizon_hours: number
+  granularity: 'hour'
+  model_version: string
+  confidence_level: number // ex: 0.90
+  predictions: PredictionPoint[]
+}
+
+export type RecommendationSource = 'threshold' | 'forecast'
+export type RecommendationType = 'scheduling' | 'load_balancing' | 'maintenance' | 'efficiency'
+export type RecommendationPriority = 'low' | 'medium' | 'high'
+
+export interface Recommendation {
+  recommendation_id: string
+  site_id: SiteId
+  source: RecommendationSource
+  type: RecommendationType
+  priority: RecommendationPriority
+  title: string
+  description: string
+  trigger: {
+    timestamp: string
+    value_kw: number
+    threshold_kw: number
+  }
+  estimated_saving_kwh: number
+  gain_kw: number // delta de puissance attendu
+  confidence: number // 0-1
+  window: string // ex: "14:30 -> 15:30"
 }
