@@ -257,10 +257,16 @@ Le critère de #26 demande « une migration **rejouable** ». C'est ce qui dépa
 
 Deux conditions à ce choix, parce que l'argument d'en face était bon :
 
-- **Le SQL généré est commité** (`drizzle/0000_*.sql`), pour que le schéma se lise sans connaître l'ORM et qu'une revue porte sur du DDL.
+- **Le SQL généré est commité** (`apps/dashboard/server/database/migrations/`), pour que le schéma se lise sans connaître l'ORM et qu'une revue porte sur du DDL. Le chemin est celui de `drizzle.config.ts` ; une version antérieure de ce document annonçait `drizzle/0000_*.sql`, qui n'a jamais existé.
 - **Le schéma ne se modifie jamais à la main sur la machine.** Il se modifie dans le schéma TypeScript, la migration est générée, commitée, puis appliquée.
 
-**Amorçage.** Un script idempotent, repris de la proposition de l'applicatif : les trois rôles, les sept sites, et trois comptes de démonstration, un par rôle. Idempotent veut dire qu'un second passage ne crée pas de doublon et n'écrase pas un mot de passe changé depuis.
+**Amorçage.** Un script idempotent, `pnpm db:seed` : les trois rôles et trois comptes de démonstration, un par rôle. Idempotent veut dire qu'un second passage ne crée pas de doublon et n'écrase pas un mot de passe changé depuis, ce que tient la clause `ON CONFLICT DO NOTHING`.
+
+**Il n'amorce aucun site**, alors que la version du 15 septembre l'annonçait. Seuls les identifiants `SITE001` à `SITE007` sont connus du dépôt : `name`, `type`, `capacity_kw` et `status` sont `NOT NULL` et viennent de l'API Mock. Et l'ETL n'insère que les sites **absents**, sans jamais corriger une ligne existante, donc une valeur inventée à l'amorçage resterait en base pour de bon. Une démonstration complète demande donc l'amorçage **et** un passage de l'ETL.
+
+**Le rôle `etl` est créé par la migration `0001_role_etl.sql`, sans `LOGIN` ni mot de passe.** Un fichier commité ne porte pas de secret. C'est l'amorçage qui l'active, depuis `ETL_DB_PASSWORD`. Conséquence à connaître : la migration demande `CREATEROLE` ou la superutilisation, ce dont dispose le compte `POSTGRES_USER` de la composition, mais pas forcément un compte de base managée.
+
+Cette même migration accorde aussi `GRANT USAGE ON SCHEMA public TO etl`, absent du bloc SQL ci-dessus : ce n'est pas un privilège sur les données, seulement le prérequis d'accès au schéma, sans lequel les autres `GRANT` ne produiraient aucun effet.
 
 ---
 

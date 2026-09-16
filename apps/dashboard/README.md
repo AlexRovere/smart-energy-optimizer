@@ -74,13 +74,31 @@ le premier démarrage.
 
 Deux conditions, parce que l'argument d'en face était bon :
 
-- Le **SQL généré est commité** (`drizzle/0000_*.sql`), pour que le schéma se lise sans connaître
-  l'ORM et qu'une revue porte sur du DDL.
+- Le **SQL généré est commité** (`apps/dashboard/server/database/migrations/`), pour que le schéma
+  se lise sans connaître l'ORM et qu'une revue porte sur du DDL.
 - Le schéma **ne se modifie jamais à la main** sur la machine : il se modifie dans le schéma
   TypeScript, la migration est générée, commitée, puis appliquée.
 
-Le script d'amorçage idempotent (trois rôles, sept sites, un compte de démonstration par rôle) est
-repris tel quel de la proposition de contrats d'interfaces.
+Le script d'amorçage idempotent crée les **trois rôles** et **un compte de démonstration par rôle**.
+Il n'amorce **aucun site** : le référentiel appartient à l'ETL, et les attributs des sept sites ne
+sont pas connus du dépôt. Voir [`docs/data.md`](../../docs/data.md).
+
+### Commandes
+
+| Commande | Effet |
+|---|---|
+| `pnpm db:generate` | Génère une migration depuis `server/database/schema.ts`. À commiter |
+| `pnpm db:migrate` | Applique les migrations en attente. Rejouable |
+| `pnpm db:seed` | Trois rôles, trois comptes de démonstration, et active le rôle `etl` |
+| `pnpm test` | Lint des types et tests. **Docker doit tourner** |
+| `pnpm test:watch` | Les mêmes, en mode observateur |
+
+Les tests démarrent eux-mêmes un conteneur `postgres:16-alpine` jetable, par
+Testcontainers : il n'y a ni base de test à créer à la main, ni composition à
+lancer au préalable. La première exécution tire l'image, les suivantes non.
+
+Les variables attendues sont dans [`.env.example`](../../.env.example) :
+`NUXT_DATABASE_URL`, `ETL_DB_PASSWORD` et `SEED_PASSWORD`.
 
 ## Mots de passe : Argon2id
 

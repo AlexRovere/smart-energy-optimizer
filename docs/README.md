@@ -9,5 +9,6 @@
 | `ml.md` | Modèle, entraînement, versionnement MLflow, surveillance de la dérive | EC06 |
 | `api.md` | Contrats d'interface des quatre briques, croisés à partir des propositions de chacun et figés avant le développement parallèle | EC03, C20 |
 | `runbook.md` | Démarrage, exploitation, incidents connus | transverse |
+| `superpowers/specs/` | Conceptions validées avant implémentation, une par sujet, datées | transverse |
 
 Les livrables notés (dossiers EC01 et EC02) sont **individuels ou collectifs selon l'épreuve** et ne sont pas versionnés ici : les dossiers de conception passent au contrôle anti-plagiat et un document accessible aux autres membres est un risque partagé.
