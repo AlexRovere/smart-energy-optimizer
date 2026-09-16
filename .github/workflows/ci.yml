@@ -6,7 +6,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, EADL_2025_NANTES_G1/chore-52-gerer-les-secrets-sans-les-exposer]
   pull_request:
     branches: [main]
 
