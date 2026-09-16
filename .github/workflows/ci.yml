@@ -19,6 +19,30 @@ on:
   pull_request:
     branches: [main]
 
+# Une fois la pull request ouverte, un même push déclenche deux événements
+# pour le même commit : push sur la branche, et pull_request (synchronize)
+# vers main. Sans ce groupe, security et secrets tourneraient deux fois pour
+# rien, ce qui contredit le motif même qui garde le reste du pipeline sur les
+# pull requests (le coût, sur une offre gratuite plafonnée).
+#
+# La clé du groupe est le nom de la branche, identique dans les deux
+# événements (github.event.pull_request.head.ref pour l'un, github.ref_name
+# pour l'autre) : c'est ce qui permet aux deux exécutions du même commit de
+# se retrouver dans le même groupe et de s'annuler l'une l'autre.
+#
+# cancel-in-progress n'est vrai que pour l'événement pull_request. Les deux
+# événements arrivent quasi simultanément et leur ordre n'est pas garanti :
+# si un push en cours d'exécution pouvait annuler une exécution pull_request
+# déjà lancée, cela annulerait potentiellement changes/etl/ml/dashboard/infra
+# au profit d'une exécution qui ne porte que security et secrets, ce qui
+# perdrait le travail utile. Avec cette condition, seule l'exécution
+# pull_request peut annuler un doublon push, jamais l'inverse ; deux push
+# successifs sans pull request ouverte se mettent simplement en file plutôt
+# que de s'annuler, ce qui ne coûte rien tant qu'ils ne tournent pas.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # Le jeton est restreint explicitement, donc tout ce qui n'est pas listé ici est
 # refusé. paths-filter interroge l'API des fichiers modifiés quand l'événement
 # est une pull request, d'où pull-requests: read. Sans cette ligne le job
