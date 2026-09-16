@@ -9,7 +9,8 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
-    "test": "vitest",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate"
   },
@@ -25,10 +26,12 @@
   "devDependencies": {
     "@nuxt/eslint": "^1.17.0",
     "@nuxt/test-utils": "^4.3.2",
+    "@testcontainers/postgresql": "^12.1.0",
     "@vue/test-utils": "^2.5.0",
     "drizzle-kit": "^0.31.10",
     "eslint": "^10.10.0",
     "happy-dom": "^20.14.5",
+    "tsx": "^4.23.13",
     "typescript": "^5.8.3",
     "vitest": "^5.0.0",
     "vue-tsc": "^3.3.11"
