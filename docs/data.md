@@ -109,11 +109,14 @@ Ce qui ne change pas : **le schéma appartient à Drizzle**, dans l'applicatif, 
 **La frontière est tenue par les droits, pas par une phrase.** Un rôle PostgreSQL dédié, utilisé par l'ETL, avec des privilèges limités à la table `sites` et même à ses colonnes :
 
 ```sql
-CREATE ROLE etl LOGIN PASSWORD :'etl_password';
+CREATE ROLE etl NOLOGIN;
+GRANT USAGE ON SCHEMA public TO etl;
 GRANT SELECT, INSERT ON sites TO etl;
 GRANT UPDATE (name, type, location, capacity_kw, status,
               present_in_source, updated_at) ON sites TO etl;
 ```
+
+Le mot de passe n'apparaît pas dans ce bloc : c'est l'amorçage qui le pose, depuis `ETL_DB_PASSWORD`, un fichier commité ne portant pas de secret. Détail au paragraphe « Amorçage », plus bas.
 
 Deux conséquences, et ce sont elles qui rendent l'écart défendable. L'ETL ne peut **pas** lire `users`, `sessions` ni `user_sites` : ce n'est plus une promesse, c'est un refus de la base. Et il ne peut pas écrire `warning_threshold_kw`, donc un rechargement ne peut pas effacer un seuil réglé à l'écran, même par erreur de code.
 
@@ -266,7 +269,7 @@ Deux conditions à ce choix, parce que l'argument d'en face était bon :
 
 **Le rôle `etl` est créé par la migration `0001_role_etl.sql`, sans `LOGIN` ni mot de passe.** Un fichier commité ne porte pas de secret. C'est l'amorçage qui l'active, depuis `ETL_DB_PASSWORD`. Conséquence à connaître : la migration demande `CREATEROLE` ou la superutilisation, ce dont dispose le compte `POSTGRES_USER` de la composition, mais pas forcément un compte de base managée.
 
-Cette même migration accorde aussi `GRANT USAGE ON SCHEMA public TO etl`, absent du bloc SQL ci-dessus : ce n'est pas un privilège sur les données, seulement le prérequis d'accès au schéma, sans lequel les autres `GRANT` ne produiraient aucun effet.
+Cette même migration accorde aussi `GRANT USAGE ON SCHEMA public TO etl`, visible dans le bloc SQL de la section « Qui écrit dans `sites`, et jusqu'où » : ce n'est pas un privilège sur les données, seulement le prérequis d'accès au schéma, sans lequel les autres `GRANT` ne produiraient aucun effet.
 
 ---
 
