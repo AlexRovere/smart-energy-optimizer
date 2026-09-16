@@ -317,3 +317,14 @@ Ils sont dans [`ci.yml`](../.github/workflows/ci.yml) et tournent sur chaque pul
 | Job `security`, Trivy et gitleaks | Un secret en clair dans l'arbre de travail (Trivy) ou **n'importe où dans l'historique** (gitleaks, fusions comprises). Bloquant |
 
 Le dernier mérite une précision, parce qu'il surprend : un secret commité puis retiré au commit suivant fait quand même échouer le pipeline, l'historique le contenant toujours. Le rattrapage n'est alors pas un commit de plus, c'est une réécriture d'historique, coûteuse et partagée. Autant ne pas avoir à le faire : `.env`, `secrets.yaml`, `secrets.dec.yaml`, `*.key` et `keys.txt` sont ignorés par [`.gitignore`](../.gitignore) pour cette raison, et un `git status` avant chaque commit vaut mieux qu'un `git add .` confiant.
+
+### La sortie de secours d'un faux positif gitleaks
+
+Le scan gitleaks est bloquant et couvre `--all`, c'est-à-dire toutes les branches du dépôt : une fuite poussée n'importe où, même sur une branche de travail personnelle, met au rouge la CI de tout le monde. Et gitleaks se trompe : la version 8.30.1 a déjà classé des clés **publiques** age (celles de `.sops.yaml`, lisibles en clair par conception) en `generic-api-key`, un faux positif avéré et vérifié sur ce projet.
+
+Deux échappatoires existent, vérifiées sur ce dépôt avec `gitleaks 8.30.1`, chacune avec sa portée :
+
+- **Un commentaire `gitleaks:allow`** sur la ligne concernée (par exemple `# gitleaks:allow` en YAML ou shell, `// gitleaks:allow` ailleurs) supprime la détection pour cette ligne précise, dans tous les commits qui la contiennent telle quelle. C'est la forme à préférer pour une valeur d'exemple ou un cas documenté à l'avance, parce que le motif reste à côté de la ligne qu'il couvre.
+- **Un fichier [`.gitleaksignore`](../.gitleaksignore)** à la racine, une empreinte par ligne, au format `<commit>:<chemin>:<règle>:<ligne>` exactement tel que gitleaks le rend dans ses résultats (champ `Fingerprint`). Cette forme convient à un faux positif découvert après coup, sur un commit déjà poussé, quand ajouter un commentaire demanderait de réécrire l'historique pour rien.
+
+**Quand c'est légitime** : un faux positif avéré (une clé publique, une valeur d'exemple déjà documentée comme telle, une chaîne de test sans usage réel) qu'on a vérifié un par un, jamais en lot. **Quand ça ne l'est pas** : faire taire un vrai secret parce que le corriger prend du temps. La différence ne se voit pas dans la syntaxe, elle se voit dans la revue : une entrée de `.gitleaksignore` ou un commentaire `gitleaks:allow` se relit en pull request comme le reste, avec la même exigence de dire pourquoi.
