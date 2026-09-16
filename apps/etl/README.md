@@ -1,29 +1,35 @@
-# ETL : ingestion des capteurs
+# ETL — Sites
 
-Extrait les mesures de l'API Mock IoT, les transforme et les écrit en **fichiers Parquet** sur le volume partagé, dans deux répertoires : l'exposé pour le tableau de bord, celui d'entraînement pour le modèle.
+Ingestion du référentiel des sites depuis l'API Mock IoT vers un fichier Parquet, avec ajout optionnel en base PostgreSQL.
 
-Seul service à écrire ces fichiers, et seul à les monter en écriture. Il n'a **aucun accès à PostgreSQL** : les comptes et le référentiel appartiennent à l'applicatif.
+## Commandes
 
-Rôle porteur : Data & IA. Domaine : `domain:data`. Épreuve : EC05.
+```bash
+python main.py sites             # extrait, transforme, écrit le référentiel en Parquet
+python main.py sites --sync-db   # idem, + ajoute les sites manquants en base PostgreSQL
+```
 
-## Règles de qualité des données, non négociables
+## Fonctionnement
 
-L'API Mock injecte volontairement des pannes de capteurs et des pertes réseau. Elle renvoie alors un **200 avec des champs `null`** et un `null_reasons` renseigné. Le sujet en fait un critère d'évaluation explicite.
+### Extract
 
-- **Ne jamais filtrer une réponse 200 contenant des `null`.** Un null ignoré est une perte d'information sur la fiabilité des capteurs.
-- **Conserver `data_quality` et `null_reasons`** dans les fichiers écrits, ce sont eux qui tracent cette fiabilité.
-- **Stocker la valeur brute ET la valeur imputée dans deux colonnes distinctes.** Ne jamais écraser un null sans traçabilité.
-- **Documenter la stratégie d'imputation** retenue et son risque : conserver le null, interpolation linéaire (panne courte), report de la valeur précédente (consommation stable), moyenne mobile (bruit isolé), exclusion (agrégats).
-- `stats/summary` exclut les sites à `null` de son total : tout affichage agrégé doit signaler des données incomplètes.
+Appelle `GET /api/v1/sites` sur l'API Mock IoT et récupère le référentiel des sites tel quel (JSON → DataFrame). Aucune autre route n'est consommée pour l'instant.
 
-## Endpoints consommés
+### Transform
 
-| Endpoint | Usage |
-|---|---|
-| `GET /api/v1/sites` | référentiel des sites |
-| `GET /api/v1/sites/{id}/current` | mesure instantanée, temps réel |
-| `GET /api/v1/readings` | historique, alimentation en batch |
-| `GET /api/v1/sensors/status` | santé des capteurs |
-| `GET /api/v1/alerts` | alertes actives |
+Nettoie les noms de colonnes (`site_id → id`, `site_type → type`, `site_name → name`...), puis dédoublonne le référentiel sur `id`, en gardant la première occurrence rencontrée. Pas d'autre règle métier appliquée à ce stade.
 
-Base URL fournie par le formateur, à mettre dans `.env` (`MOCK_API_URL`).
+### Load
+
+Écrit toujours le référentiel en Parquet (`sites.parquet`, dans le répertoire configuré). Avec `--sync-db`, compare en plus aux sites déjà en base et n'insère que ceux qui manquent — jamais de mise à jour ni de suppression sur les sites existants. La table `sites` doit déjà exister (créée par ailleurs, hors périmètre ETL) : l'ETL n'y touche jamais.
+
+## Variables d'environnement
+
+| Variable       | Utilisée pour |
+|----------------|---|
+| `MOCK_API_URL` | URL de base de l'API Mock IoT (Extract) |
+| `PARQUET_DIR`  | Répertoire d'écriture du fichier Parquet (Load) |
+| `POSTGRES_***` | Connexion PostgreSQL (Load, `--sync-db` uniquement) |
+
+
+Toute modification de ces variables dans l'environnement du conteneur impacte directement son comportement au prochain démarrage.

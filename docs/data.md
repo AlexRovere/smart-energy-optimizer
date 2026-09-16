@@ -4,10 +4,12 @@ Deux stockages, deux rôles, une seule règle de partage : **rien n'est écrit d
 
 | Stockage | Contenu | Qui écrit | Qui lit |
 |---|---|---|---|
-| PostgreSQL | Référentiel des sites, comptes, rôles, périmètres d'accès | L'applicatif, seul | L'applicatif, seul |
-| Volume Parquet | Les mesures, transformées | L'ETL, seul | L'applicatif et le service ML, en lecture seule, via DuckDB |
+| PostgreSQL | Référentiel des sites, comptes, rôles, périmètres d'accès | L'applicatif, et l'ETL sur la seule table `sites` | L'applicatif, seul |
+| Répertoire Parquet | Les mesures, transformées | L'ETL, seul | L'applicatif et le service ML, en lecture seule, via DuckDB |
 
 Le pivot entre les deux est `sites.id` : c'est la même chaîne dans PostgreSQL et dans le chemin de partition Parquet. Aucune jointure entre les deux moteurs, seulement une clé partagée.
+
+La table porte `id`, `name` et `type` là où la source dit `site_id`, `site_name` et `site_type` : dans une table nommée `sites`, `sites.site_id` bégaie. La correspondance est dans la colonne « Origine » ci-dessous, et elle se fait à l'écriture, une fois, dans l'ETL.
 
 Voir [`architecture.md`](./architecture.md) pour les principes dont ce document découle.
 
@@ -84,7 +86,7 @@ Le référentiel des installations, alimenté depuis `GET /api/v1/sites` et enri
 | `capacity_kw` | INTEGER | NOT NULL, CHECK (`capacity_kw` > 0) | Puissance souscrite | API Mock |
 | `status` | VARCHAR(30) | NOT NULL | État renvoyé par la source | API Mock |
 | `present_in_source` | BOOLEAN | NOT NULL, DEFAULT TRUE | Passe à `FALSE` quand le site disparaît de l'API | Déduit |
-| `alert_threshold_kw` | INTEGER | NULL, CHECK (`alert_threshold_kw` > 0) | Seuil d'alerte réglé à l'écran Paramètres | Saisie |
+| `warning_threshold_kw` | INTEGER | NULL, CHECK (`warning_threshold_kw` > 0) | Seuil de vigilance réglé à l'écran Paramètres | Saisie |
 | `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | | |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Dernier rechargement ou réglage | |
 
@@ -92,9 +94,30 @@ Le référentiel des installations, alimenté depuis `GET /api/v1/sites` et enri
 
 `present_in_source` répond à l'autre critère de #21 : « un site retiré de l'API n'est pas supprimé en base, les mesures historiques restent rattachables ». Une suppression casserait le rattachement des mesures Parquet déjà écrites ; un drapeau le rend visible sans rien perdre.
 
-`alert_threshold_kw` à `NULL` signifie **aucune alerte pour ce site**, pas « seuil par défaut ». Un défaut implicite est une alerte qui se déclenche sans que personne ne l'ait demandée.
+**Le nom ne dit pas « alerte », et c'est voulu.** Les alertes viennent de l'API Mock (`/api/v1/alerts`, #34) et voyagent dans les mêmes réponses que les nôtres : deux choses différentes sous le même mot deviennent indistinguables au premier diagnostic. Cette colonne décrit une **condition**, le niveau de charge au-delà duquel le site mérite attention, pas la conséquence qu'on en tire. Elle sert aujourd'hui les recommandations de seuil (#43) et servira demain celles issues de la prévision (#44), sans que le nom ait à changer.
+
+**Valeur par défaut, explicite : 80 % de `capacity_kw`.** `NULL` ne veut donc pas dire « pas de vigilance » mais « règle par défaut ». La différence compte : avec la lecture inverse, il fallait régler sept seuils à la main avant que #43 ne produise quoi que ce soit. Une règle écrite n'est pas un défaut implicite, c'est la valeur saisie qui devient l'exception.
 
 Pas de contrainte `CHECK` sur `type` ni sur `status` : leur domaine de valeurs n'est pas encore connu. Un `CHECK` posé sur une hypothèse fait échouer l'ETL sur la première valeur inattendue, et le site est alors perdu au lieu d'être chargé. À poser une fois le domaine relevé sur la source, s'il est stable.
+
+### Qui écrit dans `sites`, et jusqu'où
+
+**L'ETL écrit le référentiel des sites.** Écart assumé le 15 septembre 2026 : la version précédente disait que l'applicatif était le seul service à toucher PostgreSQL. Le motif du changement est que le chargement du référentiel est une étape d'ingestion, au même titre que les mesures, et que la couper en deux pour respecter une frontière coûtait plus que la frontière ne rapportait.
+
+Ce qui ne change pas : **le schéma appartient à Drizzle**, dans l'applicatif, et à lui seul. L'ETL écrit des lignes, jamais du DDL. Un seul propriétaire du schéma, deux écrivains de données.
+
+**La frontière est tenue par les droits, pas par une phrase.** Un rôle PostgreSQL dédié, utilisé par l'ETL, avec des privilèges limités à la table `sites` et même à ses colonnes :
+
+```sql
+CREATE ROLE etl LOGIN PASSWORD :'etl_password';
+GRANT SELECT, INSERT ON sites TO etl;
+GRANT UPDATE (name, type, location, capacity_kw, status,
+              present_in_source, updated_at) ON sites TO etl;
+```
+
+Deux conséquences, et ce sont elles qui rendent l'écart défendable. L'ETL ne peut **pas** lire `users`, `sessions` ni `user_sites` : ce n'est plus une promesse, c'est un refus de la base. Et il ne peut pas écrire `warning_threshold_kw`, donc un rechargement ne peut pas effacer un seuil réglé à l'écran, même par erreur de code.
+
+Cela vaut aussi pour l'épreuve : le moindre privilège appliqué à une base est plus concret qu'un schéma d'architecture, et il se démontre en essayant.
 
 ### `user_sites`
 
@@ -160,7 +183,7 @@ Conséquence directe sur les fichiers Parquet : la clé de partition est `site_i
 
 ---
 
-## Volume Parquet : les mesures
+## Répertoire Parquet : les mesures
 
 Le détail des colonnes se fige avec l'ETL (#26). Ce qui suit est acté.
 
@@ -222,7 +245,7 @@ Reprises de `architecture.md` et du document de l'ETL :
 - La stratégie d'imputation retenue est documentée avec son risque.
 - Un agrégat qui exclut des sites le signale dans sa réponse.
 
-Deux répertoires, deux usages : l'exposé alimente le tableau de bord, celui d'entraînement alimente le modèle. L'ETL est le seul à écrire ; chaque consommateur ne monte que son répertoire, en lecture seule.
+**Un seul répertoire**, écrit par l'ETL seul et monté en lecture seule par l'applicatif comme par le service ML. Une première version en prévoyait deux, exposé et entraînement ; ils auraient porté les mêmes mesures, donc la séparation obligeait à écrire deux fois sans rien cloisonner. Retirée le 16 septembre.
 
 ---
 
@@ -230,7 +253,7 @@ Deux répertoires, deux usages : l'exposé alimente le tableau de bord, celui d'
 
 **Tranché le 15 septembre 2026 : Drizzle**, dont le schéma TypeScript est la source de vérité et dont `drizzle-kit migrate` produit les migrations.
 
-Le critère de #26 demande « une migration **rejouable** ». C'est ce qui départage : `drizzle-kit migrate` tient un journal de ce qui a été appliqué et se relance sans risque, là où un `init.sql` monté dans `docker-entrypoint-initdb.d` ne s'exécute **que sur un répertoire de données vide**, donc jamais après le premier démarrage. Et l'applicatif est le seul service à toucher PostgreSQL : le schéma peut lui appartenir entièrement, et les types TypeScript se génèrent depuis lui au lieu d'être recopiés.
+Le critère de #26 demande « une migration **rejouable** ». C'est ce qui départage : `drizzle-kit migrate` tient un journal de ce qui a été appliqué et se relance sans risque, là où un `init.sql` monté dans `docker-entrypoint-initdb.d` ne s'exécute **que sur un répertoire de données vide**, donc jamais après le premier démarrage. Et l'applicatif reste le seul propriétaire du **schéma**, même si l'ETL écrit désormais des lignes dans `sites` : les types TypeScript se génèrent depuis lui au lieu d'être recopiés, et l'ETL suit le contrat figé plus haut sans jamais produire de DDL.
 
 Deux conditions à ce choix, parce que l'argument d'en face était bon :
 
@@ -243,7 +266,7 @@ Deux conditions à ce choix, parce que l'argument d'en face était bon :
 
 ## Données personnelles
 
-Les mesures de consommation sont des données d'entreprise, pas des données personnelles. Les **seules** données personnelles du système sont les comptes et leurs sessions : `users.email`, `users.last_login` et `sessions.ip`. Une adresse IP est une donnée personnelle, c'est pourquoi les lignes de `sessions` expirées sont purgées et ne servent qu'à l'audit. Elles vivent dans PostgreSQL, sur la machine, et n'en sortent jamais : ni vers le volume Parquet, ni vers le service de prédiction, qui n'a aucune notion d'utilisateur.
+Les mesures de consommation sont des données d'entreprise, pas des données personnelles. Les **seules** données personnelles du système sont les comptes et leurs sessions : `users.email`, `users.last_login` et `sessions.ip`. Une adresse IP est une donnée personnelle, c'est pourquoi les lignes de `sessions` expirées sont purgées et ne servent qu'à l'audit. Elles vivent dans PostgreSQL, sur la machine, et n'en sortent jamais : ni vers le répertoire Parquet, ni vers le service de prédiction, qui n'a aucune notion d'utilisateur.
 
 `is_active` permet de désactiver un compte sans le purger, ce qui préserve la traçabilité des accès. Une demande d'effacement, elle, exige une suppression réelle de la ligne : les `ON DELETE CASCADE` sur `user_sites` et sur `sessions` s'en chargent, et aucune autre table ne porte de donnée personnelle. À vérifier avant la soutenance : que les journaux applicatifs ne conservent pas l'adresse électronique.
 
@@ -320,7 +343,7 @@ erDiagram
         int capacity_kw
         varchar status
         boolean present_in_source
-        int alert_threshold_kw
+        int warning_threshold_kw
         timestamptz created_at
         timestamptz updated_at
     }

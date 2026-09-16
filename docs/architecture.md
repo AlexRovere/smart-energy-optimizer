@@ -22,9 +22,9 @@ flowchart TB
     APP --> PG[("PostgreSQL<br/>comptes, roles, referentiel des sites")]
     APP --> ML["Service ML<br/>MLflow + FastAPI"]
     MOCK["API Mock IoT"] --> ETL["Service ETL"]
+    ETL -->|"ecriture, referentiel des sites"| PG
     subgraph VOL["Repertoire de donnees Parquet"]
         BEX[("dossier expose")]
-        BML[("dossier entrainement")]
     end
     ETL -->|ecriture| BEX
     ETL -->|ecriture| BML
@@ -38,14 +38,14 @@ flowchart TB
 |---|---|---|---|
 | Reverse proxy | Caddy ou Traefik, à confirmer | Terminaison TLS, porte d'entrée unique, en-têtes de sécurité, limitation de débit | Public, 443 |
 | Applicatif | Nuxt, Vue 3, TypeScript | Dashboard, BFF, authentification, autorisation, règles métier, recommandations. Architecture en couches en interne | Réseau interne |
-| ETL | Python | Extraction depuis l'API Mock, nettoyage, transformation, écriture Parquet | Réseau interne |
+| ETL | Python | Extraction depuis l'API Mock, nettoyage, transformation, écriture Parquet, chargement du référentiel des sites en base | Réseau interne |
 | ML | Python, MLflow, FastAPI | Entraînement, registre de modèles, endpoint de prédiction | Réseau interne |
 | Base relationnelle | PostgreSQL | Comptes, rôles, référentiel des sites et leurs réglages. Rien d'autre | Réseau interne |
-| Stockage des mesures | Fichiers Parquet, dans un répertoire de la machine | Deux sous-répertoires : séries exposées, jeux d'entraînement | Montages |
+| Stockage des mesures | Fichiers Parquet, dans un répertoire de la machine | Les séries nettoyées, partitionnées par site | Montages |
 
 ## Données
 
-**Format.** Fichiers Parquet partitionnés par site, puis par période. **Le contrat est le format, pas la bibliothèque qui le lit** : Parquet est un format ouvert, et chaque service choisit son outil. Côté Python, `pandas.read_parquet()` suffit : il rend directement le tableau de données que scikit-learn ou Prophet attendent, il délègue à pyarrow, et il accepte `columns` et `filters`, donc il ne lit ni les colonnes ni les partitions dont on n'a pas besoin. Polars ou `pyarrow.dataset` prennent le relais le jour où un jeu dépasserait la mémoire, ce que sept sites et quelques dizaines de mégaoctets ne feront pas. Côté applicatif, **DuckDB** fait le SQL et les agrégats que le tableau de bord demande, par son API Node officielle `@duckdb/node-api` : c'est du TypeScript, pas une dépendance Python, et c'est de loin le meilleur lecteur Parquet de l'écosystème JavaScript.
+**Format.** Fichiers Parquet partitionnés par site, puis par période. **Le contrat est le format, pas la bibliothèque qui le lit** : Parquet est un format ouvert, et chaque service choisit son outil. Côté Python, `pandas.read_parquet()` suffit : il rend directement le tableau de données que le modèle attend, il délègue à pyarrow, et il accepte `columns` et `filters`, donc il ne lit ni les colonnes ni les partitions dont on n'a pas besoin. Polars ou `pyarrow.dataset` prennent le relais le jour où un jeu dépasserait la mémoire, ce que sept sites et quelques dizaines de mégaoctets ne feront pas. Côté applicatif, **DuckDB** fait le SQL et les agrégats que le tableau de bord demande, par son API Node officielle `@duckdb/node-api` : c'est du TypeScript, pas une dépendance Python, et c'est de loin le meilleur lecteur Parquet de l'écosystème JavaScript.
 
 Dans tous les cas c'est une **bibliothèque embarquée dans le service**, jamais un serveur : il n'existe pas de serveur DuckDB, et l'interface entre les services est le fichier, pas un processus.
 
@@ -55,7 +55,9 @@ Le chemin arrive par **variable d'environnement** dans chaque service, et c'est 
 
 **Le temps réel ne passe pas par là.** L'état instantané d'un capteur est demandé directement à l'API Mock par l'applicatif : le passer par l'ETL et les fichiers ajouterait la latence d'un cycle d'ingestion à une donnée dont tout l'intérêt est d'être fraîche. Les fichiers Parquet portent l'**historique nettoyé**, c'est-à-dire ce qui se trace, s'agrège et sert à entraîner.
 
-**Deux répertoires, deux usages.** Le répertoire exposé alimente le dashboard, celui d'entraînement alimente le modèle. L'ETL est le seul à écrire ; chaque consommateur ne monte que son répertoire, en lecture seule. Un composant ne peut pas lire ce qui n'est pas monté dans son conteneur.
+**Un seul répertoire.** Il porte les séries nettoyées, et l'ETL est seul à l'écrire. L'applicatif et le service ML le montent **en lecture seule** : un composant ne peut pas écrire ce qui est monté ainsi, et cela se vérifie dans le fichier de composition.
+
+Une première version en prévoyait deux, l'un exposé et l'autre pour l'entraînement. Cette séparation a été retirée le 16 septembre : les deux auraient porté **les mêmes mesures, de la même sensibilité**, donc elle n'achetait aucun cloisonnement réel tout en obligeant l'ETL à écrire deux fois. Le cloisonnement qui compte est **par site**, et il est appliqué dans la requête, pas par un montage. Si le modèle a un jour besoin de persister des jeux avec variables calculées, c'est un artefact distinct de la série, et c'est le magasin d'artefacts de MLflow qui le porte.
 
 **Schéma.** Un répertoire de fichiers n'impose aucun schéma : une base refuserait une colonne au mauvais type, un fichier l'accepte et c'est le lecteur qui casse, plus tard et ailleurs. Trois règles compensent, détaillées dans [`data.md`](./data.md) : le schéma est **déclaré** à l'écriture et jamais déduit des données du moment, l'écriture est **atomique**, et un test du pipeline compare le schéma produit au schéma de référence.
 
@@ -71,12 +73,11 @@ Le chemin arrive par **variable d'environnement** dans chaque service, et c'est 
 flowchart LR
     MOCK["API Mock IoT"] -->|extraction| T["Transformation<br/>qualite conservee"]
     T -->|ecriture| BEX[("dossier expose<br/>series par site")]
-    T -->|ecriture| BML[("dossier entrainement<br/>jeux et variables")]
     BEX -->|DuckDB, filtre sur les sites autorises| APP["BFF, dashboard"]
-    BML -->|pyarrow ou Polars| ML["Entrainement, MLflow"]
+    BEX -->|pandas| ML["Entrainement, MLflow"]
     ML -->|modele promu| PRED["Endpoint de prediction"]
     APP -->|horizon et site| PRED
-    PRED -->|valeur et intervalle| APP
+    PRED -->|valeurs prevues| APP
 ```
 
 ## Déploiement
@@ -95,11 +96,12 @@ flowchart TB
         PG[("PostgreSQL")]
         ML["Service ML<br/>MLflow et FastAPI"]
         ETL["Service ETL"]
-        VOL[("Repertoire de la machine<br/>dossier expose, dossier entrainement")]
+        VOL[("Repertoire de la machine<br/>series nettoyees, par site")]
 
         RP -->|"reseau frontal"| APP
         APP -->|"reseau donnees"| PG
         APP -->|"reseau donnees"| ML
+        ETL -->|"reseau donnees, referentiel des sites"| PG
         APP -.->|"montage lecture seule<br/>dossier expose"| VOL
         ML -.->|"montage lecture seule<br/>dossier entrainement"| VOL
         ETL -.->|"montage lecture ecriture"| VOL
@@ -109,9 +111,9 @@ flowchart TB
     VM --> BK
 ```
 
-**Deux réseaux internes, et pas un de plus.** Le réseau frontal ne relie que le proxy et l'applicatif : le proxy ne peut donc joindre ni la base, ni le service de prédiction, ni le volume. Le réseau données relie l'applicatif à PostgreSQL et au service ML. Un service compromis ne voit que ce que son réseau lui laisse voir.
+**Deux réseaux internes, et pas un de plus.** Le réseau frontal ne relie que le proxy et l'applicatif : le proxy ne peut donc joindre ni la base, ni le service de prédiction, ni le volume. Le réseau données relie l'applicatif à PostgreSQL et au service ML, ainsi que l'ETL à PostgreSQL pour le seul référentiel des sites (voir « Points tranchés »). Un service compromis ne voit que ce que son réseau lui laisse voir.
 
-**L'ETL n'est sur aucun réseau interne.** C'est une conséquence, pas un oubli : il n'a aucun accès à PostgreSQL, il n'appelle ni l'applicatif ni le service ML, et il ne parle qu'à l'API Mock, en sortie. Son seul lien avec le reste du système est le volume, et ce lien est un montage, pas une route.
+**L'ETL n'appelle aucun service.** Il ne parle ni à l'applicatif ni au service ML, et sort vers l'API Mock seulement. Ses deux liens avec le reste du système sont le **répertoire Parquet**, par montage, et **PostgreSQL**, pour la seule table `sites` du référentiel. Ce second lien est un écart assumé le 15 septembre 2026, borné par un rôle PostgreSQL dédié aux privilèges limités à cette table et à ses colonnes : l'ETL ne peut lire ni les comptes, ni les sessions, ni les périmètres d'accès. Voir `data.md`.
 
 **Les traits pleins sont des réseaux, les pointillés des montages.** La distinction est le cœur du cloisonnement : une route se contrôle dans du code, un montage se lit dans le fichier de composition. Le service ML ne peut pas lire les séries exposées parce que ce répertoire n'est pas monté dans son conteneur, et cela se vérifie sans exécuter le programme.
 
@@ -145,7 +147,7 @@ sequenceDiagram
     V-->>B: mesures des seuls sites autorises
     B->>M: prediction (site, horizon)
     M->>M: chargement du modele promu
-    M-->>B: valeur, intervalle, version du modele
+    M-->>B: valeurs prevues, version du modele
     B-->>N: 200 (donnees et prevision du perimetre)
 
     Note over B,V: l'identifiant de site est injecte par le serveur<br/>apres resolution, jamais lu depuis la requete du client
@@ -201,13 +203,23 @@ Le jeton n'est jamais lisible par un script : il vit dans un cookie `httpOnly`, 
 
 ## Points tranchés depuis
 
-**Accès aux données : montages, et non service.** Tranché le mardi 15 septembre 2026. Le schéma proposé en séance de cadrage faisait des fichiers Parquet un service interrogé par les autres briques ; c'est la lecture directe qui l'emporte. Chaque consommateur lit directement les fichiers d'un volume Docker partagé, avec la bibliothèque de son choix, et l'ETL est seul à le monter en écriture.
+**Accès aux données : montages, et non service.** Tranché le mardi 15 septembre 2026. Le schéma proposé en séance de cadrage faisait des fichiers Parquet un service interrogé par les autres briques ; c'est la lecture directe qui l'emporte. Chaque consommateur lit directement les fichiers du répertoire partagé, avec la bibliothèque de son choix, et l'ETL est seul à le monter en écriture.
 
 Les raisons : un service de plus à construire et à maintenir dans un MVP de dix jours ; un service ML qui récupérerait ses jeux d'entraînement par HTTP, cas où une API coûte sans rien apporter puisque le fichier se lit sans copie ; et surtout un cloisonnement qui redeviendrait du code applicatif au lieu de tenir dans les montages du fichier de composition, donc vérifiable sans lire une ligne de programme.
 
 **DuckDB est bien une bibliothèque, et le stockage un répertoire.** Tranché le mardi 15 septembre 2026, après vérification. Le doute venait de là : « je n'étais pas sûr que DuckDB soit en capacité de fournir une information directement, et que du coup il était obligé d'avoir un conteneur ». Il ne l'est pas. On l'interroge comme on interrogerait PostgreSQL, depuis le processus qui l'embarque.
 
-Et les fichiers vivent dans un répertoire de la machine, pas dans un volume Docker nommé ni dans un conteneur. L'ETL et le service ML sont donc colocalisés, **par simplicité et non par contrainte** : le jour où il faudrait les séparer, passer les fichiers sur un stockage objet lève la contrainte sans toucher au code, DuckDB et pandas lisant un chemin local et une adresse d'objet de la même façon.
+Et les fichiers vivent dans un répertoire de la machine, pas dans un volume Docker nommé ni dans un conteneur. **Confirmé par le lead dev le 16 septembre 2026**, après comparaison des deux options. Ce qui a départagé n'est pas l'inspection des fichiers, possible dans les deux cas avec `sudo`, mais que **`docker compose down -v` détruit un volume nommé** : sur dix jours à cinq personnes qui relancent la pile, l'historique collecté finirait par disparaître. Et qu'un volume nommé n'est déclaré nulle part dans le playbook, alors que la configuration de la machine doit se reconstruire depuis Git.
+
+**La contrepartie est une question de droits, et elle se règle en une ligne.** Un volume nommé hérite de la propriété de l'image, un montage non : le noyau compare des numéros d'UID, et l'utilisateur non-root des conteneurs n'a aucun rapport avec celui de la VM. Le service ETL, seul à écrire, tourne donc sous l'UID du compte de la machine, par `user: "1000:1000"` dans la composition, et le playbook crée l'arborescence avec cette propriété. Les consommateurs montent en lecture seule, leur UID est sans importance. Vérification préalable, qui appartient à la préparation de la VM : que `id apprenant` rende bien 1000. L'ETL et le service ML sont donc colocalisés, **par simplicité et non par contrainte** : le jour où il faudrait les séparer, passer les fichiers sur un stockage objet lève la contrainte sans toucher au code, DuckDB et pandas lisant un chemin local et une adresse d'objet de la même façon.
+
+**L'ETL écrit le référentiel des sites.** Tranché le mardi 15 septembre 2026. Le chargement du référentiel est une étape d'ingestion au même titre que les mesures, et le couper en deux pour respecter la frontière « seul l'applicatif touche PostgreSQL » coûtait plus que la frontière ne rapportait. Le schéma reste la propriété de l'applicatif, par Drizzle : l'ETL écrit des lignes, jamais du DDL. Et la frontière devient un **droit de base de données** au lieu d'une phrase dans un document.
+
+**CatBoost, et un seul modèle pour les sept sites.** Tranché au daily du 16 septembre 2026, après mesure. Prophet a été évalué et écarté : il impose **un modèle par site**, donc sept à entraîner, versionner et servir, et il lui faut plusieurs années d'historique pour repérer ses schémas saisonniers alors que le jeu disponible en porte deux. CatBoost gère les **variables catégorielles**, le site et son type, donc un seul modèle couvre le parc.
+
+L'écart mesuré a tranché : environ **40 kW d'erreur avec Prophet contre 11 kW avec CatBoost**, sur des consommations de l'ordre de 100 kW.
+
+La prédiction est **autorégressive** : le modèle prévoit une heure, réinjecte sa prévision, recommence. C'est ce qui borne l'horizon à 48 heures, le coût croissant avec la distance et les biais s'accumulant à chaque réinjection.
 
 **Un seul client, cloisonnement par site.** Tranché le mardi 15 septembre 2026, au daily. Le MVP sert un client pilote : il n'y a pas de table entreprise, et la dimension de cloisonnement est le site. Les fichiers Parquet sont partitionnés par site, et le périmètre d'un compte est une liste de sites.
 
@@ -216,6 +228,10 @@ Le motif est qu'une table entreprise serait une dimension sans données : l'API 
 **Rôles : le mécanisme, pas les profils.** Tranché le même jour. La table des rôles et la résolution côté serveur existent, mais un seul rôle est exploité au MVP. Les profils restreints se montrent à l'oral et se lisent dans les tests, plutôt que de multiplier les règles métier à vérifier en deux semaines.
 
 **DVC écarté.** Tranché le même jour. Voir la table du hors périmètre ci-dessus : MLflow tient déjà la propriété recherchée.
+
+**L'ETL gagne un accès en écriture à PostgreSQL, strictement borné au référentiel des sites.** Tranché le mardi 15 septembre 2026. Le référentiel des sites vient de l'API Mock, et l'ETL est le seul service qui l'interroge : le faire écrire les sites manquants directement dans la table `sites` évite de dupliquer cet appel côté applicatif ou d'ajouter un service intermédiaire pour une simple synchronisation d'ajout. L'ETL rejoint donc le réseau données, en écriture d'ajout uniquement sur cette table (les sites déjà répertoriés ne sont ni modifiés ni supprimés par ce chemin).
+
+Cela ne revient pas sur le reste du cloisonnement : l'ETL n'a toujours aucune notion de compte, de rôle ou de session, n'appelle ni l'applicatif ni le service ML, et la table `sites` reste créée et administrée ailleurs (migration dédiée, hors périmètre ETL).
 
 ## Où trouver le reste
 
