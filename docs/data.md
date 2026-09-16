@@ -86,7 +86,7 @@ Le référentiel des installations, alimenté depuis `GET /api/v1/sites` et enri
 | `capacity_kw` | INTEGER | NOT NULL, CHECK (`capacity_kw` > 0) | Puissance souscrite | API Mock |
 | `status` | VARCHAR(30) | NOT NULL | État renvoyé par la source | API Mock |
 | `present_in_source` | BOOLEAN | NOT NULL, DEFAULT TRUE | Passe à `FALSE` quand le site disparaît de l'API | Déduit |
-| `alert_threshold_kw` | INTEGER | NULL, CHECK (`alert_threshold_kw` > 0) | Seuil d'alerte réglé à l'écran Paramètres | Saisie |
+| `warning_threshold_kw` | INTEGER | NULL, CHECK (`warning_threshold_kw` > 0) | Seuil de vigilance réglé à l'écran Paramètres | Saisie |
 | `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | | |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Dernier rechargement ou réglage | |
 
@@ -94,7 +94,9 @@ Le référentiel des installations, alimenté depuis `GET /api/v1/sites` et enri
 
 `present_in_source` répond à l'autre critère de #21 : « un site retiré de l'API n'est pas supprimé en base, les mesures historiques restent rattachables ». Une suppression casserait le rattachement des mesures Parquet déjà écrites ; un drapeau le rend visible sans rien perdre.
 
-`alert_threshold_kw` à `NULL` signifie **aucune alerte pour ce site**, pas « seuil par défaut ». Un défaut implicite est une alerte qui se déclenche sans que personne ne l'ait demandée.
+**Le nom ne dit pas « alerte », et c'est voulu.** Les alertes viennent de l'API Mock (`/api/v1/alerts`, #34) et voyagent dans les mêmes réponses que les nôtres : deux choses différentes sous le même mot deviennent indistinguables au premier diagnostic. Cette colonne décrit une **condition**, le niveau de charge au-delà duquel le site mérite attention, pas la conséquence qu'on en tire. Elle sert aujourd'hui les recommandations de seuil (#43) et servira demain celles issues de la prévision (#44), sans que le nom ait à changer.
+
+**Valeur par défaut, explicite : 80 % de `capacity_kw`.** `NULL` ne veut donc pas dire « pas de vigilance » mais « règle par défaut ». La différence compte : avec la lecture inverse, il fallait régler sept seuils à la main avant que #43 ne produise quoi que ce soit. Une règle écrite n'est pas un défaut implicite, c'est la valeur saisie qui devient l'exception.
 
 Pas de contrainte `CHECK` sur `type` ni sur `status` : leur domaine de valeurs n'est pas encore connu. Un `CHECK` posé sur une hypothèse fait échouer l'ETL sur la première valeur inattendue, et le site est alors perdu au lieu d'être chargé. À poser une fois le domaine relevé sur la source, s'il est stable.
 
@@ -113,7 +115,7 @@ GRANT UPDATE (name, type, location, capacity_kw, status,
               present_in_source, updated_at) ON sites TO etl;
 ```
 
-Deux conséquences, et ce sont elles qui rendent l'écart défendable. L'ETL ne peut **pas** lire `users`, `sessions` ni `user_sites` : ce n'est plus une promesse, c'est un refus de la base. Et il ne peut pas écrire `alert_threshold_kw`, donc un rechargement ne peut pas effacer un seuil réglé à l'écran, même par erreur de code.
+Deux conséquences, et ce sont elles qui rendent l'écart défendable. L'ETL ne peut **pas** lire `users`, `sessions` ni `user_sites` : ce n'est plus une promesse, c'est un refus de la base. Et il ne peut pas écrire `warning_threshold_kw`, donc un rechargement ne peut pas effacer un seuil réglé à l'écran, même par erreur de code.
 
 Cela vaut aussi pour l'épreuve : le moindre privilège appliqué à une base est plus concret qu'un schéma d'architecture, et il se démontre en essayant.
 
@@ -341,7 +343,7 @@ erDiagram
         int capacity_kw
         varchar status
         boolean present_in_source
-        int alert_threshold_kw
+        int warning_threshold_kw
         timestamptz created_at
         timestamptz updated_at
     }
