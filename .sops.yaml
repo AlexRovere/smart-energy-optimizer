@@ -19,7 +19,6 @@ creation_rules:
           - age1d9lzlejjw468jknwx7mvpfjmjqg3yagx2q6pc6cgafgcldw9nfwsyj3y0g # Alex Rovere, poste
           # Les quatre autres membres arrivent par pull request, chacun avec
           # sa clé publique, selon la procédure de docs/secrets.md.
-          - age1m9s5pcpa5qrehkz6pljc5eu4gmj6ag7qkdwyuylq06zj595q3ugqdyrg4a # CI GitHub Actions
           # La machine sur site est ajoutée au J2, sa clé étant générée sur
           # elle pour que sa partie privée ne transite nulle part. Exigence
           # portée par #47.
