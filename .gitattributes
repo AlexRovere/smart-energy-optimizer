@@ -1,0 +1,4 @@
+# Les hooks sont des scripts shell exécutés par Git : une fin de ligne CRLF,
+# introduite par un checkout Windows avec core.autocrlf actif, les casse à
+# l'exécution. On force LF quel que soit le réglage local.
+.githooks/* text eol=lf

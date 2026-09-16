@@ -328,3 +328,35 @@ Deux échappatoires existent, vérifiées sur ce dépôt avec `gitleaks 8.30.1`,
 - **Un fichier [`.gitleaksignore`](../.gitleaksignore)** à la racine, une empreinte par ligne, au format `<commit>:<chemin>:<règle>:<ligne>` exactement tel que gitleaks le rend dans ses résultats (champ `Fingerprint`). Cette forme convient à un faux positif découvert après coup, sur un commit déjà poussé, quand ajouter un commentaire demanderait de réécrire l'historique pour rien.
 
 **Quand c'est légitime** : un faux positif avéré (une clé publique, une valeur d'exemple déjà documentée comme telle, une chaîne de test sans usage réel) qu'on a vérifié un par un, jamais en lot. **Quand ça ne l'est pas** : faire taire un vrai secret parce que le corriger prend du temps. La différence ne se voit pas dans la syntaxe, elle se voit dans la revue : une entrée de `.gitleaksignore` ou un commentaire `gitleaks:allow` se relit en pull request comme le reste, avec la même exigence de dire pourquoi.
+
+## Le hook `pre-push`
+
+Un scan en CI **constate** : le secret est déjà parti au moment où le pipeline l'annonce. Un hook **empêche** : il refuse le push avant que quoi que ce soit atteigne la forge. Les deux sont voulus, l'un ne remplace pas l'autre, et le hook n'est qu'une première ligne, plus rapide et plus locale, devant le même garde-fou qui reste en CI.
+
+Le hook vit dans [`.githooks/pre-push`](../.githooks/pre-push), versionné, mais **un hook ne s'installe pas tout seul**. Tant que la commande suivante n'a pas été jouée sur un poste, aucune protection n'existe sur ce poste, silencieusement :
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Une commande par membre, une fois. Elle pointe Git vers ce répertoire pour tous les dépôts... non, pour **ce** dépôt seulement (`core.hooksPath` est une configuration locale, pas globale, sauf à la poser explicitement avec `--global`, ce que ce projet ne demande pas).
+
+**`git push --no-verify` contourne le hook**, et c'est voulu : il faut une porte de secours pour un cas légitime et pressé, et c'est précisément pourquoi la CI reste derrière, elle, sans échappatoire côté développeur. Un hook qu'on ne peut jamais court-circuiter finit par être désinstallé en entier le jour où il bloque à tort ; un hook contournable au prix d'un flag explicite et visible dans l'historique de commande reste en place.
+
+**Un fichier, un sujet.** Ce hook ne fait que le scan de secrets. Le lint (`ruff`, `eslint`...) n'y a pas sa place : un ticket dédié posera son propre `pre-commit` à côté, dans le même répertoire `.githooks`. Mélanger un contrôle de confort à un contrôle de sécurité finit par faire désactiver les deux ensemble le jour où le premier gêne.
+
+### Ce que le hook vérifie, et ce que chaque contrôle attrape
+
+Le hook fait deux contrôles indépendants, parce qu'ils n'attrapent pas la même chose.
+
+**1. Un scan gitleaks** sur les commits qui partent (la plage entre ce que la télécommande a déjà et ce que le push va lui envoyer, ou tout l'historique local lors du tout premier push d'une branche). Il cherche des **motifs** connus : préfixes de jetons (`ghp_`, `github_pat_`...), formes reconnaissables de clés. C'est le même moteur que la CI, en plus rapide parce qu'il ne porte que ce qui n'est pas encore sur la télécommande.
+
+**2. Un contrôle déterministe sur `secrets.enc.yaml`**, ajouté parce que le premier a un angle mort précis : gitleaks cherche des motifs, pas l'absence de chiffrement. Si quelqu'un déchiffre le fichier en place (`sops decrypt --in-place`, une redirection malheureuse du type `sops decrypt f > f`, ou une édition manuelle d'une seule valeur) puis le commite, les valeurs qui en résultent sont des chaînes quelconques, sans préfixe reconnaissable : rien ne garantit qu'une règle de motif les voie. **Vérifié sur ce projet** : une copie de `secrets.enc.yaml` dont les trois valeurs avaient été remplacées par des chaînes courtes et peu aléatoires (le genre de valeur qu'on retape à la main) n'a déclenché **aucune** détection gitleaks, alors qu'elle expose bel et bien les secrets en clair. À l'inverse, des valeurs aléatoires de forme réaliste (base64 issu de `openssl rand`) ont été attrapées par la règle générique de gitleaks dans nos essais : les deux contrôles ne se recouvrent donc pas complètement, et gitleaks seul ne suffit pas dans le cas qui compte le plus, une valeur discrète.
+
+Le contrôle vérifie, sans rien déchiffrer :
+
+- que le fichier porte bien son bloc de métadonnées `sops:` ;
+- que chaque valeur du fichier, avant ce bloc, porte le marqueur `ENC[AES256_GCM` ;
+- que le nombre de valeurs ainsi chiffrées correspond au nombre de clés du fichier, pour attraper le cas où une seule valeur aurait été déchiffrée en place à côté des autres, restées chiffrées.
+
+**Ce que ce contrôle n'attrape pas** : un secret en clair ailleurs que dans `secrets.enc.yaml` (c'est le rôle du scan gitleaks, contrôle 1), et une valeur qui resterait chiffrée mais fausse ou périmée (ce n'est pas son objet, c'est celui du job `secrets` de la CI qui vérifie le déchiffrement effectif). C'est un contrôle de **forme**, pas de contenu : il dit que le fichier a la structure d'un fichier chiffré, pas qu'il chiffre les bonnes valeurs pour les bons destinataires.
