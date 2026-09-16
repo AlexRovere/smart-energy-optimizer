@@ -376,7 +376,7 @@ C'est la correspondance qui manquait, et son absence est la raison pour laquelle
 | `SESSION_SECRET` | applicatif | `NUXT_SESSION_SECRET` | `sessionSecret` |
 | `MOCK_API_URL` | applicatif, ETL | `NUXT_MOCK_API_URL` / `MOCK_API_URL` | `mockApiUrl` |
 | `PARQUET_DIR_HOST` | composition seule | sans objet, sert au montage | sans objet |
-| `PARQUET_DIR` | applicatif, ETL, ML | `NUXT_PARQUET_DIR` / `PARQUET_DIR` | `parquetDir` |
+| *(constante `/data`)* | applicatif, ETL, ML | `NUXT_PARQUET_DIR` / `PARQUET_DIR`, posés par la composition | `parquetDir` |
 | `ML_API_URL` | applicatif | `NUXT_ML_API_URL` | `mlApiUrl` |
 | `LOG_LEVEL` | tous | `NUXT_LOG_LEVEL` / `LOG_LEVEL` | `logLevel` |
 
@@ -388,7 +388,7 @@ dashboard:
     NUXT_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     NUXT_SESSION_SECRET: ${SESSION_SECRET:?}
     NUXT_MOCK_API_URL: ${MOCK_API_URL:?}
-    NUXT_PARQUET_DIR: /data
+    NUXT_PARQUET_DIR: /data                       # constante, pas un reglage
     NUXT_ML_API_URL: ${ML_API_URL:-http://ml:8000}
 ```
 
