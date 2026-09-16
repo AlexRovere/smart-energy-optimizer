@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { creerBaseDeTest, DOSSIER_MIGRATIONS, type BaseDeTest } from './base-de-test'
+import { creerBaseDeTest, DOSSIER_MIGRATIONS, ligneAttendue, type BaseDeTest } from './base-de-test'
 import { amorcer, COMPTES_DE_DEMONSTRATION, ROLES } from '../../server/database/seed'
 
 const OPTIONS = {
@@ -29,9 +29,12 @@ describe('amorçage', () => {
   })
 
   const compter = async (table: 'roles' | 'users') => {
-    const [{ total }] = await base.sql<{ total: number }[]>`
-      SELECT count(*)::int AS total FROM ${base.sql(table)}
-    `
+    const { total } = ligneAttendue(
+      await base.sql<{ total: number }[]>`
+        SELECT count(*)::int AS total FROM ${base.sql(table)}
+      `,
+      `le décompte des lignes de ${table}`
+    )
     return total
   }
 
@@ -44,9 +47,12 @@ describe('amorçage', () => {
   })
 
   it('hache les mots de passe en Argon2id', async () => {
-    const [ligne] = await base.sql<{ password_hash: string }[]>`
-      SELECT password_hash FROM users WHERE email = ${COMPTES_DE_DEMONSTRATION[0].email}
-    `
+    const ligne = ligneAttendue(
+      await base.sql<{ password_hash: string }[]>`
+        SELECT password_hash FROM users WHERE email = ${COMPTES_DE_DEMONSTRATION[0].email}
+      `,
+      `le compte de démonstration ${COMPTES_DE_DEMONSTRATION[0].email}`
+    )
     expect(ligne.password_hash).toMatch(/^\$argon2id\$/)
     expect(ligne.password_hash).toContain('m=19456,t=2,p=1')
   })
@@ -68,23 +74,32 @@ describe('amorçage', () => {
     `
     await amorcer(base.sql, OPTIONS)
 
-    const [ligne] = await base.sql<{ password_hash: string }[]>`
-      SELECT password_hash FROM users WHERE email = ${email}
-    `
+    const ligne = ligneAttendue(
+      await base.sql<{ password_hash: string }[]>`
+        SELECT password_hash FROM users WHERE email = ${email}
+      `,
+      `le compte ${email} relu après le second amorçage`
+    )
     expect(ligne.password_hash).toBe(empreinteChangee)
   })
 
   it("n'amorce aucun site : le référentiel appartient à l'ETL", async () => {
-    const [{ total }] = await base.sql<{ total: number }[]>`
-      SELECT count(*)::int AS total FROM sites
-    `
+    const { total } = ligneAttendue(
+      await base.sql<{ total: number }[]>`
+        SELECT count(*)::int AS total FROM sites
+      `,
+      'le décompte des lignes de sites'
+    )
     expect(total).toBe(0)
   })
 
   it('rend le rôle etl capable de se connecter', async () => {
-    const [ligne] = await base.sql<{ rolcanlogin: boolean }[]>`
-      SELECT rolcanlogin FROM pg_roles WHERE rolname = 'etl'
-    `
+    const ligne = ligneAttendue(
+      await base.sql<{ rolcanlogin: boolean }[]>`
+        SELECT rolcanlogin FROM pg_roles WHERE rolname = 'etl'
+      `,
+      'la ligne pg_roles du rôle etl'
+    )
     expect(ligne.rolcanlogin).toBe(true)
   })
 
@@ -109,9 +124,12 @@ describe('amorçage', () => {
     })
 
     try {
-      const [ligne] = await etl<{ utilisateur: string }[]>`
-        SELECT current_user AS utilisateur
-      `
+      const ligne = ligneAttendue(
+        await etl<{ utilisateur: string }[]>`
+          SELECT current_user AS utilisateur
+        `,
+        'le current_user de la session ouverte par le rôle etl'
+      )
       expect(ligne.utilisateur).toBe('etl')
       expect(await etl`SELECT id FROM sites`).toHaveLength(0)
     } finally {

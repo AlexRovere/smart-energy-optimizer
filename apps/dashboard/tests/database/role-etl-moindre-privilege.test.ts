@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import postgres from 'postgres'
-import { creerBaseDeTest, type BaseDeTest } from './base-de-test'
+import { creerBaseDeTest, ligneAttendue, type BaseDeTest } from './base-de-test'
 
 // Mot de passe de test, jamais un secret : le rôle vit dans un conteneur
 // jetable qui n'est joignable que par cette suite.
@@ -14,9 +14,12 @@ describe('le rôle etl ne peut faire que ce que data.md lui accorde', () => {
   beforeAll(async () => {
     base = await creerBaseDeTest()
 
-    const [{ literal }] = await base.sql<{ literal: string }[]>`
-      SELECT quote_literal(${MOT_DE_PASSE}) AS literal
-    `
+    const { literal } = ligneAttendue(
+      await base.sql<{ literal: string }[]>`
+        SELECT quote_literal(${MOT_DE_PASSE}) AS literal
+      `,
+      'le mot de passe échappé par quote_literal'
+    )
     await base.sql.unsafe(`ALTER ROLE etl WITH LOGIN PASSWORD ${literal}`)
 
     await base.sql`
@@ -62,9 +65,12 @@ describe('le rôle etl ne peut faire que ce que data.md lui accorde', () => {
                updated_at = NOW()
          WHERE id = 'SITE001'
       `
-      const [ligne] = await etl<{ capacity_kw: number }[]>`
-        SELECT capacity_kw FROM sites WHERE id = 'SITE001'
-      `
+      const ligne = ligneAttendue(
+        await etl<{ capacity_kw: number }[]>`
+          SELECT capacity_kw FROM sites WHERE id = 'SITE001'
+        `,
+        'le site SITE001 relu après mise à jour'
+      )
       expect(ligne.capacity_kw).toBe(220)
     })
   })

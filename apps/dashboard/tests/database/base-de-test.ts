@@ -17,6 +17,19 @@ export interface BaseDeTest {
   fermer: () => Promise<void>
 }
 
+// Une requête `postgres` rend toujours un tableau, et `noUncheckedIndexedAccess`
+// a raison de le rappeler : rien ne promet au compilateur qu'il contient une
+// ligne. Plutôt que d'affirmer le contraire au coup par coup, les tests passent
+// tous par ici. Une requête muette échoue alors en nommant ce qu'on attendait,
+// au lieu de se traduire en « cannot read properties of undefined » à dérouler.
+export function ligneAttendue<T>(lignes: readonly T[], attendu: string): T {
+  const [ligne] = lignes
+  if (ligne === undefined) {
+    throw new Error(`Aucune ligne rendue pour ${attendu}.`)
+  }
+  return ligne
+}
+
 export async function creerBaseDeTest(
   options: { migrer?: boolean } = {}
 ): Promise<BaseDeTest> {

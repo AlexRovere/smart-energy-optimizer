@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { creerBaseDeTest, type BaseDeTest } from './base-de-test'
+import { creerBaseDeTest, ligneAttendue, type BaseDeTest } from './base-de-test'
 
 const TABLES = ['roles', 'users', 'sessions', 'sites', 'user_sites']
 
@@ -62,9 +62,12 @@ describe('schéma appliqué', () => {
       INSERT INTO sites (id, name, type, capacity_kw, status, warning_threshold_kw)
       VALUES ('SITE997', 'Essai', 'office', 200, 'active', NULL)
     `
-    const [ligne] = await base.sql<{ warning_threshold_kw: number | null }[]>`
-      SELECT warning_threshold_kw FROM sites WHERE id = 'SITE997'
-    `
+    const ligne = ligneAttendue(
+      await base.sql<{ warning_threshold_kw: number | null }[]>`
+        SELECT warning_threshold_kw FROM sites WHERE id = 'SITE997'
+      `,
+      'le site SITE997 tout juste inséré'
+    )
     expect(ligne.warning_threshold_kw).toBeNull()
   })
 })

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
-import { creerBaseDeTest, DOSSIER_MIGRATIONS, type BaseDeTest } from './base-de-test'
+import { creerBaseDeTest, DOSSIER_MIGRATIONS, ligneAttendue, type BaseDeTest } from './base-de-test'
 
 interface EntreeJournal {
   id: number
@@ -44,16 +44,22 @@ describe('rejouabilité des migrations Drizzle', () => {
     })
 
     it('laisse les cinq tables et le rôle etl en place', async () => {
-      const [{ tables }] = await base.sql<{ tables: number }[]>`
-        SELECT count(*)::int AS tables
-          FROM information_schema.tables
-         WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
-      `
+      const { tables } = ligneAttendue(
+        await base.sql<{ tables: number }[]>`
+          SELECT count(*)::int AS tables
+            FROM information_schema.tables
+           WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+        `,
+        'le décompte des tables du schéma public'
+      )
       expect(tables).toBe(5)
 
-      const [{ existe }] = await base.sql<{ existe: boolean }[]>`
-        SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'etl') AS existe
-      `
+      const { existe } = ligneAttendue(
+        await base.sql<{ existe: boolean }[]>`
+          SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'etl') AS existe
+        `,
+        'la présence du rôle etl dans le cluster'
+      )
       expect(existe).toBe(true)
     })
   })
@@ -80,9 +86,12 @@ describe('rejouabilité des migrations Drizzle', () => {
         migrate(drizzle(secondeBase.sql), { migrationsFolder: DOSSIER_MIGRATIONS })
       ).resolves.toBeUndefined()
 
-      const [{ existe }] = await secondeBase.sql<{ existe: boolean }[]>`
-        SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'etl') AS existe
-      `
+      const { existe } = ligneAttendue(
+        await secondeBase.sql<{ existe: boolean }[]>`
+          SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'etl') AS existe
+        `,
+        'la présence du rôle etl vue depuis la seconde base'
+      )
       expect(existe).toBe(true)
     })
   })

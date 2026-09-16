@@ -91,7 +91,7 @@ sont pas connus du dépôt. Voir [`docs/data.md`](../../docs/data.md).
 | `pnpm db:migrate` | Applique les migrations en attente. Rejouable |
 | `pnpm db:seed` | Trois rôles, trois comptes de démonstration, et active le rôle `etl` |
 | `pnpm lint` | ESLint sur l'applicatif |
-| `pnpm typecheck` | Contrôle des types par `vue-tsc --noEmit`, sans rien émettre |
+| `pnpm typecheck` | Contrôle des types par `vue-tsc -b --noEmit` sur les quatre projets du `tsconfig` de Nuxt : `app`, `server`, `shared`, `node` |
 | `pnpm test` | Les tests, dont ceux qui parlent à PostgreSQL. **Docker doit tourner** |
 | `pnpm test:watch` | Les mêmes, en mode observateur |
 

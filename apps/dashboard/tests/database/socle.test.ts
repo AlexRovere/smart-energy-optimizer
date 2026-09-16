@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from 'vitest'
-import { creerBaseDeTest, type BaseDeTest } from './base-de-test'
+import { creerBaseDeTest, ligneAttendue, type BaseDeTest } from './base-de-test'
 
 describe('socle de test', () => {
   const basesOuvertes: BaseDeTest[] = []
@@ -12,7 +12,10 @@ describe('socle de test', () => {
     const base = await creerBaseDeTest({ migrer: false })
     basesOuvertes.push(base)
 
-    const [ligne] = await base.sql<{ un: number }[]>`SELECT 1 AS un`
+    const ligne = ligneAttendue(
+      await base.sql<{ un: number }[]>`SELECT 1 AS un`,
+      'le SELECT 1 de la base jetable'
+    )
     expect(ligne.un).toBe(1)
   })
 
@@ -23,12 +26,15 @@ describe('socle de test', () => {
 
     await premiere.sql`CREATE TABLE marqueur (id integer)`
 
-    const [{ existe }] = await seconde.sql<{ existe: boolean }[]>`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.tables
-         WHERE table_schema = 'public' AND table_name = 'marqueur'
-      ) AS existe
-    `
+    const { existe } = ligneAttendue(
+      await seconde.sql<{ existe: boolean }[]>`
+        SELECT EXISTS (
+          SELECT 1 FROM information_schema.tables
+           WHERE table_schema = 'public' AND table_name = 'marqueur'
+        ) AS existe
+      `,
+      'la présence de la table marqueur dans la seconde base'
+    )
     expect(existe).toBe(false)
   })
 })

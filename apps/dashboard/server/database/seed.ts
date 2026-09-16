@@ -8,8 +8,16 @@
 // Aucun site n'est amorcé : le référentiel appartient à l'ETL (#21), et seuls
 // les identifiants SITE001 à SITE007 sont connus ici. Une ligne inventée ne
 // serait jamais corrigée, l'ETL n'insérant que les sites absents.
-import { Algorithm, hash } from '@node-rs/argon2'
+import { hash, type Algorithm } from '@node-rs/argon2'
 import type { Sql } from 'postgres'
+
+// @node-rs/argon2 déclare son énumération Algorithm en `const enum` ambiante,
+// et le tsconfig de Nuxt pose verbatimModuleSyntax : lire `Algorithm.Argon2id`
+// y est refusé, parce que le compilateur devrait inliner le membre alors que
+// l'import doit rester tel quel. La valeur est donc écrite, mais typée sur le
+// membre attendu : si la bibliothèque renumérotait son énumération, ce fichier
+// cesserait de compiler au lieu de choisir silencieusement un autre algorithme.
+const ARGON2ID: Algorithm.Argon2id = 2
 
 // Paramètres de docs/data.md, repris de la fiche OWASP « Password Storage ».
 //
@@ -18,7 +26,7 @@ import type { Sql } from 'postgres'
 // et une primitive cryptographique choisie par le défaut d'une bibliothèque
 // change le jour où la bibliothèque change d'avis, sans que ce fichier bouge.
 export const PARAMETRES_ARGON2ID = {
-  algorithm: Algorithm.Argon2id,
+  algorithm: ARGON2ID,
   memoryCost: 19456,
   timeCost: 2,
   parallelism: 1
@@ -85,6 +93,14 @@ async function activerRoleEtl(sql: Sql, motDePasse: string): Promise<void> {
   const [existe] = await sql<{ present: boolean }[]>`
     SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'etl') AS present
   `
+  // SELECT EXISTS rend toujours une ligne : n'en rendre aucune signifie que la
+  // requête n'a pas été exécutée là où on croyait. On le dit plutôt que de lire
+  // une propriété sur rien, l'erreur serait alors « of undefined », sans piste.
+  if (existe === undefined) {
+    throw new Error(
+      "La recherche du rôle PostgreSQL « etl » n'a rendu aucune ligne : la connexion n'est pas celle attendue."
+    )
+  }
   if (!existe.present) {
     throw new Error(
       "Le rôle PostgreSQL « etl » n'existe pas : appliquer les migrations avant d'amorcer."
@@ -94,8 +110,16 @@ async function activerRoleEtl(sql: Sql, motDePasse: string): Promise<void> {
   // PostgreSQL n'accepte pas de paramètre lié dans ALTER ROLE ... PASSWORD, et
   // un bloc DO n'en accepte pas davantage. L'échappement se fait donc côté
   // serveur, par quote_literal, avant d'assembler la commande.
-  const [{ literal }] = await sql<{ literal: string }[]>`
+  const [echappe] = await sql<{ literal: string }[]>`
     SELECT quote_literal(${motDePasse}) AS literal
   `
-  await sql.unsafe(`ALTER ROLE etl WITH LOGIN PASSWORD ${literal}`)
+  // Même raison qu'au-dessus, et une conséquence plus lourde : sans littéral,
+  // la commande assemblée plus bas serait tronquée et poserait n'importe quoi
+  // comme mot de passe. On s'arrête avant de l'assembler.
+  if (echappe === undefined) {
+    throw new Error(
+      "L'échappement du mot de passe du rôle « etl » n'a rendu aucune ligne : commande ALTER ROLE non assemblée."
+    )
+  }
+  await sql.unsafe(`ALTER ROLE etl WITH LOGIN PASSWORD ${echappe.literal}`)
 }
