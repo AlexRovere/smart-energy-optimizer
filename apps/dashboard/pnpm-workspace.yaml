@@ -1,3 +1,8 @@
+# pnpm exige ce champ dès la 10.12, même pour un dépôt à un seul paquet :
+# sans lui, l'installation échoue avant de lire quoi que ce soit d'autre.
+packages:
+  - .
+
 allowBuilds:
   esbuild: true
   'true': true
