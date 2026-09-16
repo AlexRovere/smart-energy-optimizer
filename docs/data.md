@@ -245,7 +245,7 @@ Reprises de `architecture.md` et du document de l'ETL :
 - La stratégie d'imputation retenue est documentée avec son risque.
 - Un agrégat qui exclut des sites le signale dans sa réponse.
 
-Deux répertoires, deux usages : l'exposé alimente le tableau de bord, celui d'entraînement alimente le modèle. L'ETL est le seul à écrire ; chaque consommateur ne monte que son répertoire, en lecture seule.
+**Un seul répertoire**, écrit par l'ETL seul et monté en lecture seule par l'applicatif comme par le service ML. Une première version en prévoyait deux, exposé et entraînement ; ils auraient porté les mêmes mesures, donc la séparation obligeait à écrire deux fois sans rien cloisonner. Retirée le 16 septembre.
 
 ---
 

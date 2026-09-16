@@ -205,7 +205,7 @@ Le service ML **n'a aucune notion d'utilisateur** : l'autorisation est résolue 
 
 L'ETL **écrit des fichiers**, il n'appelle aucune route. Le répertoire est monté en écriture.
 
-- Deux sous-répertoires : le répertoire **exposé** (séries nettoyées, lues par l'applicatif) et le répertoire d'**entraînement** (lu par le service ML).
+- Un seul répertoire : les séries nettoyées, lues par l'applicatif et par le service ML.
 - Partition par `site_id`, puis par période. La granularité temporelle reste ouverte dans #26.
 - Écriture **atomique** : fichier temporaire, puis renommage. Un Parquet porte son index en pied de page et reste illisible tant qu'il n'est pas complet.
 - Schéma **déclaré dans un module unique**, l'écriture caste dessus. Voir [`data.md`](./data.md).
@@ -218,10 +218,10 @@ Extraction. Base : `MOCK_API_URL`. `GET /api/v1/sites` pour le référentiel, `/
 
 ## 7. ML vers les fichiers Parquet
 
-Le service ML lit le répertoire d'entraînement avec **pandas**, pas avec DuckDB et pas par une route.
+Le service ML lit le répertoire avec **pandas**, pas avec DuckDB et pas par une route.
 
 ```python
-df = pd.read_parquet(f"{PARQUET_DIR_ENTRAINEMENT}/site_id={site_id}",
+df = pd.read_parquet(f"{PARQUET_DIR_EXPOSE}/site_id={site_id}",
                      columns=["horodatage", "consommation_kw"])
 ```
 
@@ -376,7 +376,6 @@ C'est la correspondance qui manquait, et son absence est la raison pour laquelle
 | `SESSION_SECRET` | applicatif | `NUXT_SESSION_SECRET` | `sessionSecret` |
 | `MOCK_API_URL` | applicatif, ETL | `NUXT_MOCK_API_URL` / `MOCK_API_URL` | `mockApiUrl` |
 | `PARQUET_DIR_EXPOSE` | applicatif, ETL | `NUXT_PARQUET_DIR_EXPOSE` / `PARQUET_DIR_EXPOSE` | `parquetDirExpose` |
-| `PARQUET_DIR_ENTRAINEMENT` | ETL, ML | `PARQUET_DIR_ENTRAINEMENT` | sans objet |
 | `ML_API_URL` | applicatif | `NUXT_ML_API_URL` | `mlApiUrl` |
 | `LOG_LEVEL` | tous | `NUXT_LOG_LEVEL` / `LOG_LEVEL` | `logLevel` |
 
@@ -431,6 +430,7 @@ Aucun secret en clair dans un fichier versionné : ils passent par SOPS et age (
 | Date | Changement |
 | :--- | :--- |
 | 15 septembre 2026 | Première version, croisement des trois propositions. |
+| 16 septembre 2026 | Un seul répertoire Parquet au lieu de deux : celui d'entraînement n'aurait eu ni producteur ni consommateur. |
 | 16 septembre 2026 | L'intervalle de confiance sort du contrat de prédiction : aucun critère d'épreuve ne le demandait. |
 | 16 septembre 2026 | `sites.alert_threshold_kw` devient `warning_threshold_kw`, et `NULL` vaut désormais « 80 % de `capacity_kw` » au lieu de « pas de vigilance ». |
 | 15 septembre 2026 | L'ETL charge le référentiel des sites, la route de rechargement disparaît. |
