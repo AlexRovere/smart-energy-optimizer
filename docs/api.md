@@ -77,8 +77,8 @@ export const historyQuerySchema = z.object({
 
 // A la frontiere seulement, le TypeScript retrouve ses habitudes :
 export const settingsBodySchema = z.object({
-  alert_threshold_kw: z.number().int().positive().nullable(),
-}).transform(({ alert_threshold_kw }) => ({ alertThresholdKw: alert_threshold_kw }))
+  warning_threshold_kw: z.number().int().positive().nullable(),
+}).transform(({ warning_threshold_kw }) => ({ warningThresholdKw: warning_threshold_kw }))
 ```
 
 ---
@@ -129,7 +129,7 @@ Toutes authentifiées, et **filtrées par le périmètre du compte**. Un identif
 | GET | `/api/sites` | | `Site[]` | 401 | tous |
 | GET | `/api/sites/{id}/current` | | `EnergyReading` | 401, 403, 404, 503 | tous |
 | GET | `/api/sites/{id}/history` | `?from=&to=&limit=` | `EnergyReading[]` | 401, 403, 404, 422 | tous |
-| PUT | `/api/sites/{id}/settings` | `{ alert_threshold_kw }` | `Site` | 401, 403, 404, 422 | `ADMIN`, `OPERATOR` |
+| PUT | `/api/sites/{id}/settings` | `{ warning_threshold_kw }` | `Site` | 401, 403, 404, 422 | `ADMIN`, `OPERATOR` |
 | GET | `/api/stats/summary` | | `ParkSummary` | 401, 503 | tous |
 | GET | `/api/alerts` | `?site_id=&severity=` | `Alert[]` | 401, 422, 503 | tous |
 | GET | `/api/sensors/status` | | `SensorStatus` | 401, 503 | tous |
@@ -172,7 +172,7 @@ Sur échec : trois tentatives avec attente croissante, puis `503` et bandeau dé
 
 ```sql
 SELECT horodatage, consommation_kw, data_quality
-  FROM read_parquet('${PARQUET_DIR_EXPOSE}/site_id=*/**/*.parquet', hive_partitioning := true)
+  FROM read_parquet('${PARQUET_DIR}/site_id=*/**/*.parquet', hive_partitioning := true)
  WHERE site_id IN (...)          -- le perimetre resolu, jamais le parametre du client
    AND horodatage BETWEEN ? AND ?
  ORDER BY horodatage;
@@ -193,7 +193,7 @@ Réseau interne uniquement, pas d'authentification, pas d'exposition par le prox
 | POST | `/predictions` | `{ site_id, horizon_hours }` | `Prediction` |
 | GET | `/health` | | `{ status, model_version }` |
 
-**L'intervalle de confiance est obligatoire**, c'est le deuxième critère de #38 et le troisième de #97 : l'interface doit le représenter, pas seulement la valeur centrale. Une valeur sans intervalle est une affirmation ; avec l'intervalle, le lecteur juge de ce qu'il peut en faire.
+**Pas d'intervalle de confiance.** Il figurait dans la première version de ce contrat, repris d'un critère écrit au J0. Aucun critère d'épreuve ne le demande, et il coûtait des deux côtés : au producteur pour l'établir, au consommateur pour le représenter. Un champ ajouté n'étant jamais une rupture, il pourra revenir si le modèle est en avance.
 
 `granularity` **n'est pas une entrée**, elle est dans la réponse : le modèle dit à quel pas il a travaillé. Un paramètre d'entrée qui n'accepte qu'une valeur ment au consommateur et n'est jamais testé. Le jour où le modèle sait produire un autre pas, l'ajouter en entrée ne casse rien.
 
@@ -205,7 +205,7 @@ Le service ML **n'a aucune notion d'utilisateur** : l'autorisation est résolue 
 
 L'ETL **écrit des fichiers**, il n'appelle aucune route. Le répertoire est monté en écriture.
 
-- Deux sous-répertoires : le répertoire **exposé** (séries nettoyées, lues par l'applicatif) et le répertoire d'**entraînement** (lu par le service ML).
+- Un seul répertoire : les séries nettoyées, lues par l'applicatif et par le service ML.
 - Partition par `site_id`, puis par période. La granularité temporelle reste ouverte dans #26.
 - Écriture **atomique** : fichier temporaire, puis renommage. Un Parquet porte son index en pied de page et reste illisible tant qu'il n'est pas complet.
 - Schéma **déclaré dans un module unique**, l'écriture caste dessus. Voir [`data.md`](./data.md).
@@ -218,10 +218,10 @@ Extraction. Base : `MOCK_API_URL`. `GET /api/v1/sites` pour le référentiel, `/
 
 ## 7. ML vers les fichiers Parquet
 
-Le service ML lit le répertoire d'entraînement avec **pandas**, pas avec DuckDB et pas par une route.
+Le service ML lit le répertoire avec **pandas**, pas avec DuckDB et pas par une route.
 
 ```python
-df = pd.read_parquet(f"{PARQUET_DIR_ENTRAINEMENT}/site_id={site_id}",
+df = pd.read_parquet(f"{PARQUET_DIR}/site_id={site_id}",
                      columns=["horodatage", "consommation_kw"])
 ```
 
@@ -241,7 +241,7 @@ df = pd.read_parquet(f"{PARQUET_DIR_ENTRAINEMENT}/site_id={site_id}",
   "location": "Paris, France",
   "capacity_kw": 200,
   "status": "active",
-  "alert_threshold_kw": 160,
+  "warning_threshold_kw": 160,
   "present_in_source": true
 }
 ```
@@ -318,13 +318,10 @@ Les sites dont la mesure est absente sont **exclus des totaux et nommés** dans 
   "horizon_hours": 24,
   "granularity": "hour",
   "model_version": "3",
-  "confidence_level": 0.95,
   "predictions": [
     {
       "timestamp": "2026-09-15T11:00:00Z",
-      "predicted_consumption_kw": 92.5,
-      "confidence_lower": 85.0,
-      "confidence_upper": 100.0
+      "predicted_consumption_kw": 92.5
     }
   ]
 }
@@ -378,8 +375,8 @@ C'est la correspondance qui manquait, et son absence est la raison pour laquelle
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | applicatif | `NUXT_DATABASE_URL`, composée | `databaseUrl` |
 | `SESSION_SECRET` | applicatif | `NUXT_SESSION_SECRET` | `sessionSecret` |
 | `MOCK_API_URL` | applicatif, ETL | `NUXT_MOCK_API_URL` / `MOCK_API_URL` | `mockApiUrl` |
-| `PARQUET_DIR_EXPOSE` | applicatif, ETL | `NUXT_PARQUET_DIR_EXPOSE` / `PARQUET_DIR_EXPOSE` | `parquetDirExpose` |
-| `PARQUET_DIR_ENTRAINEMENT` | ETL, ML | `PARQUET_DIR_ENTRAINEMENT` | sans objet |
+| `PARQUET_DIR_HOST` | composition seule | sans objet, sert au montage | sans objet |
+| *(constante `/data`)* | applicatif, ETL, ML | `NUXT_PARQUET_DIR` / `PARQUET_DIR`, posés par la composition | `parquetDir` |
 | `ML_API_URL` | applicatif | `NUXT_ML_API_URL` | `mlApiUrl` |
 | `LOG_LEVEL` | tous | `NUXT_LOG_LEVEL` / `LOG_LEVEL` | `logLevel` |
 
@@ -391,13 +388,13 @@ dashboard:
     NUXT_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     NUXT_SESSION_SECRET: ${SESSION_SECRET:?}
     NUXT_MOCK_API_URL: ${MOCK_API_URL:?}
-    NUXT_PARQUET_DIR_EXPOSE: /data/expose
+    NUXT_PARQUET_DIR: /data                       # constante, pas un reglage
     NUXT_ML_API_URL: ${ML_API_URL:-http://ml:8000}
 ```
 
 **Trois écarts restent à corriger dans le code**, tous introduits par le scaffold de #110 :
 
-- `runtimeConfig` déclare `dataServiceUrl`, une URL vers un service qui n'existe pas. Il doit devenir `parquetDirExpose`, un chemin. En l'état, **l'applicatif ne sait pas où sont les fichiers Parquet**.
+- `runtimeConfig` déclare `dataServiceUrl`, une URL vers un service qui n'existe pas. Il doit devenir `parquetDir`, un chemin. En l'état, **l'applicatif ne sait pas où sont les fichiers Parquet**.
 - `runtimeConfig` déclare `mlServiceUrl` quand `.env.example` et la composition disent `ML_API_URL`.
 - `SESSION_SECRET` n'est pas dans `.env.example`.
 
@@ -434,5 +431,8 @@ Aucun secret en clair dans un fichier versionné : ils passent par SOPS et age (
 | Date | Changement |
 | :--- | :--- |
 | 15 septembre 2026 | Première version, croisement des trois propositions. |
+| 16 septembre 2026 | Un seul répertoire Parquet au lieu de deux : celui d'entraînement n'aurait eu ni producteur ni consommateur. |
+| 16 septembre 2026 | L'intervalle de confiance sort du contrat de prédiction : aucun critère d'épreuve ne le demandait. |
+| 16 septembre 2026 | `sites.alert_threshold_kw` devient `warning_threshold_kw`, et `NULL` vaut désormais « 80 % de `capacity_kw` » au lieu de « pas de vigilance ». |
 | 15 septembre 2026 | L'ETL charge le référentiel des sites, la route de rechargement disparaît. |
 | 15 septembre 2026 | `snake_case` fixé sur le fil, les entrées suivent. Variables d'environnement réconciliées avec `.env.example` et le `runtimeConfig`. `ML_SERVICE_URL` devient `ML_API_URL`, port 8000. |
