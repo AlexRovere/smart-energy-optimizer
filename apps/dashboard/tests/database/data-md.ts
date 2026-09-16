@@ -133,3 +133,106 @@ export function typePostgres(
       throw new Error(`Type non pris en charge dans data.md : ${typeDocumente}`)
   }
 }
+
+// Ce qui suit dérive du texte brut de `contraintes` les attentes que le test
+// de conformité compare à la base : clés primaires, UNIQUE, clés étrangères et
+// CHECK. Le but est que ces attentes viennent du document à chaque exécution,
+// jamais d'une copie figée recopiée à la main dans le test.
+
+// Colonnes marquées PRIMARY KEY dans le tableau d'une table. Vide pour
+// `user_sites` : sa clé composite est décrite en prose sous le tableau, pas
+// par colonne, et elle est couverte par ailleurs.
+export function colonnesClePrimaire(table: TableDocumentee): string[] {
+  return table.colonnes
+    .filter(colonne => /\bPRIMARY KEY\b/i.test(colonne.contraintes))
+    .map(colonne => colonne.nom)
+}
+
+// Agrège colonnesClePrimaire sur tout le document. Lève si le total est nul :
+// une expression régulière qui ne trouverait plus rien rendrait les tests
+// d'inclusion vides et donc verts sans le dire.
+export function clesPrimairesDocumentees(
+  tables: Map<string, TableDocumentee>
+): Array<[table: string, colonne: string]> {
+  const paires = [...tables.values()].flatMap(table =>
+    colonnesClePrimaire(table).map((colonne): [string, string] => [table.nom, colonne])
+  )
+  if (paires.length === 0) {
+    throw new Error(
+      'Aucune colonne PRIMARY KEY trouvée dans data.md : extraction probablement cassée'
+    )
+  }
+  return paires
+}
+
+// Colonnes marquées UNIQUE, agrégées sur tout le document.
+export function colonnesUniquesDocumentees(
+  tables: Map<string, TableDocumentee>
+): Array<[table: string, colonne: string]> {
+  const paires = [...tables.values()].flatMap(table =>
+    table.colonnes
+      .filter(colonne => /\bUNIQUE\b/i.test(colonne.contraintes))
+      .map((colonne): [string, string] => [table.nom, colonne.nom])
+  )
+  if (paires.length === 0) {
+    throw new Error(
+      'Aucune colonne UNIQUE trouvée dans data.md : extraction probablement cassée'
+    )
+  }
+  return paires
+}
+
+export interface CleEtrangereDocumentee {
+  table: string
+  colonne: string
+  tableReferencee: string
+  onDelete: string
+}
+
+// Extrait la forme « REFERENCES table(colonne) ON DELETE RÈGLE » de
+// `contraintes`, agrégée sur tout le document.
+export function clesEtrangeresDocumentees(
+  tables: Map<string, TableDocumentee>
+): CleEtrangereDocumentee[] {
+  const resultat: CleEtrangereDocumentee[] = []
+  for (const table of tables.values()) {
+    for (const colonne of table.colonnes) {
+      const correspondance = /REFERENCES\s+(\w+)\(\w+\)\s+ON DELETE\s+(\w+)/i.exec(
+        colonne.contraintes
+      )
+      if (correspondance) {
+        resultat.push({
+          table: table.nom,
+          colonne: colonne.nom,
+          tableReferencee: correspondance[1]!,
+          onDelete: correspondance[2]!.toUpperCase()
+        })
+      }
+    }
+  }
+  if (resultat.length === 0) {
+    throw new Error(
+      'Aucune clé étrangère trouvée dans data.md : extraction probablement cassée'
+    )
+  }
+  return resultat
+}
+
+// Colonnes dont les contraintes portent un CHECK, agrégées sur tout le
+// document. Ne capture pas l'expression du CHECK : la comparer mot pour mot
+// à la base serait fragile pour rien, seule la présence compte.
+export function colonnesAvecCheckDocumentees(
+  tables: Map<string, TableDocumentee>
+): Array<[table: string, colonne: string]> {
+  const paires = [...tables.values()].flatMap(table =>
+    table.colonnes
+      .filter(colonne => /\bCHECK\b/i.test(colonne.contraintes))
+      .map((colonne): [string, string] => [table.nom, colonne.nom])
+  )
+  if (paires.length === 0) {
+    throw new Error(
+      'Aucune colonne avec CHECK trouvée dans data.md : extraction probablement cassée'
+    )
+  }
+  return paires
+}

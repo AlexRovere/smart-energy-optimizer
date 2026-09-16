@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { lireTablesDocumentees, typePostgres } from './data-md'
+import {
+  clesEtrangeresDocumentees,
+  colonnesAvecCheckDocumentees,
+  colonnesClePrimaire,
+  colonnesUniquesDocumentees,
+  lireTablesDocumentees,
+  typePostgres
+} from './data-md'
 
 describe('lecture de docs/data.md', () => {
   const tables = lireTablesDocumentees()
@@ -56,5 +63,38 @@ describe('lecture de docs/data.md', () => {
     })
     expect(typePostgres('SERIAL')).toEqual({ dataType: 'integer', longueur: null })
     expect(() => typePostgres('JSONB')).toThrow(/JSONB/)
+  })
+
+  it('dérive les colonnes marquées PRIMARY KEY, table par table', () => {
+    expect(colonnesClePrimaire(tables.get('roles')!)).toEqual(['id'])
+    expect(colonnesClePrimaire(tables.get('users')!)).toEqual(['id'])
+    expect(colonnesClePrimaire(tables.get('sessions')!)).toEqual(['id'])
+    expect(colonnesClePrimaire(tables.get('sites')!)).toEqual(['id'])
+    // Décrite en prose sous le tableau, pas par colonne : aucune colonne de
+    // user_sites ne porte PRIMARY KEY dans le document.
+    expect(colonnesClePrimaire(tables.get('user_sites')!)).toEqual([])
+  })
+
+  it('dérive les colonnes UNIQUE du document', () => {
+    expect(colonnesUniquesDocumentees(tables)).toEqual([
+      ['roles', 'name'],
+      ['users', 'email']
+    ])
+  })
+
+  it('dérive les clés étrangères et leur ON DELETE', () => {
+    expect(clesEtrangeresDocumentees(tables)).toEqual([
+      { table: 'users', colonne: 'role_id', tableReferencee: 'roles', onDelete: 'RESTRICT' },
+      { table: 'sessions', colonne: 'user_id', tableReferencee: 'users', onDelete: 'CASCADE' },
+      { table: 'user_sites', colonne: 'user_id', tableReferencee: 'users', onDelete: 'CASCADE' },
+      { table: 'user_sites', colonne: 'site_id', tableReferencee: 'sites', onDelete: 'RESTRICT' }
+    ])
+  })
+
+  it('dérive les colonnes portant un CHECK', () => {
+    expect(colonnesAvecCheckDocumentees(tables)).toEqual([
+      ['sites', 'capacity_kw'],
+      ['sites', 'warning_threshold_kw']
+    ])
   })
 })

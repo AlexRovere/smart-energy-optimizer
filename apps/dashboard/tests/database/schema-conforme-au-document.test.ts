@@ -1,6 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { creerBaseDeTest, type BaseDeTest } from './base-de-test'
-import { lireTablesDocumentees, typePostgres } from './data-md'
+import {
+  clesEtrangeresDocumentees,
+  colonnesAvecCheckDocumentees,
+  colonnesClePrimaire,
+  colonnesUniquesDocumentees,
+  lireTablesDocumentees,
+  typePostgres
+} from './data-md'
 
 interface ColonneEnBase {
   column_name: string
@@ -10,8 +17,21 @@ interface ColonneEnBase {
   column_default: string | null
 }
 
+// Clef de tri stable pour comparer des tuples sans dépendre de l'ordre dans
+// lequel la base et le document les rendent.
+function clefTri(valeurs: readonly string[]): string {
+  return valeurs.join('|')
+}
+
 describe('le schéma appliqué correspond à docs/data.md', () => {
   const documentees = lireTablesDocumentees()
+  // Dérivées une seule fois du document : ces appels lèvent déjà si
+  // l'extraction par expression régulière ne trouve plus rien, avant même
+  // qu'un test tourne.
+  const clesEtrangeresAttendues = clesEtrangeresDocumentees(documentees)
+  const colonnesUniquesAttendues = colonnesUniquesDocumentees(documentees)
+  const colonnesCheckAttendues = colonnesAvecCheckDocumentees(documentees)
+
   let base: BaseDeTest
 
   beforeAll(async () => {
@@ -25,6 +45,7 @@ describe('le schéma appliqué correspond à docs/data.md', () => {
   for (const [nomTable, table] of documentees) {
     describe(nomTable, () => {
       let enBase: Map<string, ColonneEnBase>
+      let clePrimaireEnBase: string[]
 
       beforeAll(async () => {
         const lignes = await base.sql<ColonneEnBase[]>`
@@ -35,6 +56,17 @@ describe('le schéma appliqué correspond à docs/data.md', () => {
            ORDER BY ordinal_position
         `
         enBase = new Map(lignes.map(ligne => [ligne.column_name, ligne]))
+
+        const lignesClePrimaire = await base.sql<{ column_name: string }[]>`
+          SELECT kcu.column_name
+            FROM information_schema.table_constraints tc
+            JOIN information_schema.key_column_usage kcu
+              ON kcu.constraint_name = tc.constraint_name
+           WHERE tc.constraint_type = 'PRIMARY KEY'
+             AND tc.table_schema = 'public'
+             AND tc.table_name = ${nomTable}
+        `
+        clePrimaireEnBase = lignesClePrimaire.map(l => l.column_name)
       })
 
       it('a exactement les colonnes du document', () => {
@@ -55,6 +87,19 @@ describe('le schéma appliqué correspond à docs/data.md', () => {
           expect(reelle!.column_default !== null).toBe(colonne.aUnDefaut)
         })
       }
+
+      // Inclusion, pas égalité : `user_sites` n'a aucune colonne marquée
+      // PRIMARY KEY dans son tableau (sa clé composite est en prose, couverte
+      // par schema-applique.test.ts), et l'inclusion y est alors vide sans
+      // qu'il faille coder d'exception.
+      it('sa clé primaire en base inclut les colonnes marquées PRIMARY KEY du document', () => {
+        for (const colonne of colonnesClePrimaire(table)) {
+          expect(
+            clePrimaireEnBase,
+            `${colonne} n'est pas dans la clé primaire de ${nomTable} en base`
+          ).toContain(colonne)
+        }
+      })
     })
   }
 
@@ -80,12 +125,16 @@ describe('le schéma appliqué correspond à docs/data.md', () => {
        ORDER BY tc.table_name, kcu.column_name
     `
 
-    expect(lignes.map(l => [l.table_name, l.column_name, l.foreign_table_name, l.delete_rule])).toEqual([
-      ['sessions', 'user_id', 'users', 'CASCADE'],
-      ['user_sites', 'site_id', 'sites', 'RESTRICT'],
-      ['user_sites', 'user_id', 'users', 'CASCADE'],
-      ['users', 'role_id', 'roles', 'RESTRICT']
-    ])
+    const enBase = lignes
+      .map(l => [l.table_name, l.column_name, l.foreign_table_name, l.delete_rule])
+      .sort((a, b) => clefTri(a).localeCompare(clefTri(b)))
+    const attendues = clesEtrangeresAttendues
+      .map(f => [f.table, f.colonne, f.tableReferencee, f.onDelete])
+      .sort((a, b) => clefTri(a).localeCompare(clefTri(b)))
+
+    // Égalité dans les deux sens : une clé étrangère posée en base mais
+    // absente du document est aussi un écart.
+    expect(enBase).toEqual(attendues)
   })
 
   it('pose les contraintes UNIQUE du document', async () => {
@@ -97,22 +146,32 @@ describe('le schéma appliqué correspond à docs/data.md', () => {
        WHERE tc.constraint_type = 'UNIQUE' AND tc.table_schema = 'public'
        ORDER BY tc.table_name, kcu.column_name
     `
-    expect(lignes.map(l => [l.table_name, l.column_name])).toEqual([
-      ['roles', 'name'],
-      ['users', 'email']
-    ])
+    const enBase = lignes
+      .map(l => [l.table_name, l.column_name])
+      .sort((a, b) => clefTri(a).localeCompare(clefTri(b)))
+    const attendues = colonnesUniquesAttendues
+      .map(([tableNom, colonneNom]) => [tableNom, colonneNom])
+      .sort((a, b) => clefTri(a).localeCompare(clefTri(b)))
+
+    expect(enBase).toEqual(attendues)
   })
 
-  it('pose les deux CHECK du document sur sites', async () => {
-    const lignes = await base.sql<{ definition: string }[]>`
-      SELECT pg_get_constraintdef(c.oid) AS definition
+  it('pose une contrainte CHECK pour chaque colonne du document qui en porte une', async () => {
+    const lignes = await base.sql<{ table_name: string, definition: string }[]>`
+      SELECT t.relname AS table_name, pg_get_constraintdef(c.oid) AS definition
         FROM pg_constraint c
         JOIN pg_class t ON t.oid = c.conrelid
-       WHERE c.contype = 'c' AND t.relname = 'sites'
-       ORDER BY definition
+       WHERE c.contype = 'c' AND t.relnamespace = 'public'::regnamespace
     `
-    const definitions = lignes.map(l => l.definition.replaceAll('"', ''))
-    expect(definitions.some(d => /capacity_kw > 0/.test(d))).toBe(true)
-    expect(definitions.some(d => /warning_threshold_kw > 0/.test(d))).toBe(true)
+
+    // Granularité volontaire : la présence d'un CHECK qui mentionne la
+    // colonne, pas l'expression mot pour mot, qui serait fragile pour rien.
+    for (const [tableNom, colonneNom] of colonnesCheckAttendues) {
+      const motif = new RegExp(`\\b${colonneNom}\\b`)
+      const trouvee = lignes.some(
+        l => l.table_name === tableNom && motif.test(l.definition)
+      )
+      expect(trouvee, `aucun CHECK trouvé sur ${tableNom}.${colonneNom}`).toBe(true)
+    }
   })
 })
