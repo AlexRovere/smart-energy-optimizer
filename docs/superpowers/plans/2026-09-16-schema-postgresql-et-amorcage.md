@@ -235,7 +235,7 @@ export default defineVitestConfig({
     testTimeout: 120_000,
     hookTimeout: 120_000,
     // Un fichier de test à la fois. Chaque fichier a sa propre BASE, donc les
-    // tables sont isolées, mais un ROLE PostgreSQL est global au cluster : deux
+    // tables sont isolées, mais un RÔLE PostgreSQL est global au cluster : deux
     // fichiers qui posent chacun un mot de passe au rôle etl se marcheraient
     // dessus, et l'échec serait intermittent, donc long à diagnostiquer.
     fileParallelism: false
