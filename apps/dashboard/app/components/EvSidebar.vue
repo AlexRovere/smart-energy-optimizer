@@ -24,12 +24,7 @@ const pilotageItems: NavigationMenuItem[] = [
     icon: 'i-heroicons-cpu-chip',
     to: '/predictions',
     badge: '3',
-  },
-  {
-    label: 'Rapports CSRD',
-    icon: 'i-heroicons-document-chart-bar',
-    to: '/reports',
-  },
+  }
 ]
 
 const systemeItems: NavigationMenuItem[] = [
