@@ -82,11 +82,11 @@ describe('le rôle etl ne peut faire que ce que data.md lui accorde', () => {
       await refus(() => etl`SELECT id FROM sessions`)
     })
 
-    it('ne lit pas les périmètres d accès', async () => {
+    it("ne lit pas les périmètres d'accès", async () => {
       await refus(() => etl`SELECT user_id FROM user_sites`)
     })
 
-    it('n écrase pas un seuil réglé à l écran', async () => {
+    it("n'écrase pas un seuil réglé à l'écran", async () => {
       await refus(() => etl`UPDATE sites SET warning_threshold_kw = 100`)
     })
 

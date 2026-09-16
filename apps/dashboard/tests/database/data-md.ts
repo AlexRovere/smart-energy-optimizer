@@ -99,11 +99,10 @@ export function lireTablesDocumentees(): Map<string, TableDocumentee> {
   for (const nom of TABLES_ATTENDUES) {
     tables.set(nom, lireTable(lignes, nom))
   }
-  if (tables.size !== TABLES_ATTENDUES.length) {
-    throw new Error(
-      `${tables.size} table(s) lue(s) dans data.md, ${TABLES_ATTENDUES.length} attendues`
-    )
-  }
+  // Pas de contrôle du nombre de tables ici : la boucle ci-dessus parcourt une
+  // constante de cinq entrées distinctes et lireTable lève avant de rendre, si
+  // bien qu'un tel contrôle ne pourrait jamais être vrai. C'est data-md.test.ts
+  // qui vérifie que les cinq tables sont bien celles attendues.
   return tables
 }
 
@@ -235,4 +234,47 @@ export function colonnesAvecCheckDocumentees(
     )
   }
   return paires
+}
+
+export interface IndexDocumente {
+  nom: string
+  table: string
+  colonne: string
+}
+
+// Les index du document ne sont pas dans les tableaux de colonnes mais dans des
+// blocs SQL, d'où une lecture à part : `CREATE INDEX <nom> ON <table>
+// (<colonne>)`. Le nom, la table et la colonne sont rendus tous les trois,
+// parce qu'un index correctement nommé mais posé ailleurs est un écart comme un
+// autre. Lève si le total est nul, comme les extracteurs ci-dessus.
+export function indexDocumentes(): IndexDocumente[] {
+  const lignes = readFileSync(CHEMIN_DATA_MD, 'utf8').split(/\r?\n/)
+  const resultat: IndexDocumente[] = []
+  let dansUnBlocSql = false
+
+  for (const ligne of lignes) {
+    const nue = ligne.trim()
+    if (nue.startsWith('```')) {
+      dansUnBlocSql = nue.toLowerCase() === '```sql'
+      continue
+    }
+    if (!dansUnBlocSql) continue
+
+    const correspondance = /^CREATE INDEX\s+(\w+)\s+ON\s+(\w+)\s*\(\s*(\w+)\s*\)\s*;?$/i
+      .exec(nue)
+    if (correspondance) {
+      resultat.push({
+        nom: correspondance[1]!,
+        table: correspondance[2]!,
+        colonne: correspondance[3]!
+      })
+    }
+  }
+
+  if (resultat.length === 0) {
+    throw new Error(
+      'Aucun CREATE INDEX trouvé dans data.md : extraction probablement cassée'
+    )
+  }
+  return resultat
 }

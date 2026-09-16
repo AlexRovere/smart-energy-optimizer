@@ -4,6 +4,7 @@ import {
   colonnesAvecCheckDocumentees,
   colonnesClePrimaire,
   colonnesUniquesDocumentees,
+  indexDocumentes,
   lireTablesDocumentees,
   typePostgres
 } from './data-md'
@@ -95,6 +96,13 @@ describe('lecture de docs/data.md', () => {
     expect(colonnesAvecCheckDocumentees(tables)).toEqual([
       ['sites', 'capacity_kw'],
       ['sites', 'warning_threshold_kw']
+    ])
+  })
+
+  it('lit les index des blocs SQL, avec leur table et leur colonne', () => {
+    expect(indexDocumentes()).toEqual([
+      { nom: 'idx_sessions_user', table: 'sessions', colonne: 'user_id' },
+      { nom: 'idx_user_sites_site', table: 'user_sites', colonne: 'site_id' }
     ])
   })
 })

@@ -6,6 +6,7 @@ import {
   colonnesAvecCheckDocumentees,
   colonnesClePrimaire,
   colonnesUniquesDocumentees,
+  indexDocumentes,
   lireTablesDocumentees,
   typePostgres
 } from './data-md'
@@ -36,6 +37,10 @@ describe('le schéma appliqué correspond à docs/data.md', () => {
   const clesEtrangeresAttendues = clesEtrangeresDocumentees(documentees)
   const colonnesUniquesAttendues = colonnesUniquesDocumentees(documentees)
   const colonnesCheckAttendues = colonnesAvecCheckDocumentees(documentees)
+  // Les index viennent des blocs SQL du document, pas des tableaux de
+  // colonnes : d'où un extracteur qui relit le fichier plutôt qu'une lecture
+  // de `documentees`. Même garde anti-vide que les autres.
+  const indexAttendus = indexDocumentes()
   clesPrimairesDocumentees(documentees)
 
   let base: BaseDeTest
@@ -160,6 +165,36 @@ describe('le schéma appliqué correspond à docs/data.md', () => {
       .sort((a, b) => clefTri(a).localeCompare(clefTri(b)))
 
     expect(enBase).toEqual(attendues)
+  })
+
+  it('pose les index du document, sur leur table et leur colonne', async () => {
+    // Ni clé primaire ni index d'unicité : ceux-là sont posés par les
+    // contraintes, déjà comparées plus haut. Ce qui reste est exactement
+    // l'ensemble des CREATE INDEX, donc l'égalité vaut dans les deux sens et
+    // un index en base qu'aucun bloc SQL ne décrit est un écart lui aussi.
+    const lignes = await base.sql<{
+      nom: string
+      table_name: string
+      colonne: string
+    }[]>`
+      SELECT i.relname AS nom, t.relname AS table_name, a.attname AS colonne
+        FROM pg_index x
+        JOIN pg_class i ON i.oid = x.indexrelid
+        JOIN pg_class t ON t.oid = x.indrelid
+        JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY (x.indkey)
+       WHERE t.relnamespace = 'public'::regnamespace
+         AND NOT x.indisprimary
+         AND NOT x.indisunique
+    `
+
+    const enBase = lignes
+      .map(l => [l.nom, l.table_name, l.colonne])
+      .sort((a, b) => clefTri(a).localeCompare(clefTri(b)))
+    const attendus = indexAttendus
+      .map(index => [index.nom, index.table, index.colonne])
+      .sort((a, b) => clefTri(a).localeCompare(clefTri(b)))
+
+    expect(enBase).toEqual(attendus)
   })
 
   it('pose une contrainte CHECK pour chaque colonne du document qui en porte une', async () => {

@@ -36,24 +36,35 @@ describe('schéma appliqué', () => {
     expect(lignes.map(l => l.column_name)).toEqual(['site_id', 'user_id'])
   })
 
-  it('pose les deux index nommés par le document', async () => {
-    const lignes = await base.sql<{ indexname: string }[]>`
-      SELECT indexname
-        FROM pg_indexes
-       WHERE schemaname = 'public'
-         AND indexname IN ('idx_sessions_user', 'idx_user_sites_site')
-       ORDER BY indexname
-    `
-    expect(lignes.map(l => l.indexname)).toEqual([
-      'idx_sessions_user',
-      'idx_user_sites_site'
-    ])
-  })
+  // Les index sont vérifiés par schema-conforme-au-document.test.ts, qui les
+  // tire des blocs SQL de docs/data.md et compare nom, table et colonne.
+  // L'assertion qui vivait ici ne regardait que le nom.
 
   it('refuse une capacité nulle ou négative', async () => {
     await expect(base.sql`
       INSERT INTO sites (id, name, type, capacity_kw, status)
       VALUES ('SITE999', 'Essai', 'office', 0, 'active')
     `).rejects.toMatchObject({ code: '23514' })
+  })
+
+  it('refuse un seuil de vigilance nul ou négatif', async () => {
+    await expect(base.sql`
+      INSERT INTO sites (id, name, type, capacity_kw, status, warning_threshold_kw)
+      VALUES ('SITE998', 'Essai', 'office', 200, 'active', 0)
+    `).rejects.toMatchObject({ code: '23514' })
+  })
+
+  // L'autre moitié du CHECK, et celle que data.md tient à ce qu'on lise bien :
+  // NULL ne veut pas dire « pas de vigilance » mais « règle par défaut », donc
+  // un CHECK qui refuserait NULL changerait le sens de la colonne.
+  it('laisse passer un seuil de vigilance absent', async () => {
+    await base.sql`
+      INSERT INTO sites (id, name, type, capacity_kw, status, warning_threshold_kw)
+      VALUES ('SITE997', 'Essai', 'office', 200, 'active', NULL)
+    `
+    const [ligne] = await base.sql<{ warning_threshold_kw: number | null }[]>`
+      SELECT warning_threshold_kw FROM sites WHERE id = 'SITE997'
+    `
+    expect(ligne.warning_threshold_kw).toBeNull()
   })
 })

@@ -16,7 +16,7 @@ describe('socle de test', () => {
     expect(ligne.un).toBe(1)
   })
 
-  it('isole deux bases l une de l autre', async () => {
+  it("isole deux bases l'une de l'autre", async () => {
     const premiere = await creerBaseDeTest({ migrer: false })
     const seconde = await creerBaseDeTest({ migrer: false })
     basesOuvertes.push(premiere, seconde)
