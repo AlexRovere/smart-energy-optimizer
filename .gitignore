@@ -30,7 +30,6 @@ secrets.dec.yaml
 # Clés privées : jamais dans le dépôt. Les clés publiques restent autorisées (!*.pub).
 *.key
 keys.txt
-deploy_key
 !*.pub
 
 # Données et modèles : trop volumineux, pas versionnables

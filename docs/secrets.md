@@ -2,7 +2,7 @@
 
 Les valeurs sensibles de la pile vivent chiffrées dans [`secrets.enc.yaml`](../secrets.enc.yaml) avec **SOPS** et **age** ; [`.sops.yaml`](../.sops.yaml) dit en clair qui peut les déchiffrer. Ce document existe pour que n'importe quel membre chiffre et déchiffre **sans demander d'aide** : un mécanisme qui ne marche que sur le poste de qui l'a posé ne protège rien, il déplace le problème sur une personne (issue #99, fermée en doublon avec #52).
 
-Ce que ça protège : un accès en lecture au dépôt (clone, capture d'écran, dépôt passé public par erreur) ne rend que du chiffré. Ce que ça ne protège pas : la machine qui déchiffre, forcément détentrice d'une clé pour redémarrer seule, et le moteur Docker, qui garde les variables d'environnement en clair une fois le conteneur lancé. Détails dans « Pour aller plus loin ».
+Ce que ça protège : un accès en lecture au dépôt (clone, capture d'écran, dépôt passé public par erreur) ne rend que du chiffré. Ce que ça ne protège pas : le moteur Docker, qui garde les variables d'environnement en clair une fois le conteneur lancé. En revanche **aucune clé de déchiffrement ne dort sur la machine sur site** : c'est le job de déploiement qui déchiffre, le temps de son exécution. Détails dans « Pour aller plus loin ».
 
 ## Installation
 
@@ -78,7 +78,7 @@ Sans conséquence dans un profil utilisateur normal, sauf poste réellement part
 
 ### Se faire ajouter comme destinataire
 
-Aujourd'hui `.sops.yaml` porte **cinq** destinataires : les postes d'Alex Rovere, d'Antoine Coulon, d'Hugo Mrnth et de Tanguy Raguenes, et la CI. Le dernier membre et la machine sur site n'y sont pas encore. Tant que votre clé n'y est pas, `sops decrypt` échoue normalement :
+Aujourd'hui `.sops.yaml` porte **cinq** destinataires sur six : les postes d'Alex Rovere, d'Antoine Coulon, d'Hugo Mrnth et de Tanguy Raguenes, et la CI. Seul le dernier membre n'y est pas encore. La machine sur site n'est pas destinataire et n'a pas vocation à l'être. Tant que votre clé n'y est pas, `sops decrypt` échoue normalement :
 
 ```
 Failed to get the data key required to decrypt the SOPS file.
@@ -193,13 +193,15 @@ Aucun de ces trois éditeurs n'est dans le `PATH` d'un Windows ordinaire ; `sops
 sops exec-env secrets.enc.yaml 'docker compose up -d'
 ```
 
-C'est le chemin prévu pour la machine sur site. Sous Windows, la commande passée est confiée à `cmd`, pas à un interpréteur POSIX : `sops exec-env secrets.enc.yaml 'echo $POSTGRES_PASSWORD'` affiche la chaîne littérale, pas la valeur, sans que l'environnement soit vide pour autant. Un test de ce genre se fait sous Git Bash ou WSL.
+C'est la commande du déploiement. Elle s'exécute **sur** la machine sur site, lancée par le runner auto-hébergé, avec la clé de la CI que GitHub lui passe le temps du job. Sous Windows, la commande passée est confiée à `cmd`, pas à un interpréteur POSIX : `sops exec-env secrets.enc.yaml 'echo $POSTGRES_PASSWORD'` affiche la chaîne littérale, pas la valeur, sans que l'environnement soit vide pour autant. Un test de ce genre se fait sous Git Bash ou WSL.
 
 ### Ce qui ne va jamais dans ce fichier, et où cela va
 
 `secrets.enc.yaml` porte les secrets **applicatifs**, ce dont la pile a besoin pour tourner. Le principe : le périmètre d'un secret doit être celui de son usage.
 
-**La clé SSH de déploiement et la clé age de la CI** vivent dans les secrets du dépôt GitHub (`DEPLOY_SSH_KEY`, `SOPS_AGE_KEY`). La clé qui ouvre la machine ne doit pas s'ouvrir avec les clés des membres, et pour `SOPS_AGE_KEY` s'ajoute une impossibilité pure : la clé qui déchiffre le fichier ne peut pas vivre dans le fichier qu'elle déchiffre. La partie **publique** de la paire de déploiement est versionnée dans [`deploy_key.pub`](../infra/ansible/files/deploy_key.pub), pour qu'Ansible l'autorise depuis Git plutôt que par un `ssh-copy-id` fait une fois et oublié.
+**La clé age de la CI** vit dans les secrets du dépôt GitHub (`SOPS_AGE_KEY`), pour une impossibilité pure : la clé qui déchiffre le fichier ne peut pas vivre dans le fichier qu'elle déchiffre.
+
+**Il n'y a pas de clé SSH de déploiement.** Le réseau de l'école n'accepte aucune connexion entrante vers la machine : le pipeline ne s'y connecte pas, c'est un runner auto-hébergé qui appelle GitHub en sortant et exécute le travail sur place. Rien à ouvrir, donc rien à autoriser.
 
 **Les identifiants d'un registre d'images**, le jour où il y en aura un, relèvent de la même logique (GitHub Secrets, pas ce fichier), tout comme **les valeurs de développement de chacun**, pour une autre raison : section suivante.
 
@@ -218,9 +220,9 @@ On ne répand pas les mots de passe de la machine sur cinq postes pour un Postgr
 
 ### Les amorçages faits une fois
 
-Deux clés ne suivent pas la procédure ordinaire, parce qu'elles n'appartiennent à personne : écrites ici pour être **refaisables**, pas pour être rejouées. **La clé de la machine sur site** est générée **sur la machine**, jamais ailleurs, et sa partie privée n'en sort jamais : fichier `/etc/enervision/age.key`, `0400`, propriété du compte de service `enervision`. Seule la partie publique remonte, par pull request. Générer ailleurs puis copier ferait transiter la clé par un presse-papiers, un terminal, une messagerie : la copie qui reste quelque part est celle qu'on oublie. Reste à faire, la machine ouvrant au J2, exigence portée par #47.
+**La clé de la CI** ne suit pas la procédure ordinaire, parce qu'elle n'appartient à personne : écrite ici pour être **refaisable**, pas pour être rejouée. Elle a dû être générée sur un poste, puisque GitHub Actions ne garde pas de secret d'un job à l'autre sans qu'on le lui donne : partie privée collée dans `SOPS_AGE_KEY`, partie publique ajoutée à `.sops.yaml`, fichier temporaire du poste effacé. Exception assumée et bornée à cet usage, une rotation ne coûtant qu'un `updatekeys`. `SOPS_AGE_KEY` porte le **contenu** de la clé, `SOPS_AGE_KEY_FILE` un **chemin** ; la CI utilise le premier, et les postes n'ont besoin ni de l'un ni de l'autre, `sops` lisant `~/.config/sops/age/keys.txt` par défaut.
 
-**La clé de la CI** a dû être générée sur un poste, puisque GitHub Actions ne garde pas de secret d'un job à l'autre sans qu'on le lui donne : partie privée collée dans `SOPS_AGE_KEY`, partie publique ajoutée à `.sops.yaml`, fichier temporaire du poste effacé. Exception assumée et bornée à cet usage, une rotation ne coûtant qu'un `updatekeys`. `SOPS_AGE_KEY` porte le **contenu** de la clé, `SOPS_AGE_KEY_FILE` un **chemin** ; la CI utilise le premier, la machine utilisera le second.
+**Il n'y a pas de clé de machine**, et c'est délibéré. Une clé posée à demeure sur la VM serait lisible en permanence par les cinq, le compte y étant partagé : la retirer est un gain de sécurité, pas seulement une simplification. Tranché le 16 septembre 2026, après confirmation écrite que la machine peut appeler l'extérieur mais que rien ne peut la joindre.
 
 ### Rotation et révocation
 
@@ -235,7 +237,9 @@ Pas de rotation de routine au MVP, la pile ne vivant que le temps de la piscine 
 
 ### Limites connues
 
-**La machine sur site détient forcément une clé** pour redémarrer seule après une coupure : ce qui la protège est ailleurs (accès SSH par clé, fichier de clé en `0400` pour le seul compte de service), décrit dans [la configuration de la machine](../infra/ansible/README.md). **Cette garantie n'est pas tenue aujourd'hui pour les ports** : `docker-compose.yml` publie Prometheus sur `9090:9090` et Grafana sur `3001:3000` sur toutes les interfaces, contrairement à `postgres` lié à la boucle locale ; `GRAFANA_PASSWORD` garde donc une interface d'administration joignable depuis le réseau. Corriger `docker-compose.yml` relève de #47, signalé ici pour ne pas laisser croire le contraire.
+**Une coupure ne demande pas de clé, un `docker compose up` complet si.** Les conteneurs redémarrent seuls avec l'environnement que Docker a gardé à leur création, et `docker restart`, `docker logs` ou `docker inspect` n'en ont pas besoin non plus. Recréer la pile entière passe en revanche par le job de déploiement : c'est le seul geste d'exploitation qui dépende de GitHub, et sa sortie de secours est décrite plus bas.
+
+**Les ports de la supervision sont ouverts trop largement** : `docker-compose.yml` publie Prometheus sur `9090:9090` et Grafana sur `3001:3000` sur toutes les interfaces, contrairement à `postgres` lié à la boucle locale ; `GRAFANA_PASSWORD` garde donc une interface d'administration joignable depuis le réseau. Le rayon est borné au réseau de l'école, aucune entité extérieure ne pouvant joindre la machine : c'est un défaut, pas une exposition publique. Corriger `docker-compose.yml` relève de #47, signalé ici pour ne pas laisser croire le contraire.
 
 **Le moteur Docker garde les variables d'environnement en clair**, quelle que soit la méthode d'injection : `/var/lib/docker/containers/<id>/config.v2.json`, lisible par `root`, et `docker inspect` les rend aussi. Le chiffrement au repos protège le dépôt, pas la mémoire de l'hôte. S'en affranchir demanderait de monter les secrets en fichiers (variantes `_FILE` des images officielles), ce qui changerait le contrat de [`api.md`](./api.md) pour ne déplacer la frontière que d'un cran : écarté au MVP, écrit ici comme évolution.
 
@@ -254,6 +258,8 @@ Dans [`security.yml`](../.github/workflows/security.yml), sur chaque pull reques
 Le dernier surprend : un secret commité puis retiré au commit suivant fait quand même échouer le pipeline, l'historique le contenant toujours ; le rattrapage est alors une réécriture d'historique, pas un commit de plus. D'où `.env`, `secrets.yaml`, `secrets.dec.yaml`, `*.key` et `keys.txt` ignorés par [`.gitignore`](../.gitignore), et un `git status` avant chaque commit plutôt qu'un `git add .` confiant.
 
 **Sortie de secours d'un faux positif** (gitleaks se trompe déjà : une clé publique age classée `generic-api-key`, vérifié sur ce projet) : un commentaire `gitleaks:allow` sur la ligne (préféré pour une valeur documentée à l'avance), ou une entrée dans `.gitleaksignore` à la racine (à créer le jour du premier cas, format `<commit>:<chemin>:<règle>:<ligne>` tel que gitleaks le rend). Légitime pour un faux positif vérifié un par un, jamais pour faire taire un vrai secret : la différence se voit en revue, pas dans la syntaxe.
+
+**Sortie de secours du déploiement** : la pile ne se recrée entièrement que par le job de déploiement, donc par GitHub. S'il est indisponible ou le runner désenregistré, un membre déchiffre depuis son poste (`sops decrypt secrets.enc.yaml`), rejoint la machine et renseigne les valeurs à la main dans un `.env` qu'il supprime une fois la pile lancée, l'environnement étant déjà dans les conteneurs. Laid, documenté, à ne jouer qu'en dernier recours : c'est le rôle d'une procédure de secours, et elle coûte moins qu'une clé laissée en permanence sur un compte partagé. Un `workflow_dispatch` sur le workflow de déploiement couvre tous les autres cas, sans pousser de commit et en laissant une trace.
 
 ### Le détail du hook `pre-push`
 

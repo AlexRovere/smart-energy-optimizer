@@ -23,11 +23,11 @@ Conséquence sur l'épreuve : l'attendu « déploiements reproductibles » est t
 
 Le mécanisme de chiffrement au repos est posé par #52, mais il ne sert à rien tant que la machine ne sait pas s'en servir. Trois choses sont donc attendues du playbook de #47, et elles sont écrites ici pour ne pas se redécouvrir le jour du premier déploiement.
 
-- **Un compte de service `enervision`**, propriétaire de `/etc/enervision/age.key` en `0400`, et membre du groupe `docker`. C'est ce compte qui déchiffre, et lui seul : un fichier de clé lisible par tout le monde annulerait la distinction entre « entrer sur la machine » et « lire les secrets », qui est exactement ce que le moindre privilège cherche à tenir.
-- **Le binaire `sops` installé** sur la machine. C'est elle qui déchiffre au lancement de la pile, pas le pipeline : les valeurs ne transitent donc jamais en clair par GitHub Actions.
-- **La clé publique de déploiement autorisée** sur ce compte, depuis [`files/deploy_key.pub`](./files/deploy_key.pub) qui est versionné. L'accès du pipeline vient ainsi de Git, rejouable et relisible en pull request, et non d'un `ssh-copy-id` joué une fois sur un terminal dont personne ne garde la trace.
+- **Le binaire `sops` installé** sur la machine, et `age` avec lui. Le déchiffrement a lieu sur place, au lancement de la pile : les valeurs ne transitent jamais en clair par GitHub Actions.
+- **Un runner GitHub auto-hébergé**, enregistré sur le dépôt et lancé en service. Il appelle GitHub en HTTPS sortant et n'accepte aucune connexion entrante, ce qui est la seule forme possible ici : le réseau de l'école ne laisse rien joindre la machine depuis l'extérieur. Ses identifiants d'enregistrement restent au repos sur la machine, sur un compte mutualisé : à relever dans l'audit de #58.
+- **Un `docker image prune` périodique**, les déploiements reconstruisant les images sur place faute de registre.
 
-La clé age de la machine, elle, est **générée sur la machine** et sa partie privée n'en sort jamais. Seule la partie publique remonte dans `.sops.yaml`, par pull request. La procédure est dans [`../../docs/secrets.md`](../../docs/secrets.md).
+**Ni clé age de machine, ni clé SSH de déploiement.** La première serait lisible en permanence par les cinq, le compte étant mutualisé ; la seconde n'a plus d'objet, le pipeline ne se connectant pas à la machine. Le runner reçoit `SOPS_AGE_KEY` de GitHub le temps de chaque job, et rien ne reste au repos. Le motif est dans [`../../docs/secrets.md`](../../docs/secrets.md).
 
 ## Ce qui ne sort pas de la machine
 
