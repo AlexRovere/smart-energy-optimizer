@@ -1,5 +1,0 @@
-allowBuilds:
-  esbuild: true
-  'true': true
-  unrs-resolver: true
-  vue-demi: true
