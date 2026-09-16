@@ -33,6 +33,11 @@ mlruns/
 *.pkl
 *.joblib
 
+# Conceptions et plans de travail : documents de méthode, pas des livrables.
+# Ils restent sur le poste et dans l'historique, ils ne sont plus versionnés.
+.superpowers/
+docs/superpowers/
+
 # Divers
 *.log
 .DS_Store

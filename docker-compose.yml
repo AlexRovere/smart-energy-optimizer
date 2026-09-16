@@ -61,8 +61,12 @@ services:
   #     POSTGRES_HOST: postgres
   #     POSTGRES_PORT: 5432
   #     POSTGRES_DB: ${POSTGRES_DB:-enervision}
-  #     POSTGRES_USER: ${POSTGRES_USER:-enervision}
-  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+  #     # Le rôle etl, et surtout pas le propriétaire de la base : SELECT et
+  #     # INSERT sur la seule table sites, UPDATE sur sept de ses colonnes. Il
+  #     # ne peut lire ni les comptes, ni les sessions, ni les périmètres, et
+  #     # ne peut pas écrire warning_threshold_kw (docs/data.md).
+  #     POSTGRES_USER: etl
+  #     POSTGRES_PASSWORD: ${ETL_DB_PASSWORD:?renseigner ETL_DB_PASSWORD dans .env}
   #   volumes:
   #     - parquet_data:/data          # seul montage en écriture de tout le système
   #   depends_on:
@@ -72,7 +76,7 @@ services:
   # dashboard:
   #   build: ./apps/dashboard
   #   environment:
-  #     DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  #     NUXT_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
   #     PARQUET_DIR_EXPOSE: /data/expose
   #     ML_API_URL: ${ML_API_URL:-http://ml:8000}
   #   volumes:
