@@ -9,7 +9,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       g++ \
     && rm -rf /var/lib/apt/lists/*
 
-RUN corepack enable
+# pnpm 12 bloque par défaut les scripts de build de dépendances non listées
+# dans allowBuilds (ERR_PNPM_IGNORED_BUILDS), y compris pour des paquets
+# ajoutés récemment (testcontainers) et jamais approuvés. La 10 n'a pas ce
+# comportement bloquant.
+RUN corepack enable && corepack use pnpm@10
 
 WORKDIR /app
 
