@@ -63,6 +63,23 @@ SOPS cherche la clé à un emplacement fixe, qu'il ne faut donc pas choisir :
 
 **C'est le système qui décide, pas le shell.** Sous Windows, `sops` lit `%AppData%` même quand vous l'appelez depuis Git Bash ou depuis WSL avec le binaire Windows. Une clé posée dans `~/.config/sops/age/keys.txt` parce qu'on tape des commandes bash n'y sera **jamais** cherchée : le déchiffrement échoue, et le message d'erreur (voir plus bas) ne cite pas cet emplacement, donc rien ne pointe vers la cause. C'est le piège le plus coûteux de cette page.
 
+> **La procédure n'est pas « grosso modo la même » sous WSL.** C'est le même piège que ci-dessus, sous une forme moins visible : WSL hérite du `PATH` de Windows, donc taper `sops` ou `age` dans un terminal WSL peut très bien lancer le binaire **Windows**, qui ira chercher la clé dans `%AppData%`, alors que la procédure Linux ci-dessous génère la clé dans `~/.config`.
+>
+> **Diagnostiquer, avant de générer quoi que ce soit** :
+>
+> ```bash
+> command -v sops
+> ```
+>
+> Lisez le chemin rendu, pas seulement le fait qu'il réponde quelque chose :
+>
+> - un chemin sous `/mnt/c/` ou qui finit par `.exe` : c'est le binaire **Windows**, atteint par héritage du `PATH` ; la clé est cherchée dans `%AppData%\sops\age\keys.txt`, colonne Windows du tableau ci-dessus.
+> - un chemin sous `/usr/`, `/usr/local/` ou votre répertoire personnel (`/home/<vous>/...`), sans rapport avec `/mnt/c/` : c'est le binaire **Linux**, installé dans WSL ; la clé est cherchée dans `~/.config/sops/age/keys.txt`, colonne Linux.
+>
+> **Choisissez un environnement et restez-y.** Si vous travaillez dans WSL, installez `sops` et `age` **dans** WSL (les commandes Linux de la section précédente, jouées depuis le terminal WSL) et suivez la colonne Linux du tableau ci-dessus jusqu'au bout, plutôt que de mélanger un binaire Windows appelé depuis WSL avec des chemins Linux.
+>
+> **Une clé générée dans WSL n'est pas la même qu'une clé générée côté Windows.** Ce sont deux paires distinctes, à deux emplacements distincts, et il n'en faut qu'**une** par personne : en générer une dans chaque environnement par hésitation revient à devenir destinataire deux fois avec deux clés différentes, pour rien.
+
 Créer le répertoire, puis générer.
 
 **Windows**, dans PowerShell :
@@ -101,7 +118,7 @@ Deux confusions à éviter. Ce n'est **pas** une clé SSH, elle ne sert pas à s
 
 ## Se faire ajouter comme destinataire
 
-**C'est le passage qui compte.** Aujourd'hui `.sops.yaml` ne porte que **deux** destinataires : le poste d'Alex Rovere et la CI. Les quatre autres membres et la machine sur site n'y sont pas encore. Tant que votre clé n'est pas dans la liste, `sops decrypt` échoue, et c'est le comportement normal, pas une panne :
+**C'est le passage qui compte.** Aujourd'hui `.sops.yaml` ne porte que **trois** destinataires : les postes d'Alex Rovere et d'Antoine Coulon, et la CI. Les trois autres membres et la machine sur site n'y sont pas encore. Tant que votre clé n'est pas dans la liste, `sops decrypt` échoue, et c'est le comportement normal, pas une panne :
 
 ```
 Failed to get the data key required to decrypt the SOPS file.
