@@ -83,21 +83,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # package-manager-cache: false coupe le cache automatique introduit en v5,
-      # qui s'active seul dès qu'un package.json porte un champ packageManager
-      # et échouerait faute de lockfile, comme le cache explicite retiré juste
-      # avant. Les deux se rallument ensemble.
+      # pnpm s'installe AVANT setup-node : c'est setup-node qui calcule la cle
+      # du cache pnpm, et il lui faut le gestionnaire deja present. La version
+      # est epinglee parce que la 9 ne lit pas ce lockfile, et que la derniere
+      # refuse un pnpm-workspace.yaml sans champ packages.
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.11.0 }
+      # Node 22 et non 20 : Vitest 5 demande 20.19 au minimum, et `node-version: 20`
+      # resout a la derniere 20.x du moment, ce qui est un pari inutile.
       - uses: actions/setup-node@v7
-        with: { node-version: 20, package-manager-cache: false }
-      # TODO : décommenter dès que pnpm-lock.yaml existe, cache compris.
-      # - uses: pnpm/action-setup@v4
-      #   with: { version: 9 }
-      #   with: { node-version: 20, cache: pnpm, cache-dependency-path: apps/dashboard/pnpm-lock.yaml }
-      # - run: pnpm --dir apps/dashboard install --frozen-lockfile
-      # - run: pnpm --dir apps/dashboard lint
-      # - run: pnpm --dir apps/dashboard test
-      # - run: pnpm --dir apps/dashboard build
-      - run: echo "TODO dashboard - lint, tests et build"
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/dashboard/pnpm-lock.yaml
+      - run: pnpm --dir apps/dashboard install --frozen-lockfile
+      - run: pnpm --dir apps/dashboard lint
+      # Les tests de base demarrent eux-memes un conteneur postgres:16-alpine
+      # par Testcontainers : le demon Docker d'ubuntu-latest suffit, il n'y a
+      # aucun service a declarer ici.
+      - run: pnpm --dir apps/dashboard test
+      - run: pnpm --dir apps/dashboard build
 
   infra:
     needs: changes

@@ -61,8 +61,12 @@ services:
   #     POSTGRES_HOST: postgres
   #     POSTGRES_PORT: 5432
   #     POSTGRES_DB: ${POSTGRES_DB:-enervision}
-  #     POSTGRES_USER: ${POSTGRES_USER:-enervision}
-  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+  #     # Le role etl, et surtout pas le proprietaire de la base : SELECT et
+  #     # INSERT sur la seule table sites, UPDATE sur sept de ses colonnes. Il
+  #     # ne peut lire ni les comptes, ni les sessions, ni les perimetres, et
+  #     # ne peut pas ecrire warning_threshold_kw (docs/data.md).
+  #     POSTGRES_USER: etl
+  #     POSTGRES_PASSWORD: ${ETL_DB_PASSWORD:?renseigner ETL_DB_PASSWORD dans .env}
   #   volumes:
   #     - parquet_data:/data          # seul montage en écriture de tout le système
   #   depends_on:
