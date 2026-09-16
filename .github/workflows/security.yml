@@ -3,23 +3,29 @@ name: Sécurité
 # security et secrets tournent sur tout push, y compris hors pull request :
 # un secret ne doit pas dormir jusqu'à l'ouverture d'une PR. Voir ci.yml
 # pour le reste du pipeline, lié aux pull requests pour le coût.
+#
+# Pas de déclencheur pull_request ici, volontairement : les checks restent
+# attachés au commit, pas à l'événement qui les a lancés (vérifié via l'API
+# check-runs), donc un run push apparaît déjà sur la pull request. Ajouter
+# pull_request déclencherait un doublon sur le même commit, et le
+# concurrency ne fait qu'annuler l'un des deux : le check annulé reste
+# affiché en échec sur la PR, à jamais. Deux limites à connaître avant de
+# rétablir ce déclencheur : un run pull_request analyse le résultat de la
+# fusion, pas la pointe de la branche (sans portée pour ce que ces jobs
+# scannent) ; et une pull request venant d'un fork ne déclenche pas
+# d'événement push dans le dépôt d'origine (sans objet ici, dépôt privé
+# sans fork).
 
 on:
   push:
     branches: ["**"]
-  pull_request:
-    branches: [main]
 
-# Une pull request ouverte déclenche push et pull_request pour le même
-# commit, donc security/secrets tourneraient deux fois sans ce groupe. La
-# clé (nom de branche) est la même dans les deux événements pour qu'ils se
-# retrouvent dans le même groupe. cancel-in-progress ne vaut que pour
-# pull_request : leur ordre d'arrivée n'est pas garanti, et un push ne doit
-# jamais pouvoir annuler une exécution pull_request déjà lancée au profit
-# d'un doublon plus léger.
+# cancel-in-progress simple : un seul événement déclenche ce workflow, donc
+# l'annulation ne porte que sur un push dépassé par un plus récent sur la
+# même branche, jamais sur un doublon avec une pull request.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
