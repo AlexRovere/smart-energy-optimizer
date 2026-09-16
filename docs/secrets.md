@@ -1,24 +1,16 @@
 # Les secrets du projet
 
-Ce document sert à une chose : permettre à n'importe quel membre de l'équipe de chiffrer et de déchiffrer les secrets du projet **sans demander d'aide**. C'est un critère du ticket #52, et son motif tient en une phrase : un mécanisme de secrets qui ne fonctionne que sur le poste de celui qui l'a posé ne protège rien, il déplace le problème sur une personne. C'était déjà l'objet de l'issue #99, fermée en doublon.
+Les valeurs sensibles de la pile vivent chiffrées dans [`secrets.enc.yaml`](../secrets.enc.yaml) avec **SOPS** et **age** ; [`.sops.yaml`](../.sops.yaml) dit en clair qui peut les déchiffrer. Ce document existe pour que n'importe quel membre chiffre et déchiffre **sans demander d'aide** : un mécanisme qui ne marche que sur le poste de qui l'a posé ne protège rien, il déplace le problème sur une personne (issue #99, fermée en doublon avec #52).
 
-Le mécanisme, en une ligne : les valeurs sensibles de la pile vivent chiffrées dans [`secrets.enc.yaml`](../secrets.enc.yaml), à la racine du dépôt, avec **SOPS** et **age**. Le fichier [`.sops.yaml`](../.sops.yaml) dit en clair **qui** peut les déchiffrer.
+Ce que ça protège : un accès en lecture au dépôt (clone, capture d'écran, dépôt passé public par erreur) ne rend que du chiffré. Ce que ça ne protège pas : la machine qui déchiffre, forcément détentrice d'une clé pour redémarrer seule, et le moteur Docker, qui garde les variables d'environnement en clair une fois le conteneur lancé. Détails dans « Pour aller plus loin ».
 
-## Ce que ce mécanisme protège, et ce qu'il ne protège pas
+## Installation
 
-Il rend un **accès en lecture au dépôt sans valeur**. Un clone, une capture d'écran d'un fichier, un dépôt passé public par erreur, une sauvegarde de poste qui traîne : dans tous ces cas, ce qui est lu est un bloc chiffré. C'est la seule promesse, et elle est tenue.
-
-Il ne protège **pas la machine sur site**. Celle-ci détient forcément de quoi déchiffrer, sinon elle ne pourrait pas redémarrer seule après une coupure de courant. Ce qui la protège est ailleurs, et c'est écrit dans [la configuration de la machine](../infra/ansible/README.md) : accès SSH par clé, aucun port de service publié sur l'hôte hormis le 443 du reverse proxy, et le fichier de clé en `0400` appartenant au seul compte de service.
-
-**Cette dernière propriété n'est pas tenue aujourd'hui.** `docker-compose.yml` publie Prometheus sur `9090:9090` et Grafana sur `3001:3000`, sur toutes les interfaces, et non sur la boucle locale comme `postgres`. Le `GRAFANA_PASSWORD` que ce mécanisme chiffre garde donc une interface d'administration joignable depuis le réseau, malgré ce que la phrase ci-dessus affirme. Corriger `docker-compose.yml` relève de la configuration de la machine, donc de #47 : une garantie qu'on invoque sans la tenir est pire que pas de garantie, elle est signalée ici pour ne pas laisser croire le contraire.
-
-Confondre ces deux frontières mène à chercher un mécanisme qui n'existe pas. « Comment empêcher la machine de lire les secrets qu'elle doit utiliser » n'a pas de réponse : un service qui démarre sans intervention humaine a besoin de ses identifiants, point. La question utile n'est pas celle-là, c'est « qui peut entrer sur la machine ».
-
-## Installer `sops` et `age`
+### Installer `sops` et `age`
 
 Deux outils distincts. `age` fait le chiffrement et les clés, `sops` sait quoi chiffrer dans un fichier structuré et pour qui.
 
-**Windows**, avec scoop :
+**Windows**, avec scoop, dans cet ordre (`age` n'est **pas** dans le bucket `main`, un `scoop install sops age` groupé échoue silencieusement sur le second nom) :
 
 ```powershell
 scoop install sops
@@ -26,33 +18,22 @@ scoop bucket add extras
 scoop install age
 ```
 
-Les trois commandes, dans cet ordre. `age` n'est **pas** dans le bucket `main`, il est dans `extras` : une installation groupée `scoop install sops age` échoue sur le second nom, et laisse un poste avec `sops` installé et `age` absent, ce qui se découvre trois commandes plus loin par un message qui ne dit pas cela.
-
 **macOS** : `brew install sops age`, le groupage fonctionne ici.
 
-**Linux** : `age` est dans les dépôts (`apt install age` sur Debian 12 et Ubuntu 22.04 et suivantes). `sops` ne l'est pas partout, et il vaut mieux poser la version exacte du projet que celle qu'une distribution aura figée. Les deux lignes ci-dessous sont celles que joue la CI, à l'identique :
+**Linux** : `age` est dans les dépôts (`apt install age` sur Debian 12 et Ubuntu 22.04 et suivantes). `sops` ne l'est pas partout ; les deux lignes ci-dessous sont celles que joue la CI, à poser aussi sur la machine sur site (remplacer `amd64` par `arm64` sur ARM) :
 
 ```bash
 curl -sSfL https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.amd64 -o /usr/local/bin/sops
 chmod +x /usr/local/bin/sops
 ```
 
-Le nom du binaire porte sa version et son architecture : pour une machine ARM, remplacer `amd64` par `arm64` dans l'URL. C'est aussi ce qui se posera sur la machine sur site, où `sops` est attendu par le playbook.
+Vérifier avant d'aller plus loin : `sops --version` et `age --version` doivent répondre toutes les deux.
 
-Vérifier avant d'aller plus loin, les deux commandes doivent répondre :
+Versions de référence : `sops` 3.13.3, `age` 1.3.2. Si un fichier chiffré localement n'est plus lisible par le pipeline, l'écart de version est le premier endroit à regarder. `age-keygen`, utilisé juste après, est fourni par le paquet `age`.
 
-```bash
-sops --version
-age --version
-```
+### Générer sa clé
 
-Les versions de référence du projet sont `sops` 3.13.3 et `age` 1.3.2. La CI installe explicitement `sops` 3.13.3 : si un jour un fichier chiffré localement n'est plus lisible par le pipeline, l'écart de version est le premier endroit à regarder. `sops --version` accompagne sa réponse d'un avertissement sur la vérification automatique des mises à jour : c'est un message de dépréciation de l'outil, pas un problème de configuration.
-
-`age-keygen`, utilisé juste après, est fourni par le paquet `age`.
-
-## Générer sa clé
-
-Une clé age est une paire. La partie **publique** finit dans `.sops.yaml`, lue par tout le monde, et ce n'est pas un secret : elle ne permet que de chiffrer **pour** vous. La partie **privée** est ce qui déchiffre, et elle **ne quitte jamais le poste** : ni message, ni courriel, ni dépôt, ni copie temporaire sur la machine. Il n'y a aucune situation légitime où quelqu'un a besoin de votre clé privée, pas même pour vous dépanner.
+Une clé age est une paire. La partie **publique** finit dans `.sops.yaml`, lue par tout le monde : elle ne permet que de chiffrer **pour** vous. La partie **privée** déchiffre et **ne quitte jamais le poste** : ni message, ni dépôt, ni copie temporaire. Personne n'a jamais besoin de votre clé privée, pas même pour vous dépanner.
 
 SOPS cherche la clé à un emplacement fixe, qu'il ne faut donc pas choisir :
 
@@ -61,28 +42,17 @@ SOPS cherche la clé à un emplacement fixe, qu'il ne faut donc pas choisir :
 | Linux, macOS | `~/.config/sops/age/keys.txt` |
 | Windows | `%AppData%\sops\age\keys.txt`, soit `C:\Users\<vous>\AppData\Roaming\sops\age\keys.txt` |
 
-**C'est le système qui décide, pas le shell.** Sous Windows, `sops` lit `%AppData%` même quand vous l'appelez depuis Git Bash ou depuis WSL avec le binaire Windows. Une clé posée dans `~/.config/sops/age/keys.txt` parce qu'on tape des commandes bash n'y sera **jamais** cherchée : le déchiffrement échoue, et le message d'erreur (voir plus bas) ne cite pas cet emplacement, donc rien ne pointe vers la cause. C'est le piège le plus coûteux de cette page.
+**C'est le système qui décide, pas le shell.** Sous Windows, `sops` lit `%AppData%` même appelé depuis Git Bash ou WSL avec le binaire Windows. Une clé posée dans `~/.config/sops/age/keys.txt` parce qu'on tape des commandes bash n'y sera **jamais** cherchée : le déchiffrement échoue, et le message d'erreur (plus bas) ne cite pas cet emplacement, donc rien ne pointe vers la cause. C'est le piège le plus coûteux de cette page.
 
-> **La procédure n'est pas « grosso modo la même » sous WSL.** C'est le même piège que ci-dessus, sous une forme moins visible : WSL hérite du `PATH` de Windows, donc taper `sops` ou `age` dans un terminal WSL peut très bien lancer le binaire **Windows**, qui ira chercher la clé dans `%AppData%`, alors que la procédure Linux ci-dessous génère la clé dans `~/.config`.
->
-> **Diagnostiquer, avant de générer quoi que ce soit** :
+> **Sous WSL, ce n'est pas « grosso modo pareil ».** Même piège, moins visible : WSL hérite du `PATH` de Windows, donc taper `sops` peut lancer le binaire **Windows**, qui cherchera la clé dans `%AppData%`. Diagnostiquer avant de générer quoi que ce soit :
 >
 > ```bash
 > command -v sops
 > ```
 >
-> Lisez le chemin rendu, pas seulement le fait qu'il réponde quelque chose :
->
-> - un chemin sous `/mnt/c/` ou qui finit par `.exe` : c'est le binaire **Windows**, atteint par héritage du `PATH` ; la clé est cherchée dans `%AppData%\sops\age\keys.txt`, colonne Windows du tableau ci-dessus.
-> - un chemin sous `/usr/`, `/usr/local/` ou votre répertoire personnel (`/home/<vous>/...`), sans rapport avec `/mnt/c/` : c'est le binaire **Linux**, installé dans WSL ; la clé est cherchée dans `~/.config/sops/age/keys.txt`, colonne Linux.
->
-> **Choisissez un environnement et restez-y.** Si vous travaillez dans WSL, installez `sops` et `age` **dans** WSL (les commandes Linux de la section précédente, jouées depuis le terminal WSL) et suivez la colonne Linux du tableau ci-dessus jusqu'au bout, plutôt que de mélanger un binaire Windows appelé depuis WSL avec des chemins Linux.
->
-> **Une clé générée dans WSL n'est pas la même qu'une clé générée côté Windows.** Ce sont deux paires distinctes, à deux emplacements distincts, et il n'en faut qu'**une** par personne : en générer une dans chaque environnement par hésitation revient à devenir destinataire deux fois avec deux clés différentes, pour rien.
+> Un chemin sous `/mnt/c/` ou finissant par `.exe` : binaire Windows, clé dans `%AppData%`. Un chemin sous `/usr/`, `/usr/local/` ou votre répertoire personnel : binaire Linux, clé dans `~/.config`. Choisissez un environnement et restez-y : dans WSL, installez `sops`/`age` **dans** WSL et suivez la colonne Linux jusqu'au bout. Une clé générée dans WSL n'est pas celle générée côté Windows : il n'en faut qu'**une** par personne.
 
-Créer le répertoire, puis générer.
-
-**Windows**, dans PowerShell :
+Créer le répertoire, puis générer, **Windows** dans PowerShell :
 
 ```powershell
 New-Item -ItemType Directory -Force "$env:AppData\sops\age"
@@ -96,15 +66,7 @@ mkdir -p ~/.config/sops/age
 age-keygen -o ~/.config/sops/age/keys.txt
 ```
 
-`age-keygen` affiche la clé **publique** sur la sortie d'erreur, sous la forme `Public key: age1...`. C'est cette ligne, et elle seule, que vous transmettez. Elle est aussi recopiée en commentaire dans le fichier, donc récupérable plus tard sans régénérer quoi que ce soit :
-
-```bash
-grep "public key" ~/.config/sops/age/keys.txt
-```
-
-```powershell
-Select-String "public key" "$env:AppData\sops\age\keys.txt"
-```
+`age-keygen` affiche la clé **publique** sur la sortie d'erreur (`Public key: age1...`) : c'est cette ligne, et elle seule, que vous transmettez ; elle reste aussi récupérable en commentaire dans le fichier de clé (`grep "public key" ...` ou `Select-String "public key" ...`).
 
 Sous Windows, `age-keygen` répond en plus :
 
@@ -112,13 +74,11 @@ Sous Windows, `age-keygen` répond en plus :
 age-keygen: warning: writing secret key to a world-readable file
 ```
 
-Il ne ment pas et il ne sait pas mieux : `age` lit des droits de type Unix, que Windows n'expose pas de la même façon, et se rabat sur l'avertissement le plus prudent. Sans conséquence ici parce que le fichier est dans votre profil utilisateur, dont les autres comptes locaux n'ont pas la lecture par défaut. Cela cesserait d'être vrai sur un poste réellement partagé entre plusieurs comptes : dans ce cas, le sujet n'est pas l'avertissement, c'est le poste.
+Sans conséquence dans un profil utilisateur normal, sauf poste réellement partagé (le sujet serait alors le poste, pas l'avertissement). Deux confusions à éviter : ce n'est **pas** une clé SSH, et `age-keygen -o` **écrase** le fichier de destination sans prévenir. Ne le rejouez pas par réflexe si vous êtes déjà destinataire, vous perdriez l'accès au fichier chiffré.
 
-Deux confusions à éviter. Ce n'est **pas** une clé SSH, elle ne sert pas à se connecter à la machine. Et `age-keygen -o` **écrase** le fichier de destination s'il existe : ne le rejouez pas par réflexe si vous êtes déjà destinataire, vous perdriez l'accès au fichier chiffré.
+### Se faire ajouter comme destinataire
 
-## Se faire ajouter comme destinataire
-
-**C'est le passage qui compte.** Aujourd'hui `.sops.yaml` ne porte que **cinq** destinataires : les postes d'Alex Rovere, d'Antoine Coulon, d'Hugo Mrnth et de Tanguy Raguenes, et la CI. Le dernier membre et la machine sur site n'y sont pas encore. Tant que votre clé n'est pas dans la liste, `sops decrypt` échoue, et c'est le comportement normal, pas une panne :
+Aujourd'hui `.sops.yaml` porte **cinq** destinataires : les postes d'Alex Rovere, d'Antoine Coulon, d'Hugo Mrnth et de Tanguy Raguenes, et la CI. Le dernier membre et la machine sur site n'y sont pas encore. Tant que votre clé n'y est pas, `sops decrypt` échoue normalement :
 
 ```
 Failed to get the data key required to decrypt the SOPS file.
@@ -132,14 +92,14 @@ Group 0: FAILED
       | 'SOPS_AGE_KEY_FILE', and 'SOPS_AGE_KEY_CMD'.
 ```
 
-Une mise en garde sur ce message, parce qu'il égare : la liste des emplacements qu'il énumère **ne cite pas** `%AppData%\sops\age\keys.txt` ni `~/.config/sops/age/keys.txt`, qui sont pourtant bien lus. Ce message dit donc la même chose dans deux cas très différents, « vous n'êtes pas encore destinataire » et « votre clé n'est pas là où SOPS la cherche ». Avant de demander un ajout, vérifiez que votre fichier de clé est au bon endroit pour votre **système**.
+Attention, ce message égare : la liste des emplacements qu'il énumère **ne cite pas** `%AppData%\sops\age\keys.txt` ni `~/.config/sops/age/keys.txt`, pourtant bien lus. Il dit donc la même chose dans deux cas différents, « vous n'êtes pas encore destinataire » et « votre clé n'est pas au bon endroit » : vérifiez d'abord l'emplacement pour votre système.
 
 L'ajout se fait en **deux gestes, dans la même pull request** :
 
 1. ajouter votre clé publique dans la liste `age:` de `.sops.yaml`, commentée à votre nom ;
-2. rechiffrer le fichier existant pour la nouvelle liste, avec `sops updatekeys secrets.enc.yaml`, joué par quelqu'un qui est **déjà** destinataire.
+2. rechiffrer avec `sops updatekeys secrets.enc.yaml`, joué par quelqu'un qui est **déjà** destinataire.
 
-**Pourquoi les deux vont ensemble.** Ajouter une ligne à `.sops.yaml` ne touche pas `secrets.enc.yaml` : la règle ne vaut que pour les chiffrements à venir. Le fichier existant garde donc ses anciens destinataires, votre clé est déclarée mais ne déchiffre rien, et la liste et le fichier divergent. Le job `secrets` de la CI existe précisément pour attraper cela, et il le fait sans aucune clé, en comparant les deux listes que SOPS laisse en clair :
+**Pourquoi les deux vont ensemble** : ajouter une ligne à `.sops.yaml` ne touche pas `secrets.enc.yaml`, qui garde ses anciens destinataires tant qu'il n'est pas rechiffré. Le job `secrets` de la CI attrape cette divergence sans aucune clé, en comparant les deux listes que SOPS laisse en clair :
 
 ```bash
 grep -oE 'age1[0-9a-z]{58}' .sops.yaml       | sort -u > attendus.txt
@@ -147,57 +107,45 @@ grep -oE 'age1[0-9a-z]{58}' secrets.enc.yaml | sort -u > effectifs.txt
 diff attendus.txt effectifs.txt
 ```
 
-Ce refus est le service rendu. Sans lui, la divergence ne se verrait qu'au déploiement, sur site, au pire moment.
+**Vous ne pouvez pas vous ajouter seul** : le rechiffrement demande une clé privée déjà destinataire. Ouvrez la pull request avec la seule ligne ajoutée, et demandez à un destinataire actuel de jouer `sops updatekeys` sur votre branche. `sops updatekeys -y` passe la confirmation, à réserver à un script : sans `-y`, relisez la liste affichée avant de répondre `y`.
 
-**Vous ne pouvez pas vous ajouter seul**, et c'est voulu : le rechiffrement demande une clé privée déjà destinataire. En pratique, ouvrez la pull request avec la seule ligne ajoutée à `.sops.yaml`, et demandez à un destinataire actuel de jouer `sops updatekeys secrets.enc.yaml` sur votre branche et de pousser le fichier rechiffré dans la même PR.
+Une clé publique mal recopiée est attrapée tout de suite, une clé age portant sa propre somme de contrôle : `failed to parse input as Bech32-encoded age public key: malformed recipient "age1...": invalid checksum`.
 
-`sops updatekeys` affiche les destinataires ajoutés et retirés, puis demande confirmation :
+Une fois la pull request fusionnée, `sops decrypt secrets.enc.yaml` depuis `main` à jour confirme l'entrée, sans rien configurer d'autre.
 
+### Activer le hook `pre-push`
+
+Le hook [`.githooks/pre-push`](../.githooks/pre-push) refuse un push qui emporterait un secret, avant qu'il n'atteigne la forge (la CI, elle, ne fait que le constater après coup). Il ne s'installe pas tout seul :
+
+```bash
+git config core.hooksPath .githooks
 ```
-The following changes will be made to the file's groups:
-Group 1
-    age1...
-+++ age1...
-Is this okay? (y/n):
-```
 
-Lisez cette liste avant de répondre `y` : c'est le dernier moment où un ajout involontaire se voit facilement. `sops updatekeys -y` passe la question, à réserver à un script.
+Une commande par membre, une fois, locale à ce dépôt (pas `--global`). `git push --no-verify` le contourne volontairement : c'est la porte de secours, et c'est pourquoi la CI reste derrière, sans échappatoire. Détail de ce que le hook vérifie dans « Pour aller plus loin ».
 
-Une clé publique mal recopiée, elle, est attrapée plus tôt et sans ambiguïté, une clé age portant sa propre somme de contrôle : `failed to parse input as Bech32-encoded age public key: malformed recipient "age1...": invalid checksum`. Recopiez la ligne entière rendue par `age-keygen`, sans espace ajouté.
+## Utilisation courante
 
-Une fois la pull request fusionnée, vérifiez depuis `main` à jour :
+Se placer **à la racine du dépôt** : `sops` remonte jusqu'à `.sops.yaml` depuis le fichier visé, mais sa règle est écrite pour `secrets.enc.yaml` à la racine, et c'est là que les exemples ci-dessous sont joués.
+
+### Lire un secret
 
 ```bash
 sops decrypt secrets.enc.yaml
 ```
 
-Si les valeurs s'affichent, vous êtes entré. Rien d'autre à configurer : aucune variable d'environnement n'est nécessaire, SOPS trouve la clé à l'emplacement fixe décrit plus haut.
+La sortie est en clair sur le terminal : ne la redirigez pas n'importe où. Les deux seuls noms de fichier temporaire prévus, déjà ignorés par `.gitignore`, sont `secrets.yaml` et `secrets.dec.yaml`.
 
-## Lire, modifier, ajouter un secret
+### Modifier ou ajouter un secret
 
-Le plus simple est de se placer **à la racine du dépôt** : `sops` retrouve `.sops.yaml` en remontant depuis le fichier visé, donc un chemin relatif depuis un sous-répertoire fonctionne aussi, mais la règle de `.sops.yaml` est écrite pour le nom `secrets.enc.yaml` à la racine et c'est là que les exemples ci-dessous sont joués.
-
-**Lire**, sans rien modifier :
-
-```bash
-sops decrypt secrets.enc.yaml
-```
-
-La sortie est en clair sur le terminal. Ne la redirigez pas n'importe où : si vous avez besoin d'un fichier temporaire, les deux seuls noms prévus, et déjà ignorés par `.gitignore`, sont `secrets.yaml` et `secrets.dec.yaml`.
-
-**Modifier une valeur, ou en ajouter une**, sans ouvrir d'éditeur, se fait avec `sops set`. La forme la plus courte est celle-ci, et elle a un défaut qu'il faut connaître avant de s'en servir :
+La forme courte, à connaître pour son défaut avant de s'en servir :
 
 ```bash
 sops set secrets.enc.yaml '["POSTGRES_PASSWORD"]' '"la-nouvelle-valeur"'
 ```
 
-Les guillemets ne sont pas décoratifs : le deuxième argument est un **chemin JSON** vers la clé, le troisième une **valeur JSON**, d'où les guillemets doubles à l'intérieur des simples pour une chaîne.
+Le deuxième argument est un **chemin JSON**, le troisième une **valeur JSON** (d'où les guillemets doubles internes). **Le défaut** : cette ligne écrit le secret en clair hors du dépôt, dans l'historique du shell (`ConsoleHost_history.txt` sous Windows, `~/.bash_history` ailleurs) et dans la liste des processus le temps de l'exécution. Ni gitleaks ni Trivy ne voient ces fichiers, et un secret qui fuit par là se remplace, il ne se récupère pas.
 
-**Le défaut : cette ligne écrit le secret en clair hors du dépôt.** Elle part dans l'historique du shell, qui est un fichier sur disque : `%AppData%\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt` sous Windows, où PSReadLine enregistre au fil de la frappe et sans qu'on le lui demande, `~/.bash_history` ailleurs. Elle est de plus visible dans la liste des processus le temps de l'exécution, ce que l'aide de `sops` signale elle-même. Aucun garde-fou de ce dépôt ne rattrape cela : ces fichiers vivent en dehors, ni gitleaks ni Trivy ne les voient, et un secret qui fuit par là ne se récupère pas, il se remplace. Dans un document qui existe pour garder les secrets hors du clair, ce serait le seul réflexe qui fuit.
-
-**La forme à prendre, pour un vrai secret**, où la valeur ne figure jamais dans la ligne de commande : `--value-stdin` la lit sur l'entrée standard, le troisième argument disparaissant.
-
-Valeur tapée au clavier, sans écho à l'écran :
+**Pour un vrai secret**, `--value-stdin` lit la valeur sur l'entrée standard, jamais sur la ligne de commande :
 
 ```bash
 read -rs VALEUR
@@ -205,31 +153,21 @@ printf '"%s"' "$VALEUR" | sops set --value-stdin secrets.enc.yaml '["POSTGRES_PA
 unset VALEUR
 ```
 
-Valeur qu'on n'a aucune raison de connaître, comme un secret de session : la produire et la donner sans jamais l'afficher.
-
 ```bash
 printf '"%s"' "$(openssl rand -base64 24 | tr -d '\r\n')" | sops set --value-stdin secrets.enc.yaml '["SESSION_SECRET"]'
 ```
 
-Trois détails, chacun découvert en jouant ces commandes :
+Trois détails, chacun trouvé en jouant ces commandes : l'entrée standard doit être du **JSON**, d'où le `printf '"%s"'` (une valeur nue est refusée par `Value for --set is not valid JSON`) ; `tr -d '\r\n'` et non `'\n'`, parce que sous Git Bash `openssl` termine sa sortie par un retour chariot qui suffit à faire refuser le JSON ; une valeur contenant `"` ou `\` casserait ce `printf` (une valeur aléatoire en base64 n'en contient pas).
 
-- ce qui arrive sur l'entrée standard doit être du **JSON**, exactement comme le troisième argument de la forme courte : d'où le `printf '"%s"'` qui entoure la valeur de guillemets. Une valeur nue est refusée par `Value for --set is not valid JSON`.
-- `tr -d '\r\n'` et non `tr -d '\n'` : sous Git Bash, `openssl` termine sa sortie par un retour chariot, et ce seul caractère suffit à faire refuser le JSON.
-- une valeur contenant `"` ou `\` casserait ce `printf`, ces deux caractères devant être échappés en JSON. Une valeur tirée au sort en base64 n'en contient pas.
-
-**Sous PowerShell, `--value-stdin` ne fonctionne pas.** PowerShell place un BOM UTF-8 en tête de ce qu'il envoie sur l'entrée standard d'un programme externe, et `sops` répond `Value for --set is not valid JSON` quelle que soit la valeur de `$OutputEncoding`. Écrivez les secrets depuis Git Bash.
-
-**Sous PowerShell, la forme courte échoue aussi**, autrement : PowerShell retire les guillemets doubles internes avant de passer les arguments, et `sops` répond `Invalid set index format` sans rien changer au fichier. Il faut les protéger par un antislash, le jeton d'arrêt d'analyse `--%` ne rattrapant rien :
+**Sous PowerShell**, les deux formes échouent, autrement : `--value-stdin` ne fonctionne pas du tout (PowerShell place un BOM UTF-8 en tête de l'entrée standard, `sops` répond `Value for --set is not valid JSON` quel que soit `$OutputEncoding`) ; la forme courte échoue avec `Invalid set index format` si les guillemets internes ne sont pas protégés par un antislash (le jeton `--%` ne rattrape rien) :
 
 ```powershell
 sops set secrets.enc.yaml '[\"MOCK_API_URL\"]' '\"https://exemple\"'
 ```
 
-**La forme courte reste légitime pour ce qui n'est pas un secret** : une URL, un identifiant, un nom d'hôte. C'est le cas de `MOCK_API_URL` ci-dessous. La règle tient en une question : si cette ligne restait lisible dans un fichier d'historique pendant des mois, est-ce que cela coûterait quelque chose ? Si oui, `--value-stdin`.
+La forme courte reste légitime pour ce qui n'est pas un secret (URL, identifiant, nom d'hôte) : si la ligne restait lisible des mois dans un historique, est-ce que ça coûterait quelque chose ? Si oui, `--value-stdin`, et écrivez depuis Git Bash plutôt que PowerShell.
 
-Dans les deux formes, `sops set` écrit le fichier rechiffré directement, pour les seuls destinataires déclarés. C'est la voie recommandée sur ce projet : scriptable, et sans éditeur.
-
-**L'éditeur, et sa mise en garde.** `sops secrets.enc.yaml` ouvre le contenu déchiffré dans un éditeur et rechiffre à la fermeture. Sous Windows, la commande échoue le plus souvent avant d'avoir rien montré :
+**L'éditeur** (`sops secrets.enc.yaml`) échoue le plus souvent sous Windows avant d'avoir rien montré :
 
 ```
 Could not run editor: no editor available: sops attempts to use the editor
@@ -237,9 +175,9 @@ defined in the SOPS_EDITOR or EDITOR environment variables, and if that's
 not set defaults to any of vim, nano, vi, but none of them could be found
 ```
 
-Aucun de ces trois éditeurs n'est dans le `PATH` d'un Windows ordinaire. Si vous tenez au mode édition, posez `SOPS_EDITOR` (ou `EDITOR`) explicitement, et gardez en tête que SOPS attend la **fermeture** de l'éditeur pour rechiffrer : un éditeur qui rend la main aussitôt lancé lui fait conclure à une édition vide. `sops set` n'a aucun de ces deux modes de panne, c'est pourquoi il est préféré ici.
+Aucun de ces trois éditeurs n'est dans le `PATH` d'un Windows ordinaire ; `sops set` n'a aucun de ces modes de panne, c'est pourquoi il est préféré ici.
 
-**L'état actuel du fichier.** `secrets.enc.yaml` porte **trois** clés :
+**L'état actuel du fichier**, trois clés :
 
 | Clé | Usage |
 |---|---|
@@ -247,13 +185,7 @@ Aucun de ces trois éditeurs n'est dans le `PATH` d'un Windows ordinaire. Si vou
 | `SESSION_SECRET` | secret de session de l'applicatif, celui qui protège le cookie |
 | `GRAFANA_PASSWORD` | mot de passe de l'administrateur Grafana |
 
-`MOCK_API_URL` **manque**, et ce n'est pas un oubli : l'URL de l'API Mock est fournie par le formateur et n'est pas connue au moment où ce document est écrit. `.env.example` la liste déjà comme variable attendue. Le jour où elle arrive, une seule commande, avec la vraie URL à la place de l'exemple :
-
-```bash
-sops set secrets.enc.yaml '["MOCK_API_URL"]' '"https://exemple"'
-```
-
-Puis `git add secrets.enc.yaml` et un commit : **c'est le fichier chiffré qui se commite**, et lui seul. Une modification de secret se relit en pull request comme le reste, même si le diff ne montre que du chiffré ; ce qui se relit alors, c'est **quelle** clé a bougé et **pourquoi**, ce que le message de commit doit dire.
+`MOCK_API_URL` **manque volontairement** : l'URL de l'API Mock n'est pas encore connue. Le jour où elle arrive : `sops set secrets.enc.yaml '["MOCK_API_URL"]' '"https://exemple"'`, puis `git add secrets.enc.yaml` et un commit qui dit quelle clé a bougé et pourquoi.
 
 **Injecter au lancement**, sans jamais écrire les valeurs sur le disque :
 
@@ -261,21 +193,17 @@ Puis `git add secrets.enc.yaml` et un commit : **c'est le fichier chiffré qui s
 sops exec-env secrets.enc.yaml 'docker compose up -d'
 ```
 
-SOPS déchiffre en mémoire, peuple l'environnement du processus enfant, et aucun fichier en clair n'existe à aucun moment. C'est le chemin prévu pour la machine sur site. Sous Windows, la commande passée est confiée à `cmd` et non à un interpréteur POSIX : `sops exec-env secrets.enc.yaml 'echo $POSTGRES_PASSWORD'` affichera donc la chaîne littérale et non la valeur, sans que cela signifie que l'environnement est vide. Un test de ce genre se fait sous Git Bash ou WSL.
+C'est le chemin prévu pour la machine sur site. Sous Windows, la commande passée est confiée à `cmd`, pas à un interpréteur POSIX : `sops exec-env secrets.enc.yaml 'echo $POSTGRES_PASSWORD'` affiche la chaîne littérale, pas la valeur, sans que l'environnement soit vide pour autant. Un test de ce genre se fait sous Git Bash ou WSL.
 
-## Ce qui ne va jamais dans ce fichier, et où cela va
+### Ce qui ne va jamais dans ce fichier, et où cela va
 
-`secrets.enc.yaml` porte les secrets **applicatifs** : ce dont la pile a besoin pour tourner. Deux familles n'y ont pas leur place, et la raison est la même dans les deux cas, **le périmètre d'un secret doit être celui de son usage**.
+`secrets.enc.yaml` porte les secrets **applicatifs**, ce dont la pile a besoin pour tourner. Le principe : le périmètre d'un secret doit être celui de son usage.
 
-**La clé SSH de déploiement et la clé age de la CI** vivent dans les secrets du dépôt GitHub, sous les noms `DEPLOY_SSH_KEY` et `SOPS_AGE_KEY`. La clé qui ouvre la machine ne doit pas s'ouvrir avec les clés des membres : la mettre dans `secrets.enc.yaml`, ce serait donner à cinq postes un accès à l'hôte, et transformer la perte d'un seul portable en compromission de la machine. La partie **publique** de la paire de déploiement, elle, est versionnée dans [`deploy_key.pub`](../infra/ansible/files/deploy_key.pub), pour qu'Ansible autorise le compte de service depuis Git plutôt que par un `ssh-copy-id` fait une fois et oublié.
+**La clé SSH de déploiement et la clé age de la CI** vivent dans les secrets du dépôt GitHub (`DEPLOY_SSH_KEY`, `SOPS_AGE_KEY`). La clé qui ouvre la machine ne doit pas s'ouvrir avec les clés des membres, et pour `SOPS_AGE_KEY` s'ajoute une impossibilité pure : la clé qui déchiffre le fichier ne peut pas vivre dans le fichier qu'elle déchiffre. La partie **publique** de la paire de déploiement est versionnée dans [`deploy_key.pub`](../infra/ansible/files/deploy_key.pub), pour qu'Ansible l'autorise depuis Git plutôt que par un `ssh-copy-id` fait une fois et oublié.
 
-Pour `SOPS_AGE_KEY` s'ajoute une impossibilité pure : la clé qui déchiffre le fichier ne peut pas vivre dans le fichier qu'elle déchiffre.
+**Les identifiants d'un registre d'images**, le jour où il y en aura un, relèvent de la même logique (GitHub Secrets, pas ce fichier), tout comme **les valeurs de développement de chacun**, pour une autre raison : section suivante.
 
-**Les identifiants d'un registre d'images**, le jour où il y en aura un, relèvent de la même logique : ils servent au pipeline, pas à l'application. GitHub Secrets.
-
-**Les valeurs de développement de chacun** n'y vont pas non plus, pour une autre raison : section suivante.
-
-## Le développement local
+### Le développement local
 
 Chacun garde son propre `.env`, ignoré par git, avec **ses** valeurs. `.env.example` liste les variables attendues, et le démarrage décrit dans le [`README.md`](../README.md) ne demande rien de plus :
 
@@ -284,96 +212,57 @@ cp .env.example .env      # renseigner les valeurs
 docker compose up -d
 ```
 
-On ne répand pas les mots de passe de la machine sur cinq postes pour faire tourner un PostgreSQL de développement qui ne contient que des données de test. Le mot de passe de la base de production n'a aucune raison d'exister sur un portable, et chaque copie supplémentaire est une occasion de fuite de plus pour un gain nul.
+On ne répand pas les mots de passe de la machine sur cinq postes pour un PostgreSQL de développement qui ne contient que des données de test : chaque copie est une occasion de fuite pour un gain nul, et une valeur locale distincte fait échouer plutôt que réussir une commande qui pointerait par erreur vers la machine.
 
-Une valeur locale distincte a même un effet secondaire utile : le jour où une commande pointe par erreur vers la machine, elle échoue au lieu de réussir.
+## Pour aller plus loin
 
-## Les deux amorçages, faits une fois
+### Les amorçages faits une fois
 
-Deux clés ne suivent pas la procédure ordinaire, parce qu'elles n'appartiennent à personne. Elles sont écrites ici pour être **refaisables** si quelqu'un doit y revenir, pas pour être rejouées.
+Deux clés ne suivent pas la procédure ordinaire, parce qu'elles n'appartiennent à personne : écrites ici pour être **refaisables**, pas pour être rejouées. **La clé de la machine sur site** est générée **sur la machine**, jamais ailleurs, et sa partie privée n'en sort jamais : fichier `/etc/enervision/age.key`, `0400`, propriété du compte de service `enervision`. Seule la partie publique remonte, par pull request. Générer ailleurs puis copier ferait transiter la clé par un presse-papiers, un terminal, une messagerie : la copie qui reste quelque part est celle qu'on oublie. Reste à faire, la machine ouvrant au J2, exigence portée par #47.
 
-**La clé de la machine sur site.** Elle est générée **sur la machine**, jamais ailleurs, et sa partie privée n'en sort jamais : fichier `/etc/enervision/age.key`, en `0400`, propriété du compte de service `enervision`. Seule la partie publique remonte, par pull request dans `.sops.yaml`, suivie du `sops updatekeys` habituel. Cela reste à faire : la machine ouvre au J2, et l'exigence est portée par #47.
+**La clé de la CI** a dû être générée sur un poste, puisque GitHub Actions ne garde pas de secret d'un job à l'autre sans qu'on le lui donne : partie privée collée dans `SOPS_AGE_KEY`, partie publique ajoutée à `.sops.yaml`, fichier temporaire du poste effacé. Exception assumée et bornée à cet usage, une rotation ne coûtant qu'un `updatekeys`. `SOPS_AGE_KEY` porte le **contenu** de la clé, `SOPS_AGE_KEY_FILE` un **chemin** ; la CI utilise le premier, la machine utilisera le second.
 
-Générer cette clé sur un poste puis la copier serait plus simple, et la ferait transiter par un presse-papiers, un terminal et probablement une messagerie. La copie qui reste quelque part est celle qu'on oublie.
+### Rotation et révocation
 
-**La clé de la CI.** GitHub Actions ne peut pas générer une clé et en garder la partie privée d'un job à l'autre : il faut la lui donner. Elle a donc été générée sur un poste, sa partie privée collée dans le secret `SOPS_AGE_KEY` du dépôt, sa partie publique ajoutée à `.sops.yaml` sous « CI GitHub Actions », et le fichier temporaire du poste effacé. C'est l'exception assumée à la règle « la clé privée ne bouge pas », et elle est bornée : cette clé ne sert qu'à la CI, et sa rotation ne coûte qu'un `updatekeys`.
+**Retirer un destinataire** : supprimer sa ligne de `.sops.yaml`, `sops updatekeys`, commiter les deux fichiers, puis **redéployer**. Tant que la pile tourne avec les valeurs du dernier lancement, rien n'a changé pour elle.
 
-Au passage, deux variables font le même travail : `SOPS_AGE_KEY` porte le **contenu** de la clé, `SOPS_AGE_KEY_FILE` un **chemin**. La CI utilise la première, n'ayant pas de fichier à pointer ; la machine utilisera la seconde.
+**La chose désagréable** : retirer une clé n'efface pas ce qui a déjà été lu. Git conserve les anciennes versions chiffrées, déchiffrables par les clés de l'époque. D'où deux réponses différentes :
 
-## Rotation et révocation
+- **Départ prévu d'un membre** : retirer la clé suffit, on remet la liste en accord avec l'équipe réelle.
+- **Incident réel** (clé fuitée, poste perdu, valeur affichée) : le vrai travail est de **changer les valeurs** (nouveau mot de passe Postgres, nouveau secret de session qui déconnecte tout le monde volontairement, nouveau mot de passe Grafana, chacun via `--value-stdin`), redéployer, et **ensuite** retirer la clé. La révocation est le geste d'hygiène, pas la réponse à l'incident.
 
-**Retirer un destinataire** : supprimer sa ligne de `.sops.yaml`, jouer `sops updatekeys secrets.enc.yaml`, commiter les deux fichiers, puis **redéployer**. Le redéploiement n'est pas une formalité : tant que la pile tourne avec les valeurs injectées au dernier lancement, rien n'a changé pour elle.
+Pas de rotation de routine au MVP, la pile ne vivant que le temps de la piscine ; une exploitation réelle poserait une échéance et un responsable.
 
-**Et maintenant la chose désagréable.** Retirer une clé n'efface pas ce qui a déjà été lu. Quelqu'un qui a déchiffré le fichier une fois connaît les valeurs ; après révocation il ne lira pas les versions futures, mais il connaît toujours la version en cours. Git conserve d'ailleurs les anciennes versions chiffrées, qui restent déchiffrables par les clés de l'époque.
+### Limites connues
 
-D'où deux cas qui n'appellent pas la même réponse :
+**La machine sur site détient forcément une clé** pour redémarrer seule après une coupure : ce qui la protège est ailleurs (accès SSH par clé, fichier de clé en `0400` pour le seul compte de service), décrit dans [la configuration de la machine](../infra/ansible/README.md). **Cette garantie n'est pas tenue aujourd'hui pour les ports** : `docker-compose.yml` publie Prometheus sur `9090:9090` et Grafana sur `3001:3000` sur toutes les interfaces, contrairement à `postgres` lié à la boucle locale ; `GRAFANA_PASSWORD` garde donc une interface d'administration joignable depuis le réseau. Corriger `docker-compose.yml` relève de #47, signalé ici pour ne pas laisser croire le contraire.
 
-- **Départ prévu d'un membre.** Retirer la clé suffit. On ne se protège pas d'un collègue, on remet la liste en accord avec l'équipe réelle.
-- **Incident réel** : clé privée fuitée, poste perdu, valeur affichée dans un journal ou une capture. Là, le vrai travail est de **changer les valeurs elles-mêmes**. Nouveau mot de passe PostgreSQL, nouveau secret de session (ce qui déconnecte tout le monde, et c'est l'effet recherché), nouveau mot de passe Grafana, un `sops set --value-stdin` par valeur (ce sont des secrets, ils n'ont rien à faire dans un historique de shell), commit, redéploiement, et **ensuite** le retrait de la clé. La révocation est le geste d'hygiène, pas la réponse à l'incident.
+**Le moteur Docker garde les variables d'environnement en clair**, quelle que soit la méthode d'injection : `/var/lib/docker/containers/<id>/config.v2.json`, lisible par `root`, et `docker inspect` les rend aussi. Le chiffrement au repos protège le dépôt, pas la mémoire de l'hôte. S'en affranchir demanderait de monter les secrets en fichiers (variantes `_FILE` des images officielles), ce qui changerait le contrat de [`api.md`](./api.md) pour ne déplacer la frontière que d'un cran : écarté au MVP, écrit ici comme évolution.
 
-**Rotation de routine** : il n'y en a pas au MVP, la pile ne vivant que le temps de la piscine. C'est écrit pour que cela ne passe pas pour une décision implicite : une exploitation réelle poserait une échéance et un responsable.
+**Le fichier chiffré révèle sa structure** : SOPS ne chiffre que les valeurs, noms de clés et destinataires se lisent sans rien déchiffrer. Voulu, c'est ce qui permet au job `secrets` de vérifier sans détenir de clé ; en conséquence, aucune information sensible dans un **nom** de clé. Et l'historique garde les versions passées : une valeur compromise se change, elle ne se rattrape pas.
 
-## Limites connues
+### Les garde-fous de la CI, et leur sortie de secours
 
-**Le moteur Docker garde les variables d'environnement en clair.** Quelle que soit la méthode d'injection, `sops exec-env`, `--env-file` ou un bloc `environment:`, le moteur écrit la configuration du conteneur dans son état interne, sous `/var/lib/docker/containers/<id>/config.v2.json`, lisible par `root` ; `docker inspect` les rend également. Le chiffrement au repos protège le dépôt, pas la mémoire de l'hôte, et c'est pourquoi la phrase « jamais en clair sur la machine » serait fausse si on l'écrivait.
-
-S'en affranchir demanderait de monter les secrets en **fichiers** et d'utiliser les variantes `_FILE` des images officielles (`POSTGRES_PASSWORD_FILE` et consorts). Cela change le contrat de variables figé dans [`api.md`](./api.md), ajoute un montage par secret, et ne déplace la frontière que d'un cran : qui est `root` sur la machine lit les fichiers montés aussi bien que la configuration du moteur. Écarté au MVP, écrit ici comme **évolution**, pas caché.
-
-**Le fichier chiffré révèle sa structure.** SOPS ne chiffre que les **valeurs** : les noms de clés et la liste des destinataires se lisent sans rien déchiffrer. C'est voulu, c'est ce qui permet au job `secrets` de vérifier les destinataires sans détenir de clé. Conséquence pratique : ne mettez jamais d'information sensible dans un **nom** de clé.
-
-**L'historique garde les versions passées.** Voir la section précédente : une valeur compromise se change, elle ne se rattrape pas.
-
-## Les trois garde-fous de la CI
-
-Ils sont dans [`ci.yml`](../.github/workflows/ci.yml). Les jobs `security` et `secrets` tournent sur chaque pull request vers `main` et sur chaque push, quelle que soit la branche : le reste du pipeline (`changes`, `etl`, `ml`, `dashboard`, `infra`) reste lié aux pull requests, pour des raisons de coût, l'organisation étant en offre gratuite et plafonnée. Les connaître évite de les prendre pour des pannes.
+Dans [`security.yml`](../.github/workflows/security.yml), sur chaque pull request vers `main` et chaque push, quelle que soit la branche (le reste du pipeline, dans [`ci.yml`](../.github/workflows/ci.yml), reste lié aux pull requests, pour le coût sur une offre gratuite plafonnée).
 
 | Contrôle | Ce qu'il refuse |
 |---|---|
-| Job `secrets`, destinataires | Une divergence entre la liste de `.sops.yaml` et celle de `secrets.enc.yaml`, c'est-à-dire un `sops updatekeys` oublié |
-| Job `secrets`, déchiffrement | Un fichier que la clé de la CI ne peut plus ouvrir, donc un déploiement qui échouerait sur site |
+| Job `secrets`, destinataires | Une divergence entre `.sops.yaml` et `secrets.enc.yaml`, un `sops updatekeys` oublié |
+| Job `secrets`, déchiffrement | Un fichier que la clé de la CI ne peut plus ouvrir |
 | Job `security`, Trivy et gitleaks | Un secret en clair dans l'arbre de travail (Trivy) ou **n'importe où dans l'historique** (gitleaks, fusions comprises). Bloquant |
 
-Le dernier mérite une précision, parce qu'il surprend : un secret commité puis retiré au commit suivant fait quand même échouer le pipeline, l'historique le contenant toujours. Le rattrapage n'est alors pas un commit de plus, c'est une réécriture d'historique, coûteuse et partagée. Autant ne pas avoir à le faire : `.env`, `secrets.yaml`, `secrets.dec.yaml`, `*.key` et `keys.txt` sont ignorés par [`.gitignore`](../.gitignore) pour cette raison, et un `git status` avant chaque commit vaut mieux qu'un `git add .` confiant.
+Le dernier surprend : un secret commité puis retiré au commit suivant fait quand même échouer le pipeline, l'historique le contenant toujours ; le rattrapage est alors une réécriture d'historique, pas un commit de plus. D'où `.env`, `secrets.yaml`, `secrets.dec.yaml`, `*.key` et `keys.txt` ignorés par [`.gitignore`](../.gitignore), et un `git status` avant chaque commit plutôt qu'un `git add .` confiant.
 
-### La sortie de secours d'un faux positif gitleaks
+**Sortie de secours d'un faux positif** (gitleaks se trompe déjà : une clé publique age classée `generic-api-key`, vérifié sur ce projet) : un commentaire `gitleaks:allow` sur la ligne (préféré pour une valeur documentée à l'avance), ou une entrée dans `.gitleaksignore` à la racine (à créer le jour du premier cas, format `<commit>:<chemin>:<règle>:<ligne>` tel que gitleaks le rend). Légitime pour un faux positif vérifié un par un, jamais pour faire taire un vrai secret : la différence se voit en revue, pas dans la syntaxe.
 
-Le scan gitleaks est bloquant et couvre `--all`, c'est-à-dire toutes les branches du dépôt : une fuite poussée n'importe où, même sur une branche de travail personnelle, met au rouge la CI de tout le monde. Et gitleaks se trompe : la version 8.30.1 a déjà classé des clés **publiques** age (celles de `.sops.yaml`, lisibles en clair par conception) en `generic-api-key`, un faux positif avéré et vérifié sur ce projet.
+### Le détail du hook `pre-push`
 
-Deux échappatoires existent, vérifiées sur ce dépôt avec `gitleaks 8.30.1`, chacune avec sa portée :
+Deux contrôles indépendants, qui n'attrapent pas la même chose :
 
-- **Un commentaire `gitleaks:allow`** sur la ligne concernée (par exemple `# gitleaks:allow` en YAML ou shell, `// gitleaks:allow` ailleurs) supprime la détection pour cette ligne précise, dans tous les commits qui la contiennent telle quelle. C'est la forme à préférer pour une valeur d'exemple ou un cas documenté à l'avance, parce que le motif reste à côté de la ligne qu'il couvre.
-- **Un fichier `.gitleaksignore`** à la racine (à créer le jour du premier faux positif de ce type, il n'existe pas encore), une empreinte par ligne, au format `<commit>:<chemin>:<règle>:<ligne>` exactement tel que gitleaks le rend dans ses résultats (champ `Fingerprint`). Cette forme convient à un faux positif découvert après coup, sur un commit déjà poussé, quand ajouter un commentaire demanderait de réécrire l'historique pour rien.
+**1. Un scan gitleaks** sur les commits qui partent (ou tout l'historique local au premier push d'une branche), pour des motifs connus (préfixes de jetons, formes de clés). Même moteur que la CI, plus rapide car limité à ce qui n'est pas encore poussé.
 
-**Quand c'est légitime** : un faux positif avéré (une clé publique, une valeur d'exemple déjà documentée comme telle, une chaîne de test sans usage réel) qu'on a vérifié un par un, jamais en lot. **Quand ça ne l'est pas** : faire taire un vrai secret parce que le corriger prend du temps. La différence ne se voit pas dans la syntaxe, elle se voit dans la revue : une entrée de `.gitleaksignore` ou un commentaire `gitleaks:allow` se relit en pull request comme le reste, avec la même exigence de dire pourquoi.
+**2. Un contrôle déterministe sur `secrets.enc.yaml`** : gitleaks cherche des motifs, pas l'absence de chiffrement, et une valeur déchiffrée en place (`sops decrypt --in-place`, une redirection malheureuse) peut n'en porter aucun. **Vérifié sur ce projet** : une copie du fichier avec des valeurs courtes et peu aléatoires n'a déclenché **aucune** détection gitleaks, quand des valeurs aléatoires de forme réaliste, elles, ont été attrapées par sa règle générique : les deux contrôles ne se recouvrent donc pas. Il vérifie, sans rien déchiffrer, que le fichier porte son bloc `sops:`, que chaque valeur porte le marqueur `ENC[AES256_GCM`, et que leur nombre correspond au nombre de clés (pour attraper une seule valeur déchiffrée à côté des autres).
 
-## Le hook `pre-push`
+Ce qu'il n'attrape pas : un secret en clair ailleurs (rôle du scan gitleaks), ou une valeur chiffrée mais fausse ou périmée (rôle du job `secrets` de la CI). Un contrôle de **forme**, pas de contenu.
 
-Un scan en CI **constate** : le secret est déjà parti au moment où le pipeline l'annonce. Un hook **empêche** : il refuse le push avant que quoi que ce soit atteigne la forge. Les deux sont voulus, l'un ne remplace pas l'autre, et le hook n'est qu'une première ligne, plus rapide et plus locale, devant le même garde-fou qui reste en CI.
-
-Le hook vit dans [`.githooks/pre-push`](../.githooks/pre-push), versionné, mais **un hook ne s'installe pas tout seul**. Tant que la commande suivante n'a pas été jouée sur un poste, aucune protection n'existe sur ce poste, silencieusement :
-
-```bash
-git config core.hooksPath .githooks
-```
-
-Une commande par membre, une fois. Elle pointe Git vers ce répertoire pour tous les dépôts... non, pour **ce** dépôt seulement (`core.hooksPath` est une configuration locale, pas globale, sauf à la poser explicitement avec `--global`, ce que ce projet ne demande pas).
-
-**`git push --no-verify` contourne le hook**, et c'est voulu : il faut une porte de secours pour un cas légitime et pressé, et c'est précisément pourquoi la CI reste derrière, elle, sans échappatoire côté développeur. Un hook qu'on ne peut jamais court-circuiter finit par être désinstallé en entier le jour où il bloque à tort ; un hook contournable au prix d'un flag explicite et visible dans l'historique de commande reste en place.
-
-**Un fichier, un sujet.** Ce hook ne fait que le scan de secrets. Le lint (`ruff`, `eslint`...) n'y a pas sa place : un ticket dédié posera son propre `pre-commit` à côté, dans le même répertoire `.githooks`. Mélanger un contrôle de confort à un contrôle de sécurité finit par faire désactiver les deux ensemble le jour où le premier gêne.
-
-### Ce que le hook vérifie, et ce que chaque contrôle attrape
-
-Le hook fait deux contrôles indépendants, parce qu'ils n'attrapent pas la même chose.
-
-**1. Un scan gitleaks** sur les commits qui partent (la plage entre ce que la télécommande a déjà et ce que le push va lui envoyer, ou tout l'historique local lors du tout premier push d'une branche). Il cherche des **motifs** connus : préfixes de jetons (`ghp_`, `github_pat_`...), formes reconnaissables de clés. C'est le même moteur que la CI, en plus rapide parce qu'il ne porte que ce qui n'est pas encore sur la télécommande.
-
-**2. Un contrôle déterministe sur `secrets.enc.yaml`**, ajouté parce que le premier a un angle mort précis : gitleaks cherche des motifs, pas l'absence de chiffrement. Si quelqu'un déchiffre le fichier en place (`sops decrypt --in-place`, une redirection malheureuse du type `sops decrypt f > f`, ou une édition manuelle d'une seule valeur) puis le commite, les valeurs qui en résultent sont des chaînes quelconques, sans préfixe reconnaissable : rien ne garantit qu'une règle de motif les voie. **Vérifié sur ce projet** : une copie de `secrets.enc.yaml` dont les trois valeurs avaient été remplacées par des chaînes courtes et peu aléatoires (le genre de valeur qu'on retape à la main) n'a déclenché **aucune** détection gitleaks, alors qu'elle expose bel et bien les secrets en clair. À l'inverse, des valeurs aléatoires de forme réaliste (base64 issu de `openssl rand`) ont été attrapées par la règle générique de gitleaks dans nos essais : les deux contrôles ne se recouvrent donc pas complètement, et gitleaks seul ne suffit pas dans le cas qui compte le plus, une valeur discrète.
-
-Le contrôle vérifie, sans rien déchiffrer :
-
-- que le fichier porte bien son bloc de métadonnées `sops:` ;
-- que chaque valeur du fichier, avant ce bloc, porte le marqueur `ENC[AES256_GCM` ;
-- que le nombre de valeurs ainsi chiffrées correspond au nombre de clés du fichier, pour attraper le cas où une seule valeur aurait été déchiffrée en place à côté des autres, restées chiffrées.
-
-**Ce que ce contrôle n'attrape pas** : un secret en clair ailleurs que dans `secrets.enc.yaml` (c'est le rôle du scan gitleaks, contrôle 1), et une valeur qui resterait chiffrée mais fausse ou périmée (ce n'est pas son objet, c'est celui du job `secrets` de la CI qui vérifie le déchiffrement effectif). C'est un contrôle de **forme**, pas de contenu : il dit que le fichier a la structure d'un fichier chiffré, pas qu'il chiffre les bonnes valeurs pour les bons destinataires.
+**Un fichier, un sujet** : ce hook ne fait que le scan de secrets, le lint étant laissé à un `pre-commit` distinct posé par un autre ticket. Mélanger un contrôle de confort à un contrôle de sécurité finit par faire désactiver les deux ensemble le jour où le premier gêne.
