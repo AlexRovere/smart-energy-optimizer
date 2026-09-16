@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { creerBaseDeTest, type BaseDeTest } from './base-de-test'
 import {
   clesEtrangeresDocumentees,
+  clesPrimairesDocumentees,
   colonnesAvecCheckDocumentees,
   colonnesClePrimaire,
   colonnesUniquesDocumentees,
@@ -27,10 +28,15 @@ describe('le schéma appliqué correspond à docs/data.md', () => {
   const documentees = lireTablesDocumentees()
   // Dérivées une seule fois du document : ces appels lèvent déjà si
   // l'extraction par expression régulière ne trouve plus rien, avant même
-  // qu'un test tourne.
+  // qu'un test tourne. clesPrimairesDocumentees n'est pas réutilisée plus
+  // bas (le test par table appelle colonnesClePrimaire directement), mais
+  // l'appeler ici est ce qui garantit qu'une extraction de clé primaire
+  // vide sur tout le document fait échouer la collecte au lieu de laisser
+  // les cinq tests d'inclusion passer à vide.
   const clesEtrangeresAttendues = clesEtrangeresDocumentees(documentees)
   const colonnesUniquesAttendues = colonnesUniquesDocumentees(documentees)
   const colonnesCheckAttendues = colonnesAvecCheckDocumentees(documentees)
+  clesPrimairesDocumentees(documentees)
 
   let base: BaseDeTest
 
