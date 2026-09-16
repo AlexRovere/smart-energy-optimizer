@@ -8,7 +8,7 @@ Le mécanisme, en une ligne : les valeurs sensibles de la pile vivent chiffrées
 
 Il rend un **accès en lecture au dépôt sans valeur**. Un clone, une capture d'écran d'un fichier, un dépôt passé public par erreur, une sauvegarde de poste qui traîne : dans tous ces cas, ce qui est lu est un bloc chiffré. C'est la seule promesse, et elle est tenue.
 
-Il ne protège **pas la machine sur site**. Celle-ci détient forcément de quoi déchiffrer, sinon elle ne pourrait pas redémarrer seule après une coupure de courant. Ce qui la protège est ailleurs, et c'est écrit dans [`../infra/ansible/README.md`](../infra/ansible/README.md) : accès SSH par clé, aucun port de service publié sur l'hôte hormis le 443 du reverse proxy, et le fichier de clé en `0400` appartenant au seul compte de service.
+Il ne protège **pas la machine sur site**. Celle-ci détient forcément de quoi déchiffrer, sinon elle ne pourrait pas redémarrer seule après une coupure de courant. Ce qui la protège est ailleurs, et c'est écrit dans [la configuration de la machine](../infra/ansible/README.md) : accès SSH par clé, aucun port de service publié sur l'hôte hormis le 443 du reverse proxy, et le fichier de clé en `0400` appartenant au seul compte de service.
 
 Confondre ces deux frontières mène à chercher un mécanisme qui n'existe pas. « Comment empêcher la machine de lire les secrets qu'elle doit utiliser » n'a pas de réponse : un service qui démarre sans intervention humaine a besoin de ses identifiants, point. La question utile n'est pas celle-là, c'est « qui peut entrer sur la machine ».
 
@@ -28,7 +28,14 @@ Les trois commandes, dans cet ordre. `age` n'est **pas** dans le bucket `main`, 
 
 **macOS** : `brew install sops age`, le groupage fonctionne ici.
 
-**Linux** : `age` est dans les dépôts (`apt install age` sur Debian 12 et Ubuntu 22.04 et suivantes). `sops` ne l'est pas partout : le plus sûr est le binaire des releases, comme le fait la CI dans [`../.github/workflows/ci.yml`](../.github/workflows/ci.yml).
+**Linux** : `age` est dans les dépôts (`apt install age` sur Debian 12 et Ubuntu 22.04 et suivantes). `sops` ne l'est pas partout, et il vaut mieux poser la version exacte du projet que celle qu'une distribution aura figée. Les deux lignes ci-dessous sont celles que joue la CI, à l'identique :
+
+```bash
+curl -sSfL https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.amd64 -o /usr/local/bin/sops
+chmod +x /usr/local/bin/sops
+```
+
+Le nom du binaire porte sa version et son architecture : pour une machine ARM, remplacer `amd64` par `arm64` dans l'URL. C'est aussi ce qui se posera sur la machine sur site, où `sops` est attendu par le playbook.
 
 Vérifier avant d'aller plus loin, les deux commandes doivent répondre :
 
@@ -159,7 +166,7 @@ sops decrypt secrets.enc.yaml
 
 La sortie est en clair sur le terminal. Ne la redirigez pas n'importe où : si vous avez besoin d'un fichier temporaire, les deux seuls noms prévus, et déjà ignorés par `.gitignore`, sont `secrets.yaml` et `secrets.dec.yaml`.
 
-**Modifier une valeur, ou en ajouter une**, sans ouvrir d'éditeur :
+**Modifier une valeur, ou en ajouter une**, sans ouvrir d'éditeur, se fait avec `sops set`. La forme la plus courte est celle-ci, et elle a un défaut qu'il faut connaître avant de s'en servir :
 
 ```bash
 sops set secrets.enc.yaml '["POSTGRES_PASSWORD"]' '"la-nouvelle-valeur"'
@@ -167,15 +174,41 @@ sops set secrets.enc.yaml '["POSTGRES_PASSWORD"]' '"la-nouvelle-valeur"'
 
 Les guillemets ne sont pas décoratifs : le deuxième argument est un **chemin JSON** vers la clé, le troisième une **valeur JSON**, d'où les guillemets doubles à l'intérieur des simples pour une chaîne.
 
-**Sous PowerShell, cette commande échoue.** PowerShell retire les guillemets doubles internes avant de passer les arguments, et `sops` répond `Invalid set index format` sans rien changer au fichier. Il faut les protéger par un antislash :
+**Le défaut : cette ligne écrit le secret en clair hors du dépôt.** Elle part dans l'historique du shell, qui est un fichier sur disque : `%AppData%\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt` sous Windows, où PSReadLine enregistre au fil de la frappe et sans qu'on le lui demande, `~/.bash_history` ailleurs. Elle est de plus visible dans la liste des processus le temps de l'exécution, ce que l'aide de `sops` signale elle-même. Aucun garde-fou de ce dépôt ne rattrape cela : ces fichiers vivent en dehors, ni gitleaks ni Trivy ne les voient, et un secret qui fuit par là ne se récupère pas, il se remplace. Dans un document qui existe pour garder les secrets hors du clair, ce serait le seul réflexe qui fuit.
 
-```powershell
-sops set secrets.enc.yaml '[\"POSTGRES_PASSWORD\"]' '\"la-nouvelle-valeur\"'
+**La forme à prendre, pour un vrai secret**, où la valeur ne figure jamais dans la ligne de commande : `--value-stdin` la lit sur l'entrée standard, le troisième argument disparaissant.
+
+Valeur tapée au clavier, sans écho à l'écran :
+
+```bash
+read -rs VALEUR
+printf '"%s"' "$VALEUR" | sops set --value-stdin secrets.enc.yaml '["POSTGRES_PASSWORD"]'
+unset VALEUR
 ```
 
-Le jeton d'arrêt d'analyse `--%` ne rattrape pas le problème : il échoue de la même façon. Au moindre doute sur les guillemets, jouez ces commandes depuis Git Bash, où la forme simple fonctionne telle quelle.
+Valeur qu'on n'a aucune raison de connaître, comme un secret de session : la produire et la donner sans jamais l'afficher.
 
-`sops set` écrit le fichier rechiffré directement, pour les seuls destinataires déclarés. C'est la voie recommandée sur ce projet : scriptable, et sans éditeur.
+```bash
+printf '"%s"' "$(openssl rand -base64 24 | tr -d '\r\n')" | sops set --value-stdin secrets.enc.yaml '["SESSION_SECRET"]'
+```
+
+Trois détails, chacun découvert en jouant ces commandes :
+
+- ce qui arrive sur l'entrée standard doit être du **JSON**, exactement comme le troisième argument de la forme courte : d'où le `printf '"%s"'` qui entoure la valeur de guillemets. Une valeur nue est refusée par `Value for --set is not valid JSON`.
+- `tr -d '\r\n'` et non `tr -d '\n'` : sous Git Bash, `openssl` termine sa sortie par un retour chariot, et ce seul caractère suffit à faire refuser le JSON.
+- une valeur contenant `"` ou `\` casserait ce `printf`, ces deux caractères devant être échappés en JSON. Une valeur tirée au sort en base64 n'en contient pas.
+
+**Sous PowerShell, `--value-stdin` ne fonctionne pas.** PowerShell place un BOM UTF-8 en tête de ce qu'il envoie sur l'entrée standard d'un programme externe, et `sops` répond `Value for --set is not valid JSON` quelle que soit la valeur de `$OutputEncoding`. Écrivez les secrets depuis Git Bash.
+
+**Sous PowerShell, la forme courte échoue aussi**, autrement : PowerShell retire les guillemets doubles internes avant de passer les arguments, et `sops` répond `Invalid set index format` sans rien changer au fichier. Il faut les protéger par un antislash, le jeton d'arrêt d'analyse `--%` ne rattrapant rien :
+
+```powershell
+sops set secrets.enc.yaml '[\"MOCK_API_URL\"]' '\"https://exemple\"'
+```
+
+**La forme courte reste légitime pour ce qui n'est pas un secret** : une URL, un identifiant, un nom d'hôte. C'est le cas de `MOCK_API_URL` ci-dessous. La règle tient en une question : si cette ligne restait lisible dans un fichier d'historique pendant des mois, est-ce que cela coûterait quelque chose ? Si oui, `--value-stdin`.
+
+Dans les deux formes, `sops set` écrit le fichier rechiffré directement, pour les seuls destinataires déclarés. C'est la voie recommandée sur ce projet : scriptable, et sans éditeur.
 
 **L'éditeur, et sa mise en garde.** `sops secrets.enc.yaml` ouvre le contenu déchiffré dans un éditeur et rechiffre à la fermeture. Sous Windows, la commande échoue le plus souvent avant d'avoir rien montré :
 
@@ -215,7 +248,7 @@ SOPS déchiffre en mémoire, peuple l'environnement du processus enfant, et aucu
 
 `secrets.enc.yaml` porte les secrets **applicatifs** : ce dont la pile a besoin pour tourner. Deux familles n'y ont pas leur place, et la raison est la même dans les deux cas, **le périmètre d'un secret doit être celui de son usage**.
 
-**La clé SSH de déploiement et la clé age de la CI** vivent dans les secrets du dépôt GitHub, sous les noms `DEPLOY_SSH_KEY` et `SOPS_AGE_KEY`. La clé qui ouvre la machine ne doit pas s'ouvrir avec les clés des membres : la mettre dans `secrets.enc.yaml`, ce serait donner à cinq postes un accès à l'hôte, et transformer la perte d'un seul portable en compromission de la machine. La partie **publique** de la paire de déploiement, elle, est versionnée dans [`../infra/ansible/files/deploy_key.pub`](../infra/ansible/files/deploy_key.pub), pour qu'Ansible autorise le compte de service depuis Git plutôt que par un `ssh-copy-id` fait une fois et oublié.
+**La clé SSH de déploiement et la clé age de la CI** vivent dans les secrets du dépôt GitHub, sous les noms `DEPLOY_SSH_KEY` et `SOPS_AGE_KEY`. La clé qui ouvre la machine ne doit pas s'ouvrir avec les clés des membres : la mettre dans `secrets.enc.yaml`, ce serait donner à cinq postes un accès à l'hôte, et transformer la perte d'un seul portable en compromission de la machine. La partie **publique** de la paire de déploiement, elle, est versionnée dans [`deploy_key.pub`](../infra/ansible/files/deploy_key.pub), pour qu'Ansible autorise le compte de service depuis Git plutôt que par un `ssh-copy-id` fait une fois et oublié.
 
 Pour `SOPS_AGE_KEY` s'ajoute une impossibilité pure : la clé qui déchiffre le fichier ne peut pas vivre dans le fichier qu'elle déchiffre.
 
@@ -257,7 +290,7 @@ Au passage, deux variables font le même travail : `SOPS_AGE_KEY` porte le **con
 D'où deux cas qui n'appellent pas la même réponse :
 
 - **Départ prévu d'un membre.** Retirer la clé suffit. On ne se protège pas d'un collègue, on remet la liste en accord avec l'équipe réelle.
-- **Incident réel** : clé privée fuitée, poste perdu, valeur affichée dans un journal ou une capture. Là, le vrai travail est de **changer les valeurs elles-mêmes**. Nouveau mot de passe PostgreSQL, nouveau secret de session (ce qui déconnecte tout le monde, et c'est l'effet recherché), nouveau mot de passe Grafana, un `sops set` par valeur, commit, redéploiement, et **ensuite** le retrait de la clé. La révocation est le geste d'hygiène, pas la réponse à l'incident.
+- **Incident réel** : clé privée fuitée, poste perdu, valeur affichée dans un journal ou une capture. Là, le vrai travail est de **changer les valeurs elles-mêmes**. Nouveau mot de passe PostgreSQL, nouveau secret de session (ce qui déconnecte tout le monde, et c'est l'effet recherché), nouveau mot de passe Grafana, un `sops set --value-stdin` par valeur (ce sont des secrets, ils n'ont rien à faire dans un historique de shell), commit, redéploiement, et **ensuite** le retrait de la clé. La révocation est le geste d'hygiène, pas la réponse à l'incident.
 
 **Rotation de routine** : il n'y en a pas au MVP, la pile ne vivant que le temps de la piscine. C'est écrit pour que cela ne passe pas pour une décision implicite : une exploitation réelle poserait une échéance et un responsable.
 
@@ -273,7 +306,7 @@ S'en affranchir demanderait de monter les secrets en **fichiers** et d'utiliser 
 
 ## Les trois garde-fous de la CI
 
-Ils sont dans [`../.github/workflows/ci.yml`](../.github/workflows/ci.yml) et tournent sur chaque pull request. Les connaître évite de les prendre pour des pannes.
+Ils sont dans [`ci.yml`](../.github/workflows/ci.yml) et tournent sur chaque pull request. Les connaître évite de les prendre pour des pannes.
 
 | Contrôle | Ce qu'il refuse |
 |---|---|
