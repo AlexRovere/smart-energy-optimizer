@@ -135,3 +135,32 @@ jobs:
           severity: CRITICAL,HIGH
           exit-code: "1"
           ignore-unfixed: true
+
+  # Le mode de panne de SOPS n'est pas le chiffrement, c'est l'oubli : un
+  # fichier rechiffré avec un .sops.yaml pas à jour perd un destinataire, et
+  # cela ne se voit qu'au déploiement, sur site. Ce job le ramène ici.
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Les destinataires se lisent dans les métadonnées du fichier chiffré,
+      # sans le déchiffrer : SOPS ne chiffre que les valeurs. Ce premier
+      # contrôle ne demande donc aucune clé.
+      - name: Les destinataires du fichier sont ceux déclarés
+        run: |
+          grep -oE 'age1[0-9a-z]{58}' .sops.yaml       | sort -u > attendus.txt
+          grep -oE 'age1[0-9a-z]{58}' secrets.enc.yaml | sort -u > effectifs.txt
+          diff attendus.txt effectifs.txt
+
+      - name: Installer sops
+        run: |
+          curl -sSfL https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.amd64 -o /usr/local/bin/sops
+          chmod +x /usr/local/bin/sops
+
+      # La sortie part au néant : on vérifie que le déchiffrement aboutit,
+      # jamais ce qu'il contient. Aucune valeur n'atteint le journal du job.
+      - name: Le fichier est déchiffrable par la CI
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+        run: sops decrypt secrets.enc.yaml > /dev/null
