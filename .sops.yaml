@@ -1,26 +1,11 @@
-# Destinataires des secrets applicatifs.
-#
-# Les clés publiques age ne sont pas des secrets : elles vivent ici en clair,
-# une ligne par détenteur, commentée à son nom. C'est ce fichier qui rend le
-# mécanisme auditable, et c'est lui que l'on montre pour répondre à « qui peut
-# lire quoi ».
-#
-# Ajouter ou retirer quelqu'un : modifier la liste, puis rechiffrer le fichier
-# existant pour les nouveaux destinataires, sans quoi la liste et le fichier
-# divergent et le job `secrets` de la CI le refuse :
-#
-#     sops updatekeys secrets.enc.yaml
-#
-# La procédure complète est dans docs/secrets.md.
+# Destinataires des secrets. Une clé publique age n'est pas un secret.
+# Après toute modification de cette liste : `sops updatekeys secrets.enc.yaml`,
+# sans quoi le job `secrets` de la CI refuse la divergence. Voir docs/secrets.md.
 creation_rules:
   - path_regex: ^secrets\.enc\.yaml$
     key_groups:
       - age:
           - age1d9lzlejjw468jknwx7mvpfjmjqg3yagx2q6pc6cgafgcldw9nfwsyj3y0g # Alex Rovere, poste
           - age1tjdaxtqcx3er9qanuvahrxrxyc2rp8egyumjj9ffrhj93d0ht9hqvmz3l5 # Antoine Coulon, poste
-          # Les trois autres membres arrivent par pull request, chacun avec
-          # sa clé publique, selon la procédure de docs/secrets.md.
           - age1m9s5pcpa5qrehkz6pljc5eu4gmj6ag7qkdwyuylq06zj595q3ugqdyrg4a # CI GitHub Actions
-          # La machine sur site est ajoutée au J2, sa clé étant générée sur
-          # elle pour que sa partie privée ne transite nulle part. Exigence
-          # portée par #47.
+          # Manquent : trois membres, et la machine (#47, clé générée sur elle).

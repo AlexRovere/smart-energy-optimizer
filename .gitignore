@@ -27,8 +27,7 @@ dist/
 secrets.yaml
 secrets.dec.yaml
 
-# Clés privées : rien de tel n'entre dans le dépôt. Les clés publiques,
-# elles, y ont leur place et sont donc exclues de la règle.
+# Clés privées : jamais dans le dépôt. Les clés publiques restent autorisées (!*.pub).
 *.key
 keys.txt
 deploy_key

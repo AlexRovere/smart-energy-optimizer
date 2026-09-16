@@ -4,14 +4,10 @@ name: CI
 # puis build. Un filtrage par chemin évite de tout rejouer à chaque commit,
 # ce qui est l'intérêt d'un monorepo bien câblé.
 #
-# Les jobs security et secrets tournent sur un push vers n'importe quelle
-# branche : un secret poussé ne doit pas dormir jusqu'à l'ouverture d'une
-# pull request pour être signalé. Le reste du pipeline (changes, et les jobs
-# applicatifs qui en dépendent) reste lié aux pull requests vers main, pour
-# des raisons de coût : l'organisation est en offre gratuite et plafonnée, et
-# ces jobs porteront bientôt lint, tests et build, alors que security et
-# secrets tiennent chacun en une minute. Voir le job changes plus bas pour la
-# condition qui fait cette distinction.
+# security et secrets tournent sur tout push (un secret ne doit pas dormir
+# jusqu'à l'ouverture d'une pull request) ; le reste reste lié aux pull
+# requests vers main, pour le coût, l'organisation étant en offre gratuite
+# et plafonnée.
 
 on:
   push:
@@ -19,26 +15,13 @@ on:
   pull_request:
     branches: [main]
 
-# Une fois la pull request ouverte, un même push déclenche deux événements
-# pour le même commit : push sur la branche, et pull_request (synchronize)
-# vers main. Sans ce groupe, security et secrets tourneraient deux fois pour
-# rien, ce qui contredit le motif même qui garde le reste du pipeline sur les
-# pull requests (le coût, sur une offre gratuite plafonnée).
-#
-# La clé du groupe est le nom de la branche, identique dans les deux
-# événements (github.event.pull_request.head.ref pour l'un, github.ref_name
-# pour l'autre) : c'est ce qui permet aux deux exécutions du même commit de
-# se retrouver dans le même groupe et de s'annuler l'une l'autre.
-#
-# cancel-in-progress n'est vrai que pour l'événement pull_request. Les deux
-# événements arrivent quasi simultanément et leur ordre n'est pas garanti :
-# si un push en cours d'exécution pouvait annuler une exécution pull_request
-# déjà lancée, cela annulerait potentiellement changes/etl/ml/dashboard/infra
-# au profit d'une exécution qui ne porte que security et secrets, ce qui
-# perdrait le travail utile. Avec cette condition, seule l'exécution
-# pull_request peut annuler un doublon push, jamais l'inverse ; deux push
-# successifs sans pull request ouverte se mettent simplement en file plutôt
-# que de s'annuler, ce qui ne coûte rien tant qu'ils ne tournent pas.
+# Une pull request ouverte déclenche push et pull_request pour le même
+# commit, donc security/secrets tourneraient deux fois sans ce groupe. La
+# clé (nom de branche) est la même dans les deux événements pour qu'ils se
+# retrouvent dans le même groupe. cancel-in-progress ne vaut que pour
+# pull_request : leur ordre d'arrivée n'est pas garanti, et un push ne doit
+# jamais pouvoir annuler une exécution pull_request déjà lancée (qui porte
+# aussi changes/etl/ml/dashboard/infra) au profit d'un doublon plus léger.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -56,10 +39,7 @@ permissions:
 jobs:
   # Détermine quels domaines ont changé : les jobs suivants s'y conditionnent.
   # Restreint aux pull requests : sur un push de branche, ce job est ignoré,
-  # et etl/ml/dashboard/infra le sont avec lui puisqu'ils en dépendent par
-  # needs (un job dont un needs est ignoré est lui-même ignoré, sans même
-  # évaluer son propre if). Rien ne tourne donc, et rien n'échoue, sur un push
-  # de branche qui ne porte pas de pull request.
+  # et etl/ml/dashboard/infra le sont avec lui (needs d'un job ignoré = ignoré).
   changes:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -157,16 +137,14 @@ jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-      # fetch-depth: 0 récupère tout l'historique, sans quoi gitleaks ne verrait
-      # que le dernier commit. Le dépôt pèse quelques mégaoctets, le coût est nul.
+      # Historique complet, sans quoi gitleaks ne verrait que le dernier commit.
       - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
 
       # Trivy couvre les trois angles en un passage : vulnérabilités des
       # dépendances, secrets versionnés, et mauvaises configurations (Terraform,
-      # Dockerfile, Compose). exit-code 1 rend le job bloquant. Trivy ne voit
-      # que l'arbre de travail : c'est gitleaks, ci-dessous, qui couvre
-      # l'historique.
+      # Dockerfile, Compose). exit-code 1 rend le job bloquant. Il ne voit que
+      # l'arbre de travail : gitleaks, ci-dessous, couvre l'historique.
       - name: Scan de sécurité (Trivy)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -177,18 +155,16 @@ jobs:
           exit-code: "1"
           ignore-unfixed: true
 
-      # Trivy couvre l'arbre de travail, gitleaks couvre l'historique : git log
-      # ne montrant pas le contenu des fusions, -m compare chaque fusion à
-      # chacun de ses parents, sans quoi un secret introduit lors d'une
-      # résolution de conflit passerait au travers.
+      # -m compare aussi chaque fusion à ses parents (git log ne montre pas
+      # leur contenu par défaut), sans quoi un secret introduit en résolvant
+      # un conflit passerait au travers.
       #
       # C'est le binaire qui est utilisé, sous licence MIT. Seule l'action
       # gitleaks v2 exige une licence payante pour les organisations, ce qui
       # avait conduit à l'écarter ; la distinction manquait ici.
       #
-      # Ce job ne porte aucun secret : l'enjeu d'une somme fausse est moindre
-      # que pour sops ci-dessous, mais la vérification reste aussi simple à
-      # poser ici que là, donc aucune raison de s'en priver.
+      # Job sans secret : enjeu moindre qu'avec sops, mais la somme est
+      # aussi simple à vérifier ici que là.
       - name: Scan de l'historique (gitleaks)
         run: |
           curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz -o gitleaks.tar.gz
@@ -196,35 +172,29 @@ jobs:
           tar -xz -C /usr/local/bin -f gitleaks.tar.gz gitleaks
           gitleaks git . --log-opts="--all -m --full-history" --redact --exit-code 1
 
-  # Le mode de panne de SOPS n'est pas le chiffrement, c'est l'oubli : un
-  # fichier rechiffré avec un .sops.yaml pas à jour perd un destinataire, et
-  # cela ne se voit qu'au déploiement, sur site. Ce job le ramène ici.
+  # Le risque n'est pas le chiffrement mais l'oubli : un .sops.yaml pas à jour
+  # après rechiffrement perd un destinataire, invisible avant le déploiement.
   secrets:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
 
-      # Les destinataires se lisent dans les métadonnées du fichier chiffré,
-      # sans le déchiffrer : SOPS ne chiffre que les valeurs. Ce premier
-      # contrôle ne demande donc aucune clé.
+      # Lu sans déchiffrer : SOPS ne chiffre que les valeurs, pas les clés.
       - name: Les destinataires du fichier sont ceux déclarés
         run: |
           grep -oE 'age1[0-9a-z]{58}' .sops.yaml       | sort -u > attendus.txt
           grep -oE 'age1[0-9a-z]{58}' secrets.enc.yaml | sort -u > effectifs.txt
           diff attendus.txt effectifs.txt
 
-      # La somme est celle publiée par le projet sops pour cette release
-      # (fichier sops-v3.13.3.checksums.txt) : le téléchargement épinglait
-      # déjà la version, pas le contenu, alors que l'étape suivante confie
-      # SOPS_AGE_KEY à ce binaire.
+      # Somme publiée par le projet sops pour cette release exacte : le
+      # téléchargement épinglait la version, pas le contenu.
       - name: Installer sops
         run: |
           curl -sSfL https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.amd64 -o /usr/local/bin/sops
           echo "e5bec3346a873ae91d871550f3e698c1aad962aff462a080e40f25fde17fef6b  /usr/local/bin/sops" | sha256sum -c -
           chmod +x /usr/local/bin/sops
 
-      # La sortie part au néant : on vérifie que le déchiffrement aboutit,
-      # jamais ce qu'il contient. Aucune valeur n'atteint le journal du job.
+      # Sortie jetée : on vérifie que ça déchiffre, jamais ce que ça contient.
       - name: Le fichier est déchiffrable par la CI
         env:
           SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}

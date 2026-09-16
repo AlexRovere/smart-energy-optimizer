@@ -21,12 +21,9 @@ set -euo pipefail
 zero="0000000000000000000000000000000000000000"
 status=0
 
-# gitleaks absent n'est pas « un secret a été trouvé » : ce sont deux
-# situations différentes, qui appellent des messages différents. Dans les
-# deux cas le push est refusé (échouer fermé reste le bon réflexe), mais un
-# message faux pousse quelqu'un qui n'a simplement pas installé l'outil vers
-# --no-verify en permanence, ce qui désactive le garde-fou pour de bon sans
-# que personne ne le sache.
+# gitleaks absent n'est pas « secret trouvé » : deux causes, deux messages.
+# Le push reste refusé (échouer fermé), mais un message faux pousserait vers
+# --no-verify en permanence, désactivant le garde-fou pour de bon.
 gitleaks_available=1
 if ! command -v gitleaks >/dev/null 2>&1; then
     gitleaks_available=0
