@@ -12,9 +12,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "tsx --env-file-if-exists=../../.env server/database/seed.cli.ts"
   },
   "dependencies": {
+    "@node-rs/argon2": "^2.2.1",
     "@nuxt/ui": "^4.11.1",
     "drizzle-orm": "^0.45.2",
     "nuxt": "^4.5.2",
