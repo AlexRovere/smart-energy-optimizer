@@ -8,11 +8,17 @@
 // Aucun site n'est amorcé : le référentiel appartient à l'ETL (#21), et seuls
 // les identifiants SITE001 à SITE007 sont connus ici. Une ligne inventée ne
 // serait jamais corrigée, l'ETL n'insérant que les sites absents.
-import { hash } from '@node-rs/argon2'
+import { Algorithm, hash } from '@node-rs/argon2'
 import type { Sql } from 'postgres'
 
 // Paramètres de docs/data.md, repris de la fiche OWASP « Password Storage ».
+//
+// L'algorithme est écrit, alors qu'Argon2id est déjà le défaut de
+// @node-rs/argon2 : le dépôt a tranché « Argon2id, et un seul » (data.md, #29),
+// et une primitive cryptographique choisie par le défaut d'une bibliothèque
+// change le jour où la bibliothèque change d'avis, sans que ce fichier bouge.
 export const PARAMETRES_ARGON2ID = {
+  algorithm: Algorithm.Argon2id,
   memoryCost: 19456,
   timeCost: 2,
   parallelism: 1
