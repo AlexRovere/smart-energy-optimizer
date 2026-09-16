@@ -5,6 +5,7 @@
 | `architecture.md` | **La référence d'architecture de l'équipe**, figée au J1, et les écarts constatés ensuite | EC01, EC02 |
 | `ci-cd.md` | Fonctionnement du pipeline, quality gate, scans | EC03 |
 | `cloud.md` | Machine, configuration rejouable par Ansible, secrets, monitoring, audit sécurité | EC04 |
+| `secrets.md` | Chiffrement au repos, clés age, procédure de chiffrement et de déchiffrement, rotation | EC03, EC04 |
 | `data.md` | Modèle relationnel, contrat des fichiers Parquet, stratégie d'imputation, règles de qualité | EC05 |
 | `ml.md` | Modèle, entraînement, versionnement MLflow, surveillance de la dérive | EC06 |
 | `api.md` | Contrats d'interface des quatre briques, croisés à partir des propositions de chacun et figés avant le développement parallèle | EC03, C20 |
