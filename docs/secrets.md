@@ -308,7 +308,7 @@ S'en affranchir demanderait de monter les secrets en **fichiers** et d'utiliser 
 
 ## Les trois garde-fous de la CI
 
-Ils sont dans [`ci.yml`](../.github/workflows/ci.yml) et tournent sur chaque pull request. Les connaître évite de les prendre pour des pannes.
+Ils sont dans [`ci.yml`](../.github/workflows/ci.yml). Les jobs `security` et `secrets` tournent sur chaque pull request vers `main` et sur chaque push, quelle que soit la branche : le reste du pipeline (`changes`, `etl`, `ml`, `dashboard`, `infra`) reste lié aux pull requests, pour des raisons de coût, l'organisation étant en offre gratuite et plafonnée. Les connaître évite de les prendre pour des pannes.
 
 | Contrôle | Ce qu'il refuse |
 |---|---|

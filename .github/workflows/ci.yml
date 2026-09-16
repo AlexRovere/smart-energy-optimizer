@@ -3,10 +3,19 @@ name: CI
 # Le pipeline agit comme un sas : lint, tests, puis scan de sécurité bloquant,
 # puis build. Un filtrage par chemin évite de tout rejouer à chaque commit,
 # ce qui est l'intérêt d'un monorepo bien câblé.
+#
+# Les jobs security et secrets tournent sur un push vers n'importe quelle
+# branche : un secret poussé ne doit pas dormir jusqu'à l'ouverture d'une
+# pull request pour être signalé. Le reste du pipeline (changes, et les jobs
+# applicatifs qui en dépendent) reste lié aux pull requests vers main, pour
+# des raisons de coût : l'organisation est en offre gratuite et plafonnée, et
+# ces jobs porteront bientôt lint, tests et build, alors que security et
+# secrets tiennent chacun en une minute. Voir le job changes plus bas pour la
+# condition qui fait cette distinction.
 
 on:
   push:
-    branches: [main]
+    branches: ["**"]
   pull_request:
     branches: [main]
 
@@ -22,7 +31,13 @@ permissions:
 
 jobs:
   # Détermine quels domaines ont changé : les jobs suivants s'y conditionnent.
+  # Restreint aux pull requests : sur un push de branche, ce job est ignoré,
+  # et etl/ml/dashboard/infra le sont avec lui puisqu'ils en dépendent par
+  # needs (un job dont un needs est ignoré est lui-même ignoré, sans même
+  # évaluer son propre if). Rien ne tourne donc, et rien n'échoue, sur un push
+  # de branche qui ne porte pas de pull request.
   changes:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     outputs:
       etl: ${{ steps.filter.outputs.etl }}
