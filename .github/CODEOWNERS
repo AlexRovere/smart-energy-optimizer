@@ -26,3 +26,9 @@
 # Livrables : relus par le Product Owner
 /docs/                  @AlexRovere
 *.md                    @AlexRovere
+
+# Secrets : qui peut lire les destinataires et le fichier chiffré ne doit pas
+# n'avoir que son propre auteur pour relecteur. Règle la plus spécifique,
+# donc en dernier : elle gagne sur `*` pour ces deux fichiers précis.
+/.sops.yaml             @AlexRovere @HugoMrnth
+/secrets.enc.yaml       @AlexRovere @HugoMrnth
