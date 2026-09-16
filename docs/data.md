@@ -5,7 +5,7 @@ Deux stockages, deux rôles, une seule règle de partage : **rien n'est écrit d
 | Stockage | Contenu | Qui écrit | Qui lit |
 |---|---|---|---|
 | PostgreSQL | Référentiel des sites, comptes, rôles, périmètres d'accès | L'applicatif, et l'ETL sur la seule table `sites` | L'applicatif, seul |
-| Volume Parquet | Les mesures, transformées | L'ETL, seul | L'applicatif et le service ML, en lecture seule, via DuckDB |
+| Répertoire Parquet | Les mesures, transformées | L'ETL, seul | L'applicatif et le service ML, en lecture seule, via DuckDB |
 
 Le pivot entre les deux est `sites.id` : c'est la même chaîne dans PostgreSQL et dans le chemin de partition Parquet. Aucune jointure entre les deux moteurs, seulement une clé partagée.
 
@@ -183,7 +183,7 @@ Conséquence directe sur les fichiers Parquet : la clé de partition est `site_i
 
 ---
 
-## Volume Parquet : les mesures
+## Répertoire Parquet : les mesures
 
 Le détail des colonnes se fige avec l'ETL (#26). Ce qui suit est acté.
 
@@ -266,7 +266,7 @@ Deux conditions à ce choix, parce que l'argument d'en face était bon :
 
 ## Données personnelles
 
-Les mesures de consommation sont des données d'entreprise, pas des données personnelles. Les **seules** données personnelles du système sont les comptes et leurs sessions : `users.email`, `users.last_login` et `sessions.ip`. Une adresse IP est une donnée personnelle, c'est pourquoi les lignes de `sessions` expirées sont purgées et ne servent qu'à l'audit. Elles vivent dans PostgreSQL, sur la machine, et n'en sortent jamais : ni vers le volume Parquet, ni vers le service de prédiction, qui n'a aucune notion d'utilisateur.
+Les mesures de consommation sont des données d'entreprise, pas des données personnelles. Les **seules** données personnelles du système sont les comptes et leurs sessions : `users.email`, `users.last_login` et `sessions.ip`. Une adresse IP est une donnée personnelle, c'est pourquoi les lignes de `sessions` expirées sont purgées et ne servent qu'à l'audit. Elles vivent dans PostgreSQL, sur la machine, et n'en sortent jamais : ni vers le répertoire Parquet, ni vers le service de prédiction, qui n'a aucune notion d'utilisateur.
 
 `is_active` permet de désactiver un compte sans le purger, ce qui préserve la traçabilité des accès. Une demande d'effacement, elle, exige une suppression réelle de la ligne : les `ON DELETE CASCADE` sur `user_sites` et sur `sessions` s'en chargent, et aucune autre table ne porte de donnée personnelle. À vérifier avant la soutenance : que les journaux applicatifs ne conservent pas l'adresse électronique.
 
