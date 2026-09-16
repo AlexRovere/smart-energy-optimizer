@@ -1,0 +1,94 @@
+name: Sécurité
+
+# security et secrets tournent sur tout push, y compris hors pull request :
+# un secret ne doit pas dormir jusqu'à l'ouverture d'une PR. Voir ci.yml
+# pour le reste du pipeline, lié aux pull requests pour le coût.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+# Une pull request ouverte déclenche push et pull_request pour le même
+# commit, donc security/secrets tourneraient deux fois sans ce groupe. La
+# clé (nom de branche) est la même dans les deux événements pour qu'ils se
+# retrouvent dans le même groupe. cancel-in-progress ne vaut que pour
+# pull_request : leur ordre d'arrivée n'est pas garanti, et un push ne doit
+# jamais pouvoir annuler une exécution pull_request déjà lancée au profit
+# d'un doublon plus léger.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  # Quality gate : ce job tourne sur TOUTE modification et bloque à la première
+  # vulnérabilité critique. C'est le critère DevSecOps de l'épreuve EC03.
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      # Historique complet, sans quoi gitleaks ne verrait que le dernier commit.
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+
+      # Trivy couvre les trois angles en un passage : vulnérabilités des
+      # dépendances, secrets versionnés, et mauvaises configurations (Terraform,
+      # Dockerfile, Compose). exit-code 1 rend le job bloquant. Il ne voit que
+      # l'arbre de travail : gitleaks, ci-dessous, couvre l'historique.
+      - name: Scan de sécurité (Trivy)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+
+      # -m compare aussi chaque fusion à ses parents (git log ne montre pas
+      # leur contenu par défaut), sans quoi un secret introduit en résolvant
+      # un conflit passerait au travers.
+      #
+      # C'est le binaire qui est utilisé, sous licence MIT. Seule l'action
+      # gitleaks v2 exige une licence payante pour les organisations, ce qui
+      # avait conduit à l'écarter ; la distinction manquait ici.
+      #
+      # Job sans secret : enjeu moindre qu'avec sops, mais la somme est
+      # aussi simple à vérifier ici que là.
+      - name: Scan de l'historique (gitleaks)
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz -o gitleaks.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks.tar.gz" | sha256sum -c -
+          tar -xz -C /usr/local/bin -f gitleaks.tar.gz gitleaks
+          gitleaks git . --log-opts="--all -m --full-history" --redact --exit-code 1
+
+  # Le risque n'est pas le chiffrement mais l'oubli : un .sops.yaml pas à jour
+  # après rechiffrement perd un destinataire, invisible avant le déploiement.
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Lu sans déchiffrer : SOPS ne chiffre que les valeurs, pas les clés.
+      - name: Les destinataires du fichier sont ceux déclarés
+        run: |
+          grep -oE 'age1[0-9a-z]{58}' .sops.yaml       | sort -u > attendus.txt
+          grep -oE 'age1[0-9a-z]{58}' secrets.enc.yaml | sort -u > effectifs.txt
+          diff attendus.txt effectifs.txt
+
+      # Somme publiée par le projet sops pour cette release exacte : le
+      # téléchargement épinglait la version, pas le contenu.
+      - name: Installer sops
+        run: |
+          curl -sSfL https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.amd64 -o /usr/local/bin/sops
+          echo "e5bec3346a873ae91d871550f3e698c1aad962aff462a080e40f25fde17fef6b  /usr/local/bin/sops" | sha256sum -c -
+          chmod +x /usr/local/bin/sops
+
+      # Sortie jetée : on vérifie que ça déchiffre, jamais ce que ça contient.
+      - name: Le fichier est déchiffrable par la CI
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+        run: sops decrypt secrets.enc.yaml > /dev/null
