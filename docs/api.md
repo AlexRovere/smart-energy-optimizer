@@ -193,7 +193,7 @@ Réseau interne uniquement, pas d'authentification, pas d'exposition par le prox
 | POST | `/predictions` | `{ site_id, horizon_hours }` | `Prediction` |
 | GET | `/health` | | `{ status, model_version }` |
 
-**L'intervalle de confiance est obligatoire**, c'est le deuxième critère de #38 et le troisième de #97 : l'interface doit le représenter, pas seulement la valeur centrale. Une valeur sans intervalle est une affirmation ; avec l'intervalle, le lecteur juge de ce qu'il peut en faire.
+**Pas d'intervalle de confiance.** Il figurait dans la première version de ce contrat, repris d'un critère écrit au J0. Aucun critère d'épreuve ne le demande, et il coûtait des deux côtés : au producteur pour l'établir, au consommateur pour le représenter. Un champ ajouté n'étant jamais une rupture, il pourra revenir si le modèle est en avance.
 
 `granularity` **n'est pas une entrée**, elle est dans la réponse : le modèle dit à quel pas il a travaillé. Un paramètre d'entrée qui n'accepte qu'une valeur ment au consommateur et n'est jamais testé. Le jour où le modèle sait produire un autre pas, l'ajouter en entrée ne casse rien.
 
@@ -318,13 +318,10 @@ Les sites dont la mesure est absente sont **exclus des totaux et nommés** dans 
   "horizon_hours": 24,
   "granularity": "hour",
   "model_version": "3",
-  "confidence_level": 0.95,
   "predictions": [
     {
       "timestamp": "2026-09-15T11:00:00Z",
-      "predicted_consumption_kw": 92.5,
-      "confidence_lower": 85.0,
-      "confidence_upper": 100.0
+      "predicted_consumption_kw": 92.5
     }
   ]
 }
@@ -434,6 +431,7 @@ Aucun secret en clair dans un fichier versionné : ils passent par SOPS et age (
 | Date | Changement |
 | :--- | :--- |
 | 15 septembre 2026 | Première version, croisement des trois propositions. |
+| 16 septembre 2026 | L'intervalle de confiance sort du contrat de prédiction : aucun critère d'épreuve ne le demandait. |
 | 16 septembre 2026 | `sites.alert_threshold_kw` devient `warning_threshold_kw`, et `NULL` vaut désormais « 80 % de `capacity_kw` » au lieu de « pas de vigilance ». |
 | 15 septembre 2026 | L'ETL charge le référentiel des sites, la route de rechargement disparaît. |
 | 15 septembre 2026 | `snake_case` fixé sur le fil, les entrées suivent. Variables d'environnement réconciliées avec `.env.example` et le `runtimeConfig`. `ML_SERVICE_URL` devient `ML_API_URL`, port 8000. |
