@@ -146,9 +146,15 @@ jobs:
       # C'est le binaire qui est utilisé, sous licence MIT. Seule l'action
       # gitleaks v2 exige une licence payante pour les organisations, ce qui
       # avait conduit à l'écarter ; la distinction manquait ici.
+      #
+      # Ce job ne porte aucun secret : l'enjeu d'une somme fausse est moindre
+      # que pour sops ci-dessous, mais la vérification reste aussi simple à
+      # poser ici que là, donc aucune raison de s'en priver.
       - name: Scan de l'historique (gitleaks)
         run: |
-          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz | tar -xz -C /usr/local/bin gitleaks
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz -o gitleaks.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks.tar.gz" | sha256sum -c -
+          tar -xz -C /usr/local/bin -f gitleaks.tar.gz gitleaks
           gitleaks git . --log-opts="--all -m --full-history" --redact --exit-code 1
 
   # Le mode de panne de SOPS n'est pas le chiffrement, c'est l'oubli : un
@@ -168,9 +174,14 @@ jobs:
           grep -oE 'age1[0-9a-z]{58}' secrets.enc.yaml | sort -u > effectifs.txt
           diff attendus.txt effectifs.txt
 
+      # La somme est celle publiée par le projet sops pour cette release
+      # (fichier sops-v3.13.3.checksums.txt) : le téléchargement épinglait
+      # déjà la version, pas le contenu, alors que l'étape suivante confie
+      # SOPS_AGE_KEY à ce binaire.
       - name: Installer sops
         run: |
           curl -sSfL https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.amd64 -o /usr/local/bin/sops
+          echo "e5bec3346a873ae91d871550f3e698c1aad962aff462a080e40f25fde17fef6b  /usr/local/bin/sops" | sha256sum -c -
           chmod +x /usr/local/bin/sops
 
       # La sortie part au néant : on vérifie que le déchiffrement aboutit,
