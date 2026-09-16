@@ -1,23 +1,95 @@
-# Service de prédiction
+# Service ML EnerVision
 
-Entraîne et sert le modèle de prévision de consommation. FastAPI, Prophet, versionnement MLflow.
+Ce service entraine un modele CatBoost puis expose des predictions horaires
+avec FastAPI. Le CSV est temporaire : le lecteur accepte deja le futur Parquet.
 
-Rôle porteur : Data & IA. Domaine : `domain:ml`. Épreuve : EC06.
+## Configuration
 
-## Attendus de l'épreuve
+Trois variables d'environnement permettent d'indiquer les fichiers a charger :
 
-- Modèle entraîné et **versionné avec MLflow** (le sujet nomme l'outil).
-- **Endpoint de prédiction déployé et fonctionnel** le jour de la démo.
-- **Surveillance du modèle en production** : dérive des prédictions, métriques de performance.
-- Documentation de l'API prédictive claire et utilisable.
-- KPI mesurant l'impact du modèle, avec ajustements documentés.
+```text
+ML_DATA_PATH=datas/all_sites_combined.csv
+ML_MODEL_PATH=artifacts/catboost_model.cbm
+ML_SITE_CONFIG_PATH=config/sites.json
+```
 
-## Choix assumé
+Le fichier doit aussi fournir hour, day_of_week, month, is_weekend et
+is_working_hours pour entrainer le modele avec les valeurs du dataset. Chaque
+site doit posseder au moins 168 heures consecutives. Pour une prediction future,
+les quatre premieres valeurs sont calculees depuis le timestamp et les heures
+ouvrees viennent de config/sites.json.
 
-Prophet plutôt qu'un réseau de neurones : la consommation est fortement saisonnière, Prophet y excelle nativement et gère les valeurs manquantes, ce qui compte vu la fréquence des pannes de capteurs simulées. Pour un client industriel, un modèle interprétable prime sur la sophistication.
+## Demarrage
 
-Repli documenté si le temps manque : une baseline en moyenne mobile, comparée au modèle, avec MLflow conservé.
+Depuis `apps/ml` :
 
-## Sécurité inter-zones
+```bash
+uv sync --dev
+uv run ml-api
+```
 
-Le service tourne côté AWS et n'est appelé que par la VM on-premise : HTTPS obligatoire, jeton de service, et Security Group restreignant l'accès à la seule IP de la VM.
+La documentation interactive est disponible sur `http://localhost:8000/docs`.
+
+## Docker
+
+Construire l'image depuis `apps/ml` :
+
+```bash
+docker build -t enervision-ml .
+```
+
+Le CSV n'est pas inclus dans l'image. Le dossier `artifacts` est monte en
+ecriture pour recevoir le modele entraine :
+
+```powershell
+New-Item -ItemType Directory -Force artifacts
+
+docker run --rm -p 8000:8000 `
+  -v "${PWD}/datas:/app/datas:ro" `
+  -v "${PWD}/artifacts:/app/artifacts" `
+  enervision-ml
+```
+
+Ouvrir ensuite `http://localhost:8000/docs`, appeler `POST /training`, puis
+utiliser `POST /predictions`. L'entrainement peut durer plusieurs minutes.
+
+## Entrainement
+
+`POST /training` ne demande aucun corps JSON. Il reproduit la preparation et
+la configuration finale du notebook, puis ecrit
+`artifacts/catboost_model.cbm`. Le modele est recharge automatiquement lors de
+la prediction suivante.
+
+## Prediction
+
+`POST /predictions` recoit directement une liste de 1 a 168 demandes :
+
+```json
+[
+  {"site_id": "SITE001", "date": "2025-01-01", "hour": 1},
+  {"site_id": "SITE001", "date": "2025-01-01", "hour": 2}
+]
+```
+
+La reponse conserve le meme ordre :
+
+```json
+[
+  {
+    "site_id": "SITE001",
+    "timestamp": "2025-01-01T01:00:00",
+    "consumption_kwh": 112.4
+  },
+  {
+    "site_id": "SITE001",
+    "timestamp": "2025-01-01T02:00:00",
+    "consumption_kwh": 115.1
+  }
+]
+```
+
+Les heures manquantes entre la derniere mesure et une demande sont predites en
+interne. Une prediction devient ainsi l'historique de la suivante, sans jamais
+utiliser une consommation future reelle.
+
+MLflow n'est volontairement pas inclus dans cette premiere version.

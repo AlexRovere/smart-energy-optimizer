@@ -1,0 +1,9 @@
+.venv/
+dist/
+notebooks/
+tests/
+datas/
+artifacts/
+**/__pycache__/
+*.pyc
+*.cbm
