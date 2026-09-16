@@ -76,7 +76,7 @@ services:
   # dashboard:
   #   build: ./apps/dashboard
   #   environment:
-  #     DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  #     NUXT_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
   #     PARQUET_DIR_EXPOSE: /data/expose
   #     ML_API_URL: ${ML_API_URL:-http://ml:8000}
   #   volumes:

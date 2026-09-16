@@ -98,6 +98,10 @@ jobs:
           cache-dependency-path: apps/dashboard/pnpm-lock.yaml
       - run: pnpm --dir apps/dashboard install --frozen-lockfile
       - run: pnpm --dir apps/dashboard lint
+      # nuxt.config.ts pose typeCheck: false, donc ni `nuxt build` ni `eslint`
+      # ne regardent les types : sans cette étape, vue-tsc ne tournerait nulle
+      # part et la CI couvrirait moins qu'elle n'en a l'air.
+      - run: pnpm --dir apps/dashboard typecheck
       # Les tests de base démarrent eux-mêmes un conteneur postgres:16-alpine
       # par Testcontainers : le démon Docker d'ubuntu-latest suffit, il n'y a
       # aucun service à déclarer ici.

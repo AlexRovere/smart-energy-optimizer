@@ -90,7 +90,9 @@ sont pas connus du dépôt. Voir [`docs/data.md`](../../docs/data.md).
 | `pnpm db:generate` | Génère une migration depuis `server/database/schema.ts`. À commiter |
 | `pnpm db:migrate` | Applique les migrations en attente. Rejouable |
 | `pnpm db:seed` | Trois rôles, trois comptes de démonstration, et active le rôle `etl` |
-| `pnpm test` | Lint des types et tests. **Docker doit tourner** |
+| `pnpm lint` | ESLint sur l'applicatif |
+| `pnpm typecheck` | Contrôle des types par `vue-tsc --noEmit`, sans rien émettre |
+| `pnpm test` | Les tests, dont ceux qui parlent à PostgreSQL. **Docker doit tourner** |
 | `pnpm test:watch` | Les mêmes, en mode observateur |
 
 Les tests démarrent eux-mêmes un conteneur `postgres:16-alpine` jetable, par
