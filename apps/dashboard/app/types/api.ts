@@ -184,3 +184,27 @@ export interface Recommendation {
   confidence: number // 0-1
   window: string // ex: "14:30 -> 15:30"
 }
+
+export type UserRole = 'admin' | 'operator' | 'viewer'
+export type ThresholdState = 'enregistré' | 'modifié'
+
+export interface SiteThresholdEntry {
+  site_id: SiteId
+  site_name: string
+  capacity_kw: number
+  threshold_kw: number
+  state: ThresholdState
+}
+
+export interface NotificationPreferences {
+  critical_alerts: boolean
+  daily_summary: boolean
+  sensor_fault: boolean
+}
+
+export interface SessionInfo {
+  user_name: string
+  role: string
+  polling_interval_s: number
+  health_label: string
+}
