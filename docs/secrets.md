@@ -118,7 +118,7 @@ Deux confusions à éviter. Ce n'est **pas** une clé SSH, elle ne sert pas à s
 
 ## Se faire ajouter comme destinataire
 
-**C'est le passage qui compte.** Aujourd'hui `.sops.yaml` ne porte que **trois** destinataires : les postes d'Alex Rovere et d'Antoine Coulon, et la CI. Les trois autres membres et la machine sur site n'y sont pas encore. Tant que votre clé n'est pas dans la liste, `sops decrypt` échoue, et c'est le comportement normal, pas une panne :
+**C'est le passage qui compte.** Aujourd'hui `.sops.yaml` ne porte que **quatre** destinataires : les postes d'Alex Rovere, d'Antoine Coulon et d'Hugo Mrnth, et la CI. Les deux autres membres et la machine sur site n'y sont pas encore. Tant que votre clé n'est pas dans la liste, `sops decrypt` échoue, et c'est le comportement normal, pas une panne :
 
 ```
 Failed to get the data key required to decrypt the SOPS file.
