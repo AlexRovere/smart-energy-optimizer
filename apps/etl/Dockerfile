@@ -3,15 +3,18 @@
 # ---- build ----
 FROM python:3.12-slim AS build
 
+RUN pip install --no-cache-dir uv
+
 WORKDIR /app
 
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
 
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-install-project --no-dev
 
 COPY . .
+RUN uv sync --frozen --no-dev
 
 # ---- runtime ----
 FROM python:3.12-slim AS runtime
@@ -20,10 +23,9 @@ RUN groupadd --system app && useradd --system --gid app --home /app app
 
 WORKDIR /app
 
-COPY --from=build /opt/venv /opt/venv
 COPY --from=build --chown=app:app /app /app
 
-ENV PATH="/opt/venv/bin:$PATH"
+ENV PATH="/app/.venv/bin:$PATH"
 
 USER app
 
