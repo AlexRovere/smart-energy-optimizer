@@ -10,6 +10,8 @@ Il rend un **accès en lecture au dépôt sans valeur**. Un clone, une capture d
 
 Il ne protège **pas la machine sur site**. Celle-ci détient forcément de quoi déchiffrer, sinon elle ne pourrait pas redémarrer seule après une coupure de courant. Ce qui la protège est ailleurs, et c'est écrit dans [la configuration de la machine](../infra/ansible/README.md) : accès SSH par clé, aucun port de service publié sur l'hôte hormis le 443 du reverse proxy, et le fichier de clé en `0400` appartenant au seul compte de service.
 
+**Cette dernière propriété n'est pas tenue aujourd'hui.** `docker-compose.yml` publie Prometheus sur `9090:9090` et Grafana sur `3001:3000`, sur toutes les interfaces, et non sur la boucle locale comme `postgres`. Le `GRAFANA_PASSWORD` que ce mécanisme chiffre garde donc une interface d'administration joignable depuis le réseau, malgré ce que la phrase ci-dessus affirme. Corriger `docker-compose.yml` relève de la configuration de la machine, donc de #47 : une garantie qu'on invoque sans la tenir est pire que pas de garantie, elle est signalée ici pour ne pas laisser croire le contraire.
+
 Confondre ces deux frontières mène à chercher un mécanisme qui n'existe pas. « Comment empêcher la machine de lire les secrets qu'elle doit utiliser » n'a pas de réponse : un service qui démarre sans intervention humaine a besoin de ses identifiants, point. La question utile n'est pas celle-là, c'est « qui peut entrer sur la machine ».
 
 ## Installer `sops` et `age`

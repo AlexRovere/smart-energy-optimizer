@@ -165,7 +165,7 @@ Le jeton n'est jamais lisible par un script : il vit dans un cookie `httpOnly`, 
 - **Cloisonnement par site** : le rôle et la liste des sites autorisés sont résolus côté serveur, à partir de la session, et **injectés** dans la requête de données. Un identifiant de site reçu du client est comparé au périmètre autorisé, il ne sert jamais de source. Une seule fonction rend cette liste et le filtre est toujours appliqué, y compris pour un administrateur, à qui elle rend la liste complète.
 - **Rôles** : trois au schéma, **`ADMIN`, `OPERATOR`, `VIEWER`**, et un seul vocabulaire dans tout le projet. La table existe et le mécanisme est en place, mais **un seul rôle est exploité au MVP**, `ADMIN`. Les rôles restreints sont montrés à l'oral et se lisent dans les tests, pas construits.
 - **Secrets** : SOPS et age pour ce qui est versionné, chaque membre et la CI ayant sa clé ; secrets de la forge pour la CI. Une procédure écrite permet à chacun de chiffrer et déchiffrer sans assistance.
-- **Machine** : accès SSH par clé, compte mutualisé donc aucun secret en clair déposé et **aucun commit depuis la VM**, l'historique devant rester nominatif.
+- **Machine** : accès SSH par clé. Elle détient la clé age qui lui permet de déchiffrer seule au démarrage, en `0400` sur un compte de service, et c'est la seule exception à l'absence de secret en clair sur la machine : aucun secret applicatif n'y est déposé en clair par ailleurs. **Aucun commit depuis la VM**, l'historique devant rester nominatif. Tension à trancher avec #47 : ce compte SSH est décrit ailleurs comme mutualisé, alors que la clé age n'a de sens que confiée à un compte de service `enervision` seul propriétaire ; si le compte SSH partagé **est** ce compte de service, l'argument de moindre privilège tombe. Ce n'est pas tranché ici, #47 le fera.
 
 ## Dépôt et conventions
 
@@ -175,7 +175,7 @@ Le jeton n'est jamais lisible par un script : il vit dans un cookie `httpOnly`, 
 
 **Revue.** Chaque domaine a un relecteur désigné, responsable de son périmètre ; un second relecteur est facultatif. C'est aussi le mécanisme de partage de compétences de l'équipe.
 
-**Intégration continue.** Lint, tests, scan de sécurité (Trivy sur les dépendances, les images et les secrets, bloquant), construction des images. **Le déploiement est déclenché explicitement**, uniquement depuis la branche principale et seulement si tout ce qui précède est vert.
+**Intégration continue.** Lint, tests, scan de sécurité (Trivy sur les dépendances, les images et les secrets de l'arbre de travail, et gitleaks sur tout l'historique, bloquants), construction des images. **Le déploiement est déclenché explicitement**, uniquement depuis la branche principale et seulement si tout ce qui précède est vert.
 
 **Exploitation.** Rien n'est modifié à la main sur la VM : le pipeline est le seul chemin. On développe sur son poste, la machine ne reçoit que ce qui vient du pipeline. L'exception admise est l'exploitation (lancer, lire des logs, diagnostiquer), jamais l'édition de code.
 
