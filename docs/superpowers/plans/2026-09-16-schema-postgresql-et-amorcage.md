@@ -1238,7 +1238,13 @@ Preuve que le test n'est pas décoratif. Retirer temporairement le garde du bloc
 corepack pnpm@10.11.0 vitest run tests/database/migration-rejouable.test.ts
 ```
 
-Attendu : ÉCHEC, `role "etl" already exists` (SQLSTATE `42710`), sur la deuxième base de test qui s'attaque au même cluster. **Restaurer ensuite le bloc `DO`** (`git checkout -- apps/dashboard/server/database/migrations/0001_role_etl.sql`) et relancer pour retrouver le succès.
+Attendu : ÉCHEC, `role "etl" already exists` (SQLSTATE `42710`).
+
+**Ce test doit détecter la régression à lui seul**, et c'est le point délicat. Le second `migrate()` sur la **même** base ne rejoue pas la migration `0001` : Drizzle lit son journal, la trouve appliquée, et passe. Le garde `IF NOT EXISTS` n'est donc jamais exercé par un second passage sur une base inchangée. Ce qui l'exerce, c'est une **seconde base** dans le même cluster, où le rôle `etl` existe déjà mais où le journal est vierge.
+
+Le fichier crée donc une seconde base par `creerBaseDeTest({ migrer: false })` et la migre à son tour. Sans cela, le test passerait seul même avec le garde cassé, et ne rattraperait la régression que par accident, parce que d'autres fichiers de test tournent à côté.
+
+**Restaurer ensuite le bloc `DO`** (`git checkout -- apps/dashboard/server/database/migrations/0001_role_etl.sql`) et relancer pour retrouver le succès.
 
 - [ ] **Étape 4 : commiter**
 
