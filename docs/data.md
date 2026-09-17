@@ -194,33 +194,46 @@ Le détail des colonnes se fige avec l'ETL (#26). Ce qui suit est acté.
 
 C'est le point le plus facile à rater. `pa.Table.from_pylist(lignes)` **devine** les types à partir du lot qu'on lui donne : un cycle où toutes les consommations sont des entiers ronds produit une colonne entière, et le cycle suivant une colonne flottante. Les deux fichiers s'écrivent sans erreur, et c'est le lecteur qui casse, des jours plus tard, avec un message qui ne désigne pas le coupable.
 
-Le schéma est donc **écrit une fois, dans un module unique**, et l'écriture caste dessus :
+Le schéma est donc **écrit une fois, dans un module unique** (`load/readings.py`), et l'écriture caste dessus :
 
 ```python
 SCHEMA = pa.schema([
-    ("site_id",             pa.string()),
-    ("timestamp",           pa.timestamp("us", tz="UTC")),
-    ("site_type",           pa.string()),
-    ("consumption_kw",      pa.float64()),   # valeur imputee, jamais nulle
-    ("consumption_kw_raw",  pa.float64()),   # telle que renvoyee, nullable
-    ("consumption_kwh",     pa.float64()),
-    ("voltage_v",           pa.float64()),
-    ("current_a",           pa.float64()),
-    ("power_factor",        pa.float64()),
-    ("temperature_celsius", pa.float64()),
-    ("humidity_percent",    pa.float64()),
-    ("data_quality",        pa.string()),
-    ("null_reasons",        pa.list_(pa.string())),
+    ("site_id",                      pa.string()),
+    ("timestamp",                    pa.timestamp("us", tz="UTC")),
+    ("site_type",                    pa.string()),
+    ("consumption_kw",               pa.float64()),   # telle que renvoyee, nullable
+    ("consumption_kw_corrected",     pa.float64()),   # imputee (forward-fill)
+    ("consumption_kwh",              pa.float64()),
+    ("consumption_kwh_corrected",    pa.float64()),
+    ("voltage_v",                    pa.float64()),
+    ("voltage_v_corrected",          pa.float64()),
+    ("current_a",                    pa.float64()),
+    ("current_a_corrected",          pa.float64()),
+    ("power_factor",                 pa.float64()),
+    ("power_factor_corrected",       pa.float64()),
+    ("temperature_celsius",          pa.float64()),
+    ("temperature_celsius_corrected", pa.float64()),
+    ("humidity_percent",             pa.float64()),
+    ("humidity_percent_corrected",   pa.float64()),
+    ("data_quality",                 pa.string()),
+    ("null_reasons",                 pa.list_(pa.string())),
+    ("consumption_lag_1h",           pa.float64()),   # + lag_2h, lag_24h, lag_48h, lag_168h
+    ("rolling_mean_24h",             pa.float64()),   # + rolling_mean_168h
+    ("hour",                         pa.int32()),      # + day_of_week, month, is_weekend, is_working_hours
 ])
 
-table = pa.Table.from_pylist(lignes, schema=SCHEMA)   # leve si un type ne colle pas
+table = pa.Table.from_pandas(lignes, schema=SCHEMA, preserve_index=False)   # leve si un type ne colle pas
 ```
 
 **Les noms sont ceux de la source**, donc ceux de `EnergyReading` dans [`api.md`](./api.md). Une première version portait des noms français, ce qui imposait une table de correspondance entre le fichier et la réponse HTTP : elle n'était écrite nulle part, et c'est le genre d'écart qui ne se découvre qu'à l'intégration. La règle de qualité ci-dessous dit « stockées telles que l'API les renvoie » ; les stocker sous des noms traduits, c'est déjà ne plus les stocker telles quelles.
 
 **Les douze champs de la source sont conservés**, pas seulement la consommation. `temperature_celsius` et `humidity_percent` en particulier : le daily du 15 septembre a laissé ouverte la question des caractéristiques du modèle sur le constat qu'« il a besoin d'humidité et de température ». Ne pas les écrire trancherait cette question par défaut, et dans le mauvais sens.
 
-`consumption_kw_raw` est la seule colonne qui n'existe pas dans la source : c'est la valeur avant imputation, gardée à côté de la valeur imputée. **C'est `consumption_kw`, la valeur imputée, que l'API sert** ; `data_quality` et `null_reasons` disent ce qu'elle vaut, et la brute reste dans le fichier pour l'audit.
+**Écart noté le 17 septembre 2026, validé par le besoin de lecture du service ML.** Une première version prévoyait une seule paire brute/imputée, `consumption_kw` (imputée, servie par l'API) et `consumption_kw_raw` (brute, ajoutée par l'ETL). Le nommage retenu est l'inverse et généralisé : chaque champ corrigible garde son nom de source **tel que reçu, nullable** (`consumption_kw`, `consumption_kwh`, `voltage_v`, `current_a`, `power_factor`, `temperature_celsius`, `humidity_percent`), et porte un jumeau `{champ}_corrected` pour la valeur imputée. Un seul suffixe, appliqué uniformément aux sept champs plutôt qu'à la seule consommation : le service ML lit avec `pandas.read_parquet(..., columns=...)` et sélectionne la variante voulue par un motif de nom prévisible, sans exception à mémoriser champ par champ.
+
+**Stratégie d'imputation : report de la dernière valeur connue (forward-fill), par site, dans l'ordre chronologique** (`transform/readings.py::forward_fill_corrected`). Un `null` sur une valeur n'écrase jamais rien : la colonne brute garde le `null`, `data_quality` et `null_reasons` disent pourquoi, et `{champ}_corrected` reporte la dernière valeur observée pour ce site. Le risque assumé : sur une coupure longue, la valeur reportée reste constante jusqu'au retour de la donnée réelle, ce qui peut masquer une évolution réelle pendant l'absence (un site à l'arrêt prolongé apparaît plat, pas absent). Les colonnes brutes et `data_quality`/`null_reasons` restent la source de vérité pour distinguer une vraie mesure stable d'une valeur reportée.
+
+**Le lot de fonctionnalités dérivées** (lags de consommation `1h`/`2h`/`24h`/`48h`/`168h`, moyennes glissantes `24h`/`168h`, champs calendaires `hour`/`day_of_week`/`month`/`is_weekend`/`is_working_hours`) est calculé une fois pour toutes dans l'ETL, sur `consumption_kwh_corrected`, pour que le service ML n'ait pas à les recalculer à l'entraînement comme à l'inférence.
 
 `site_id` est à la fois la clé de partition et une colonne. C'est redondant, la lecture en partitionnement Hive la reconstruit depuis le chemin, mais l'écrire rend le fichier lisible seul, sorti de son arborescence.
 
