@@ -85,6 +85,33 @@ def test_fetch_readings_window_returns_empty_dataframe_when_no_reading(mock_get_
     assert result.empty
 
 
+@patch("extract.readings.get_json")
+def test_fetch_readings_window_casts_numeric_columns_to_float_even_with_a_null_value(mock_get_json):
+    # un seul enregistrement avec un champ numerique a null (ex: hour, un point par site) laisse
+    # pandas deduire un dtype object plutot que float64, ce qui fait echouer le concat plus tard
+    # (colonnes de meme nom, dtypes differents entre sites) avec un FutureWarning a chaque run
+    mock_get_json.return_value = [
+        {
+            "site_id": "SITE001",
+            "timestamp": "2026-09-15T00:00:00",
+            "consumption_kw": None,
+            "consumption_kwh": 10.0,
+            "voltage_v": 400.0,
+            "current_a": 100.0,
+            "power_factor": 0.9,
+            "temperature_celsius": 20.0,
+            "humidity_percent": 50.0,
+        }
+    ]
+    start_time = datetime(2026, 9, 14, 0, 0, 0, tzinfo=timezone.utc)
+    end_time = datetime(2026, 9, 15, 0, 0, 0, tzinfo=timezone.utc)
+
+    result = fetch_readings_window("http://mock-api:8000", "SITE001", start_time, end_time)
+
+    assert result["consumption_kw"].dtype == "float64"
+    assert result["voltage_v"].dtype == "float64"
+
+
 @patch("extract.readings.fetch_readings_window")
 def test_fetch_readings_paginates_by_day_over_the_range(mock_fetch_window):
     start_time = datetime(2026, 9, 12, 0, 0, 0, tzinfo=timezone.utc)

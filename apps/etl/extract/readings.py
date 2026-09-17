@@ -12,6 +12,19 @@ READINGS_PATH = "/api/v1/readings"
 DEFAULT_WINDOW = timedelta(days=7)
 PAGE_SIZE = timedelta(days=1)
 
+# sans ce cast, un champ a null dans une page d'une seule ligne (cas de "hour") laisse pandas
+# deduire un dtype object plutot que float64 ; concatener cette page avec celles des autres sites,
+# elles en float64, declenche un FutureWarning a chaque run
+NUMERIC_COLUMNS = [
+    "consumption_kw",
+    "consumption_kwh",
+    "voltage_v",
+    "current_a",
+    "power_factor",
+    "temperature_celsius",
+    "humidity_percent",
+]
+
 
 def resolve_time_range(
     start_time: datetime | None = None,
@@ -73,7 +86,11 @@ def fetch_readings_window(
         "limit": limit,
     }
     records = get_json(base_url, READINGS_PATH, params=params)
-    return pd.DataFrame(records)
+    readings = pd.DataFrame(records)
+    for column in NUMERIC_COLUMNS:
+        if column in readings.columns:
+            readings[column] = readings[column].astype("float64")
+    return readings
 
 
 def fetch_readings(
