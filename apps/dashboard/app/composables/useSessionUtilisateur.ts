@@ -6,6 +6,7 @@ export interface CompteConnecte {
   id: string
   email: string
   role: string
+  sites: string[]
 }
 
 export function useSessionUtilisateur() {

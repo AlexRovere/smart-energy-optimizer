@@ -57,8 +57,15 @@ La colonne « Rôle » décrit le mécanisme complet. **Un seul rôle est exploi
 Trois règles que le tableau ne dit pas :
 
 - **`403` et non `404`** sur un site hors périmètre : distinguer « n'existe pas » de « pas pour vous » est nécessaire au diagnostic.
+- **`401` et non `404`** sur un compte inconnu, avec le message d'un mot de passe faux : distinguer les deux ferait de `/api/auth/login` un annuaire des comptes. Pour la même raison, une adresse absente est tout de même confrontée à une empreinte leurre, sinon le temps de réponse rétablit la distinction.
 - Un identifiant de site reçu du client est **comparé** au périmètre autorisé, il ne sert jamais de source.
 - Le `POST` de prédiction **ne modifie rien** : un rejeu après timeout est sans risque. L'applicatif garde le résultat quelques secondes, le proxy ne pouvant pas le mettre en cache.
+
+**Le `429` de `/api/auth/login`.** Cinq tentatives par fenêtre de quinze minutes, comptées sur **deux** clés à la fois, l'adresse et le compte visé, la plus restrictive l'emportant. L'adresse seule ne suffirait pas : un client industriel est derrière un NAT, donc tout un site partage une adresse et l'erreur d'un poste verrouillerait ses collègues. Le compte seul laisserait passer un balayage de comptes depuis une adresse unique. La réponse porte `Retry-After`, en secondes.
+
+Le compteur vit en **mémoire du processus**, pas en base : c'est le raisonnement qui écarte déjà Redis dans `data.md`, il n'y a qu'une instance et rien à partager. Une table aurait coûté une migration et une purge, et offert une écriture en base à chaque tentative ratée. Un redémarrage remet les compteurs à zéro, faiblesse assumée : elle n'est pas provocable de l'extérieur.
+
+**L'adresse du client** est celle de la connexion, et `X-Forwarded-For` n'est lu que si `NUXT_TRUST_PROXY` vaut vrai. Ce drapeau suit la mise en place du proxy de #39 et rien d'autre : activé sans proxy, l'en-tête se forge et l'attaquant se donne une adresse neuve à chaque essai ; laissé faux derrière le proxy, toutes les requêtes portent l'adresse du proxy et le premier balayage verrouille tout le monde.
 
 ---
 
@@ -270,6 +277,7 @@ Deux nommages coexistent volontairement : `.env` porte des noms neutres, la comp
 | :--- | :--- | :--- |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | applicatif | `NUXT_DATABASE_URL`, composée |
 | `SESSION_SECRET` | applicatif | `NUXT_SESSION_PASSWORD`, nom lu par `nuxt-auth-utils` |
+| `TRUST_PROXY` | applicatif | `NUXT_TRUST_PROXY`, faux par défaut, vrai seulement derrière le proxy de #39 |
 | `MOCK_API_URL` | applicatif, ETL | `NUXT_MOCK_API_URL` / `MOCK_API_URL` |
 | `PARQUET_DIR_HOST` | composition seule | sert au montage |
 | *(constante `/data`)* | applicatif, ETL, ML | `NUXT_PARQUET_DIR` / `PARQUET_DIR` |

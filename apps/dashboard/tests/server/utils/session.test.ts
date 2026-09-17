@@ -6,7 +6,8 @@ import {
   DUREE_SESSION_MS,
   ouvrirSession,
   purgerSessionsExpirees,
-  revoquerSession
+  revoquerSession,
+  sitesAutorises
 } from '../../../server/utils/session'
 import { creerBaseDeTest, ligneAttendue, type BaseDeTest } from '../../database/base-de-test'
 
@@ -96,6 +97,21 @@ describe('session', () => {
     await base.sql`UPDATE users SET is_active = FALSE WHERE id = ${desactive.id}`
 
     expect(await compteDeSession(db, session.id)).toBeNull()
+  })
+
+  it('rend le périmètre de sites du compte, vide plutôt que tout', async () => {
+    await base.sql`
+      INSERT INTO sites (id, name, type, capacity_kw, status)
+      VALUES ('SITE001', 'Usine A', 'usine', 500, 'active'),
+             ('SITE002', 'Usine B', 'usine', 800, 'active')
+    `
+    // Une seule ligne de périmètre : l'autre site ne doit PAS ressortir. Un
+    // périmètre oublié donne zéro accès, jamais tous (data.md).
+    await base.sql`
+      INSERT INTO user_sites (user_id, site_id) VALUES (${userId}, 'SITE001')
+    `
+
+    expect(await sitesAutorises(db, userId)).toEqual(['SITE001'])
   })
 
   it('purge les sessions expirées du compte sans toucher aux vivantes', async () => {

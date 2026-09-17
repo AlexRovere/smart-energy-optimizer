@@ -84,6 +84,7 @@ services:
       # SESSION_SECRET qu'injecte `sops exec-env` au déploiement : lire ici un
       # NUXT_SESSION_SECRET aurait fait échouer le lancement sur la machine.
       NUXT_SESSION_PASSWORD: ${SESSION_SECRET:?renseigner SESSION_SECRET dans .env ou par sops}
+      NUXT_TRUST_PROXY: ${TRUST_PROXY:-false}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
       - ${PARQUET_DIR_HOST:?}:/data:ro       # lecture seule, et rien d'autre que l'exposé

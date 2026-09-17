@@ -80,6 +80,19 @@ export async function compteDeSession(
   return compte ?? null
 }
 
+// Le périmètre d'accès, site par site. Une seule fonction le rend, et le filtre
+// SQL est toujours appliqué : jamais de branche qui saute le WHERE pour un
+// administrateur (data.md). Un périmètre oublié donne donc zéro accès, jamais
+// tous, et c'est le sens du choix de la table contre un tableau de sites.
+export async function sitesAutorises(db: BaseApplicative, userId: string): Promise<string[]> {
+  const lignes = await db
+    .select({ siteId: schema.userSites.siteId })
+    .from(schema.userSites)
+    .where(eq(schema.userSites.userId, userId))
+
+  return lignes.map(ligne => ligne.siteId)
+}
+
 // Entretien décrit par docs/data.md : les lignes périmées partent à la
 // connexion suivante du même compte. Rien de planifié, rien à surveiller. La
 // purge est bornée au compte qui se connecte, parce que `sessions.ip` est une
