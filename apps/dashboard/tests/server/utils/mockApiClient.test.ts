@@ -12,10 +12,10 @@ const BODY = { site_id: 'SITE001', timestamp: '2026-09-16T14:00:00Z' }
 
 // L'API Mock du formateur porte son authentification dans l'URL. Le `fetch` de
 // Node refuse ce format, donc le client doit la déplacer dans un en-tête.
-const UTILISATEUR = 'utilisateur'
-const MOT_DE_PASSE = 'mot-de-passe'
-const BASE_URL_AVEC_IDENTIFIANTS = `http://${UTILISATEUR}:${MOT_DE_PASSE}@mock-api`
-const EN_TETE_ATTENDU = `Basic ${Buffer.from(`${UTILISATEUR}:${MOT_DE_PASSE}`).toString('base64')}`
+const USERNAME = 'utilisateur'
+const PASSWORD = 'mot-de-passe'
+const BASE_URL_WITH_CREDENTIALS = `http://${USERNAME}:${PASSWORD}@mock-api`
+const EXPECTED_AUTH_HEADER = `Basic ${Buffer.from(`${USERNAME}:${PASSWORD}`).toString('base64')}`
 
 const mocked$fetch = vi.mocked($fetch)
 
@@ -117,12 +117,12 @@ describe('fetchMockApi', () => {
   it('déplace dans un en-tête Authorization les identifiants portés par la base', async () => {
     mocked$fetch.mockResolvedValueOnce(BODY)
 
-    await fetchMockApi(PATH, BASE_URL_AVEC_IDENTIFIANTS, { sleepFn: sleepSpy })
+    await fetchMockApi(PATH, BASE_URL_WITH_CREDENTIALS, { sleepFn: sleepSpy })
 
     expect(mocked$fetch).toHaveBeenCalledWith(
       PATH,
       expect.objectContaining({
-        headers: expect.objectContaining({ Authorization: EN_TETE_ATTENDU }),
+        headers: expect.objectContaining({ Authorization: EXPECTED_AUTH_HEADER }),
       }),
     )
   })
@@ -130,10 +130,10 @@ describe('fetchMockApi', () => {
   it('appelle une base débarrassée de ses identifiants', async () => {
     mocked$fetch.mockResolvedValueOnce(BODY)
 
-    await fetchMockApi(PATH, BASE_URL_AVEC_IDENTIFIANTS, { sleepFn: sleepSpy })
+    await fetchMockApi(PATH, BASE_URL_WITH_CREDENTIALS, { sleepFn: sleepSpy })
 
     const options = mocked$fetch.mock.calls[0]?.[1]
-    expect(options?.baseURL).not.toContain(MOT_DE_PASSE)
+    expect(options?.baseURL).not.toContain(PASSWORD)
     expect(options?.baseURL).toContain('mock-api')
   })
 
@@ -150,16 +150,16 @@ describe('fetchMockApi', () => {
   it('ne laisse pas le mot de passe filtrer dans l erreur rendue', async () => {
     // `fetch` recrache l'URL entière dans son message, identifiants compris.
     mocked$fetch.mockRejectedValue(
-      new Error(`Request cannot be constructed from a URL that includes credentials: ${BASE_URL_AVEC_IDENTIFIANTS}/`),
+      new Error(`Request cannot be constructed from a URL that includes credentials: ${BASE_URL_WITH_CREDENTIALS}/`),
     )
 
     // `never` en type de retour : la promesse ne peut que rejeter ici, donc
-    // `erreur` porte le type de l'erreur et non une union avec le succès.
-    const erreur = await fetchMockApi<never>(PATH, BASE_URL_AVEC_IDENTIFIANTS, { sleepFn: sleepSpy })
+    // `error` porte le type de l'erreur et non une union avec le succès.
+    const error = await fetchMockApi<never>(PATH, BASE_URL_WITH_CREDENTIALS, { sleepFn: sleepSpy })
       .catch((e: unknown) => e as { statusCode?: number, cause?: unknown })
 
-    expect(erreur.statusCode).toBe(503)
-    expect(JSON.stringify(erreur.cause ?? '')).not.toContain(MOT_DE_PASSE)
-    expect(String((erreur.cause as Error | undefined)?.message ?? '')).not.toContain(MOT_DE_PASSE)
+    expect(error.statusCode).toBe(503)
+    expect(JSON.stringify(error.cause ?? '')).not.toContain(PASSWORD)
+    expect(String((error.cause as Error | undefined)?.message ?? '')).not.toContain(PASSWORD)
   })
 })

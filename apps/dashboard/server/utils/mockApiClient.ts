@@ -13,51 +13,51 @@ const TIMEOUT_MS = 5_000
 // Le mot de passe est conservé pour être retiré des messages d'erreur : `fetch`
 // y recopie l'URL entière, et une de ces erreurs a déjà fini affichée dans un
 // terminal.
-interface Source {
-  base: string
-  entetes: Record<string, string>
+interface MockApiTarget {
+  baseUrl: string
+  headers: Record<string, string>
   secrets: string[]
 }
 
-function separerIdentifiants(baseUrl: string): Source {
+function extractCredentials(baseUrl: string): MockApiTarget {
   let url: URL
   try {
     url = new URL(baseUrl)
   } catch {
-    return { base: baseUrl, entetes: {}, secrets: [] }
+    return { baseUrl, headers: {}, secrets: [] }
   }
 
   if (!url.username && !url.password) {
-    return { base: baseUrl, entetes: {}, secrets: [] }
+    return { baseUrl, headers: {}, secrets: [] }
   }
 
-  const utilisateur = decodeURIComponent(url.username)
-  const motDePasse = decodeURIComponent(url.password)
+  const username = decodeURIComponent(url.username)
+  const password = decodeURIComponent(url.password)
   // La forme encodée autant que la forme lisible : c'est la première qui
   // apparaît dans l'URL, donc dans les messages d'erreur.
-  const secrets = [...new Set([url.password, motDePasse].filter(Boolean))]
+  const secrets = [...new Set([url.password, password].filter(Boolean))]
 
   url.username = ''
   url.password = ''
 
   return {
-    base: url.toString(),
-    entetes: {
-      Authorization: `Basic ${Buffer.from(`${utilisateur}:${motDePasse}`).toString('base64')}`,
+    baseUrl: url.toString(),
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`,
     },
     secrets,
   }
 }
 
-function sansSecret(erreur: unknown, secrets: string[]): unknown {
-  if (secrets.length === 0 || !(erreur instanceof Error)) return erreur
+function redactSecrets(error: unknown, secrets: string[]): unknown {
+  if (secrets.length === 0 || !(error instanceof Error)) return error
 
-  const message = secrets.reduce((texte, secret) => texte.split(secret).join('***'), erreur.message)
-  if (message === erreur.message) return erreur
+  const message = secrets.reduce((text, secret) => text.split(secret).join('***'), error.message)
+  if (message === error.message) return error
 
-  const masquee = new Error(message)
-  masquee.name = erreur.name
-  return masquee
+  const redacted = new Error(message)
+  redacted.name = error.name
+  return redacted
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -69,7 +69,7 @@ export async function fetchMockApi<T>(
   baseUrl: string = useRuntimeConfig().mockApiUrl as string,
   { sleepFn = sleep }: { sleepFn?: (ms: number) => Promise<void> } = {},
 ): Promise<T> {
-  const source = separerIdentifiants(baseUrl)
+  const target = extractCredentials(baseUrl)
   let lastError: unknown
 
   for (let attempt = 0; attempt < RETRY_MAX; attempt++) {
@@ -78,8 +78,8 @@ export async function fetchMockApi<T>(
 
     try {
       const result = await $fetch<T>(path, {
-        baseURL: source.base,
-        headers: source.entetes,
+        baseURL: target.baseUrl,
+        headers: target.headers,
         signal: controller.signal,
       })
       clearTimeout(timer)
@@ -96,6 +96,6 @@ export async function fetchMockApi<T>(
   throw createError({
     status: 503,
     statusText: 'Source de données indisponible',
-    cause: sansSecret(lastError, source.secrets),
+    cause: redactSecrets(lastError, target.secrets),
   })
 }
