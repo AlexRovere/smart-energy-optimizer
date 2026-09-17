@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import type { SiteId } from '~/types/api'
+import { useSiteHistory } from '~/composables/useSiteHistory'
 
 const route = useRoute()
 const router = useRouter()
 
 const id = computed(() => route.params.id as SiteId)
 
-const { getSite, getSiteSensors, getSiteAlerts, getSiteHealth, getSiteInfo, getCurrentReading, getReadings } = useSites()
+const { getSite, getSiteSensors, getSiteAlerts, getSiteHealth, getSiteInfo, getCurrentReading } = useSites()
 
 const site = computed(() => getSite(id.value))
 const info = computed(() => getSiteInfo(id.value))
@@ -14,7 +15,9 @@ const reading = computed(() => getCurrentReading(id.value))
 const sensors = computed(() => getSiteSensors(id.value))
 const alerts = computed(() => getSiteAlerts(id.value))
 const health = computed(() => getSiteHealth(id.value))
-const readings = computed(() => getReadings(id.value))
+
+const chartWindow = ref<'24h' | '7j'>('24h')
+const { readings } = useSiteHistory(id, chartWindow)
 
 // ── Formatters ──────────────────────────────────────────────────────
 
@@ -110,7 +113,6 @@ const chartData = computed(() => {
   return { points, areaPath, linePath, maxVal, yTicks, sy, sx, cap, thr, xLabels, peakVal: peakPt.consumption_kw, peakTime }
 })
 
-const chartWindow = ref<'24h' | '7j'>('24h')
 </script>
 
 <template>
