@@ -1,5 +1,5 @@
 import { $fetch } from 'ofetch'
-import { HTTPError } from 'h3'
+import { createError } from 'h3'
 
 const RETRY_MAX = 3
 const TIMEOUT_MS = 5_000
@@ -32,5 +32,5 @@ export async function fetchMockApi<T>(
     }
   }
 
-  throw new HTTPError('Source de données indisponible', { status: 503, cause: lastError })
+  throw createError({ status: 503, statusText: 'Source de données indisponible', cause: lastError })
 }
