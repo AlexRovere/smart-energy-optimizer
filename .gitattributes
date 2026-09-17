@@ -1,0 +1,2 @@
+# Un hook en CRLF (checkout Windows avec autocrlf actif) ne s'exécute pas : on force LF.
+.githooks/* text eol=lf

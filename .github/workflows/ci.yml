@@ -3,12 +3,19 @@ name: CI
 # Le pipeline agit comme un sas : lint, tests, puis scan de sécurité bloquant,
 # puis build. Un filtrage par chemin évite de tout rejouer à chaque commit,
 # ce qui est l'intérêt d'un monorepo bien câblé.
+#
+# Le scan de sécurité vit dans security.yml, qui tourne aussi sur push pour
+# ne pas attendre l'ouverture d'une pull request.
 
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 # Le jeton est restreint explicitement, donc tout ce qui n'est pas listé ici est
 # refusé. paths-filter interroge l'API des fichiers modifiés quand l'événement
@@ -18,7 +25,6 @@ on:
 permissions:
   contents: read
   pull-requests: read
-  security-events: write
 
 jobs:
   # Détermine quels domaines ont changé : les jobs suivants s'y conditionnent.
@@ -121,26 +127,3 @@ jobs:
       # - run: pipx install ansible-lint && ansible-lint infra/ansible
       # - run: docker compose config --quiet
       - run: echo "TODO infra - ansible-lint du playbook et validation de la composition"
-
-  # Quality gate : ce job tourne sur TOUTE modification et bloque à la première
-  # vulnérabilité critique. C'est le critère DevSecOps de l'épreuve EC03.
-  security:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      # Trivy couvre les trois angles en un passage : vulnérabilités des
-      # dépendances, secrets versionnés, et mauvaises configurations (Terraform,
-      # Dockerfile, Compose). exit-code 1 rend le job bloquant.
-      #
-      # gitleaks-action a été écarté volontairement : sa v2 exige une licence
-      # payante pour les comptes d'organisation, le job aurait échoué d'emblée.
-      - name: Scan de sécurité (Trivy)
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          scanners: vuln,secret,misconfig
-          severity: CRITICAL,HIGH
-          exit-code: "1"
-          ignore-unfixed: true
