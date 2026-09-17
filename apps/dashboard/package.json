@@ -17,9 +17,11 @@
     "db:seed": "tsx --env-file-if-exists=../../.env server/database/seed.cli.ts"
   },
   "dependencies": {
+    "@duckdb/node-api": "1.5.5-r.5",
     "@node-rs/argon2": "^2.2.1",
     "@nuxt/ui": "^4.11.1",
     "drizzle-orm": "^0.45.2",
+    "h3": "2.0.1-rc.32",
     "nuxt": "^4.5.2",
     "nuxt-auth-utils": "^0.5.30",
     "postgres": "^3.4.9",

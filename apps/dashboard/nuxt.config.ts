@@ -11,7 +11,7 @@ export default defineNuxtConfig({
     sessionSecret: '',
     databaseUrl: '',
     mockApiUrl: '',
-    parquetDirExpose: '',
+    parquetDir: '',
     mlServiceUrl: '',
     logLevel: 'info'
   },
