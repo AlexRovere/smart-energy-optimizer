@@ -78,7 +78,7 @@ Sans conséquence dans un profil utilisateur normal, sauf poste réellement part
 
 ### Se faire ajouter comme destinataire
 
-Aujourd'hui `.sops.yaml` porte **cinq** destinataires sur six : les postes d'Alex Rovere, d'Antoine Coulon, d'Hugo Mrnth et de Tanguy Raguenes, et la CI. Seul le dernier membre n'y est pas encore. La machine sur site n'est pas destinataire et n'a pas vocation à l'être. Tant que votre clé n'y est pas, `sops decrypt` échoue normalement :
+Aujourd'hui `.sops.yaml` porte **six** destinataires : les postes d'Alex Rovere, d'Antoine Coulon, d'Hugo Mrnth, de Tanguy Raguenes et de Pierrick Anceaux, plus la CI. L'équipe est donc au complet. La machine sur site n'est pas destinataire et n'a pas vocation à l'être. Cette section reste utile pour une arrivée dans l'équipe : tant qu'une clé n'est pas dans la liste, `sops decrypt` échoue normalement :
 
 ```
 Failed to get the data key required to decrypt the SOPS file.
