@@ -142,7 +142,7 @@ jobs:
         env:
           POSTGRES_PASSWORD: ci
           ETL_DB_PASSWORD: ci
-          NUXT_SESSION_SECRET: ci
+          SESSION_SECRET: ci
           MOCK_API_URL: http://ci
           PARQUET_DIR_HOST: ./data/parquet
         run: docker compose config --quiet
