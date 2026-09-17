@@ -19,6 +19,16 @@ RUN uv sync --frozen --no-dev
 # ---- runtime ----
 FROM python:3.12-slim AS runtime
 
+# L'image de base publiée traîne des correctifs de sécurité déjà parus chez
+# Debian : perl-base y portait trois CVE critiques corrigées en amont, que le
+# scan d'image bloque à raison (PR #138). Cette mise à jour les applique sans
+# attendre la reconstruction du tag. Elle rend la construction un peu moins
+# reproductible d'un jour à l'autre, et c'est le but : un correctif publié doit
+# entrer dans l'image le jour où il paraît, pas le jour où l'amont s'en occupe.
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN groupadd --system app && useradd --system --gid app --home /app app
 
 WORKDIR /app

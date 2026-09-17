@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useSiteCurrentReading } from '~/composables/useSiteCurrentReading';
 import type { SiteId } from '~/types/api'
 import { useSiteHistory } from '~/composables/useSiteHistory'
 
@@ -7,11 +8,20 @@ const router = useRouter()
 
 const id = computed(() => route.params.id as SiteId)
 
-const { getSite, getSiteSensors, getSiteAlerts, getSiteHealth, getSiteInfo, getCurrentReading } = useSites()
+const { getSite, getSiteSensors, getSiteAlerts, getSiteHealth, getSiteInfo } = useSites()
 
+const { data: reading, pending: readingPending, error: readingError } = useSiteCurrentReading(id)
+
+const loadPercent = computed(() => {
+  const kw = reading.value?.consumption_kw
+  const cap = site.value?.capacity_kw
+  if (kw == null || !cap) return
+  return (kw / cap) * 100
+})
+
+// Mocks
 const site = computed(() => getSite(id.value))
 const info = computed(() => getSiteInfo(id.value))
-const reading = computed(() => getCurrentReading(id.value))
 const sensors = computed(() => getSiteSensors(id.value))
 const alerts = computed(() => getSiteAlerts(id.value))
 const health = computed(() => getSiteHealth(id.value))
@@ -136,6 +146,15 @@ const chartData = computed(() => {
       Site {{ id }} introuvable.
     </div>
 
+    <!-- Source indisponible -->
+    <div
+      v-if="readingError"
+      class="flex items-center gap-2.5 px-4 py-3 rounded-ev-md border text-sm font-ev"
+      style="border-color: var(--ev-amber-bd); background: var(--ev-amber-bg); color: var(--ev-amber)"
+    >
+      Source de données indisponible — les mesures affichées peuvent être obsolètes.
+    </div>
+
     <template v-if="site">
 
       <!-- Header -->
@@ -185,14 +204,14 @@ const chartData = computed(() => {
       </header>
 
       <!-- 4 KPI gauges -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-(--ev-gap-card)">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-(--ev-gap-card) transition-opacity" :class="{ 'opacity-40': readingPending }">
         <EvGauge
           label="CONSOMMATION"
-          :value="fmtConso(site.current_consumption_kw)"
+          :value="fmtConso(reading?.consumption_kw ?? null)"
           unit="kW"
-          :note="site.load_percent != null ? fmtNum(site.load_percent) + ' % de la capacité' : 'Données indisponibles'"
-          :ratio="site.load_percent != null ? site.load_percent / 100 : null"
-          :color="chargeColor(site.load_percent)"
+          :note="loadPercent != null ? fmtNum(loadPercent) + ' % de la capacité' : 'Données indisponibles'"
+          :ratio="loadPercent != null ? loadPercent / 100 : null"
+          :color="chargeColor(loadPercent ?? null)"
         />
         <EvGauge
           label="TENSION"

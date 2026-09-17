@@ -30,10 +30,24 @@ export function ligneAttendue<T>(lignes: readonly T[], attendu: string): T {
   return ligne
 }
 
+// À poser en `describe.skipIf(!baseDisponible())` en tête des fichiers qui ont
+// besoin d'une base. L'amorce globale rend une URL vide quand aucun runtime de
+// conteneurs n'a répondu, ce qui n'arrive que sur un poste : en intégration
+// continue, elle échoue avant d'en arriver là.
+export function baseDisponible(): boolean {
+  return inject('urlAdministrateur') !== ''
+}
+
 export async function creerBaseDeTest(
   options: { migrer?: boolean } = {}
 ): Promise<BaseDeTest> {
   const urlAdministrateur = inject('urlAdministrateur')
+  if (urlAdministrateur === '') {
+    throw new Error(
+      "Aucune base de test disponible : ce fichier aurait dû s'ignorer par "
+      + 'describe.skipIf(!baseDisponible()).'
+    )
+  }
   // Un nom de base ne peut pas porter de tiret sans être cité : on les retire.
   const nom = `test_${randomUUID().replaceAll('-', '')}`
 

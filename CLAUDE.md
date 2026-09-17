@@ -31,7 +31,7 @@ Ces points reviennent régulièrement. Ils ont été arbitrés, le motif est éc
 
 - **Français accentué partout** : documentation, commentaires de code, messages de commit. Si un encodage résiste, corriger l'encodage plutôt que retirer les accents.
 - Pas de tiret cadratin ni de double tiret dans les textes : deux points, parenthèses, ou une phrase de plus.
-- Les identifiants techniques, les routes et les champs restent en **anglais**, comme l'API Mock.
+- Les identifiants techniques, les routes et les champs restent en **anglais**, comme l'API Mock. Cela vaut pour le code : noms de fichiers, fonctions, types et constantes exportées. Les commentaires, les noms de cas de test et les messages affichés restent en français, et une variable locale suit la langue du fichier qui l'héberge.
 
 ## Branches, commits, revue
 

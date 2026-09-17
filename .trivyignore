@@ -1,0 +1,29 @@
+# Vulnérabilités acceptées explicitement.
+#
+# Ce fichier est volontairement vide d'exceptions : aucune vulnérabilité n'a eu
+# besoin d'être acceptée à ce jour. Il existe quand même, parce que le jour où
+# une faille bloquera une fusion urgente est exactement le moment où l'on
+# créerait ce fichier mal, à la hâte, sans procédure.
+#
+# Trivy le lit depuis la racine du dépôt, sans réglage dans les workflows.
+#
+# Une vulnérabilité se corrige d'abord : monter la dépendance, ou l'image de
+# base. On ne l'accepte que si aucun correctif n'existe, et jamais en retirant
+# `exit-code: 1` d'un workflow, ce qui désarmerait le garde-fou pour tout le
+# monde au lieu d'une seule ligne.
+#
+# Une entrée se lit ainsi :
+#
+#   # CVE-2025-00000 : <ce qu'elle permet, et pourquoi elle ne s'applique pas
+#   # ici, par exemple un composant que l'on n'appelle jamais>
+#   # Rouvrir si : <la condition qui rend l'exception caduque>
+#   # Acceptée le <date> dans la PR #<numéro>
+#   CVE-2025-00000
+#
+# Les trois lignes de commentaire ne sont pas décoratives. Une exception sans
+# motif est indiscernable d'un oubli six mois plus tard, et c'est précisément
+# ce que le troisième critère de #57 interdit : traitées ou explicitement
+# acceptées, jamais ignorées en silence.
+#
+# L'ajout passe par une pull request comme le reste. `.github/CODEOWNERS` route
+# la revue vers les propriétaires de la chaîne de build.

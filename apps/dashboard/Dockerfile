@@ -26,6 +26,17 @@ RUN pnpm build
 # ---- runtime ----
 FROM node:22-bookworm-slim AS runtime
 
+# Le serveur Nitro est autonome : ni npm ni corepack ne servent à l'exécuter.
+# Le npm de l'image de base embarque en revanche sa propre copie de node-tar,
+# porteuse d'une CVE critique (CVE-2026-59873, PR #138). Les retirer supprime
+# la faille à la racine au lieu de la contourner, et réduit la surface d'une
+# image de production qui n'a aucune raison d'installer des paquets.
+RUN rm -rf /usr/local/lib/node_modules/npm \
+           /usr/local/lib/node_modules/corepack \
+           /usr/local/bin/npm \
+           /usr/local/bin/npx \
+           /usr/local/bin/corepack
+
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=3000
