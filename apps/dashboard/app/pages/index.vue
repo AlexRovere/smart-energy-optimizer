@@ -75,14 +75,14 @@ const filteredAlerts = computed(() =>
           label="CONSOMMATION TOTALE"
           :value="totalConsumptionDisplay"
           unit="kW"
-          :note="`${stats?.sites_counted} sites sur ${stats?.sites_total} · ${excludedSites.join(', ')} exclu`"
+          :note="stats ? `${stats.sites_counted} sites sur ${stats.sites_total} · ${excludedSites.join(', ')} exclu` : ''"
           note-tone="amber"
         />
         <EvKpiCard
           label="CAPACITÉ TOTALE"
           :value="totalCapacityDisplay"
           unit="kW"
-          :note="`Somme des capacity_kw · ${stats?.sites_total} sites actifs`"
+          :note="stats ? `Somme des capacity_kw · ${stats.sites_total} sites actifs` : ''"
           note-tone="muted"
         />
         <EvKpiCard

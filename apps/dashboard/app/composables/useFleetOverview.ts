@@ -189,7 +189,7 @@ export function useFleetOverview() {
   // -- Incomplete data -----------------------------------------
 
   const hasIncompleteData = computed(() =>
-    (stats.value?.excluded_sites.length ?? 0) > 0,
+    (stats.value?.excluded_sites?.length ?? 0) > 0,
   )
 
   const excludedSites = computed<SiteId[]>(() =>
