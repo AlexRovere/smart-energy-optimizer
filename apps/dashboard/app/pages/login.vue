@@ -1,17 +1,19 @@
 <script setup lang="ts">
 import type { FormSubmitEvent } from '@nuxt/ui'
+import type { FetchError } from 'ofetch'
 import { loginSchema, type LoginInput } from '~~/shared/authSchema';
 
 definePageMeta({
   layout: 'blank',
 })
 
+const { refresh } = useAccountSession()
+
 const state = reactive<LoginInput>({
   email: '',
   password: '',
 })
 
-const rememberSession = ref(false)
 const loading = ref(false)
 const errorMessage = ref('')
 
@@ -20,10 +22,21 @@ async function onSubmit(event: FormSubmitEvent<LoginInput>) {
   loading.value = true
 
   try {
-    // TODO S4 : appeler POST /api/auth/login avec event.data
-    console.warn('[login] Backend auth non connecté — submit ignoré', event.data)
-    errorMessage.value = 'Authentification non disponible (backend S4)'
-  } finally {
+    // La réponse ne porte aucun jeton : tout ce qui account arrive dans le
+    // cookie, que ce code ne peut pas lire et n'a pas à lire.
+    await $fetch('/api/auth/login', { method: 'POST', body: event.data })
+    await refresh()
+    await navigateTo('/')
+  }
+  catch (err) {
+    const failure = err as FetchError
+    const delay = Number(failure.response?.headers.get('retry-after'))
+    errorMessage.value = loginErrorMessage(
+      failure.statusCode ?? 503,
+      Number.isFinite(delay) && delay > 0 ? delay : undefined
+    )
+  }
+  finally {
     loading.value = false
   }
 }
@@ -96,7 +109,7 @@ async function onSubmit(event: FormSubmitEvent<LoginInput>) {
           v-if="errorMessage"
           class="bg-ev-red-bg border border-ev-red-bd rounded-ev-sm px-4 py-3 flex flex-col gap-1"
         >
-          <span class="font-ev text-sm font-semibold text-(--ev-red)">Identifiants non reconnus</span>
+          <span class="font-ev text-sm font-semibold text-(--ev-red)">Connexion refusée</span>
           <span class="font-ev text-[13px] text-ev-text-2">{{ errorMessage }}</span>
         </div>
 
@@ -123,12 +136,13 @@ async function onSubmit(event: FormSubmitEvent<LoginInput>) {
             />
           </UFormField>
 
-          <!-- TODO: maintien session + forgotten password -->
+          <!-- TODO: forgotten password -->
           <div class="flex items-center justify-between">
-            <label class="flex items-center gap-2 cursor-pointer">
-              <UCheckbox v-model="rememberSession" />
-              <span class="font-ev text-[13px] text-ev-text-2">Maintenir la session 8 h</span>
-            </label>
+            <!-- La case « Maintenir la session 8 h » de la maquette est retirée :
+                 data.md fixe la durée à deux heures, et elle n'est pas réglable
+                 par l'utilisateur. Une case qui ne fait rien et annonce une
+                 durée fausse vaut moins que la durée écrite. -->
+            <span class="font-ev text-[13px] text-ev-text-3">Session valable 2 heures</span>
             <a href="#" class="font-ev text-[13px] text-ev-green hover:text-ev-green-hover" @click.prevent>
               Mot de passe oublié ?
             </a>
