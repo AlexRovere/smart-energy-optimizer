@@ -1,4 +1,6 @@
+import { computed } from 'vue'
 import type { Alert, CurrentReading, Reading, SensorHealth, SensorStatus, Site, SiteId } from '~/types/api'
+import { useFleetOverview } from '../composables/useFleetOverview'
 
 export function useSites() {
   const { siteSummary, sensors, alerts, siteDetails, currentReadings, getReadingsForSite } = useFleetOverview()

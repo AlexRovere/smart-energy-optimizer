@@ -1,4 +1,6 @@
+import { ref, computed } from 'vue'
 import type { Prediction, Recommendation, SiteId } from "~/types/api";
+import { useSites } from "../composables/useSites";
 
 const HORIZON_HOURS = 6
 const CONFIDENCE_LEVEL = 0.90
