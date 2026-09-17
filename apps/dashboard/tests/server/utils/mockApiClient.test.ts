@@ -90,7 +90,7 @@ describe('fetchMockApi', () => {
     mocked$fetch.mockRejectedValue(new Error('network error'))
 
     await expect(fetchMockApi(PATH, BASE_URL, { sleepFn: sleepSpy }))
-      .rejects.toMatchObject({ status: 503 })
+      .rejects.toMatchObject({ statusCode: 503 })
 
     expect(mocked$fetch).toHaveBeenCalledTimes(3)
   })

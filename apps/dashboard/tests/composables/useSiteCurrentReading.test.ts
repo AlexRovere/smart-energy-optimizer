@@ -5,7 +5,7 @@ import type { SiteId } from '../../app/types/api'
 import type { EnergyReading } from '../../shared/energyReadingSchema'
 import { useSiteCurrentReading } from '../../app/composables/useSiteCurrentReading'
 
-const useFetchMock = vi.fn()
+const useFetchMock = vi.hoisted(() => vi.fn())
 mockNuxtImport('useFetch', () => useFetchMock)
 
 const readingFixture: EnergyReading = {

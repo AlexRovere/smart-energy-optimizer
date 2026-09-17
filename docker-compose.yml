@@ -79,6 +79,7 @@ services:
   #     NUXT_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
   #     PARQUET_DIR_EXPOSE: /data/expose
   #     ML_API_URL: ${ML_API_URL:-http://ml:8000}
+  #     MOCK_API_URL: ${MOCK_API_URL:?renseigner MOCK_API_URL dans .env}
   #   volumes:
   #     - parquet_data:/data:ro       # lecture seule, et rien d'autre que l'exposé
   #   depends_on:
