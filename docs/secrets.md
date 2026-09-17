@@ -185,6 +185,8 @@ Aucun de ces trois éditeurs n'est dans le `PATH` d'un Windows ordinaire ; `sops
 | `SESSION_SECRET` | secret de session de l'applicatif, celui qui protège le cookie |
 | `GRAFANA_PASSWORD` | mot de passe de l'administrateur Grafana |
 
+`ETL_DB_PASSWORD` manque aussi, mais **pas volontairement** : `docker-compose.yml` l'exige par un `:?`, donc `sops exec-env` échouera dessus au premier déploiement tant qu'elle n'est pas posée. Repéré en travaillant #153, à traiter avec #107.
+
 `MOCK_API_URL` **manque volontairement** : l'URL de l'API Mock n'est pas encore connue. Le jour où elle arrive : `sops set secrets.enc.yaml '["MOCK_API_URL"]' '"https://exemple"'`, puis `git add secrets.enc.yaml` et un commit qui dit quelle clé a bougé et pourquoi.
 
 **Injecter au lancement**, sans jamais écrire les valeurs sur le disque :
@@ -207,14 +209,27 @@ C'est la commande du déploiement. Elle s'exécute **sur** la machine sur site, 
 
 ### Le développement local
 
-Chacun garde son propre `.env`, ignoré par git, avec **ses** valeurs. `.env.example` liste les variables attendues, et le démarrage décrit dans le [`README.md`](../README.md) ne demande rien de plus :
+Deux situations, et elles ne se mélangent pas.
+
+**Lancer la composition sur son poste** : chacun garde son propre `.env`, ignoré par git, avec **ses** valeurs. `.env.example` liste les variables attendues.
 
 ```bash
 cp .env.example .env      # renseigner les valeurs
 docker compose up -d
 ```
 
-On ne répand pas les mots de passe de la machine sur cinq postes pour un PostgreSQL de développement qui ne contient que des données de test : chaque copie est une occasion de fuite pour un gain nul, et une valeur locale distincte fait échouer plutôt que réussir une commande qui pointerait par erreur vers la machine.
+On ne répand pas les mots de passe de la machine sur cinq postes : chaque copie est une occasion de fuite pour un gain nul, et une valeur locale distincte fait échouer plutôt que réussir une commande qui pointerait par erreur vers la machine.
+
+**Développer** : c'est [`.env.dev`](../.env.dev) qui sert, versionné et en clair, et `pnpm dev:db` suffit à démarrer sans qu'on renseigne quoi que ce soit.
+
+Versionner un fichier de valeurs ne contredit pas ce qui précède, parce qu'il n'y a **aucun secret dedans, par construction** : la base qu'il décrit n'écoute que `127.0.0.1`, ne contient que des comptes de démonstration et des données de test, et rien n'y ouvre quoi que ce soit hors du poste. Le critère n'est pas « est-ce que ça ressemble à un mot de passe », c'est « est-ce que cette chaîne donne accès à quelque chose ». Une valeur qui mériterait d'être chiffrée n'a donc rien à y faire, elle va dans `secrets.enc.yaml`.
+
+Deux conséquences pratiques :
+
+- Les valeurs de `.env.dev` sont **volontairement lisibles et sans hasard** (`enervision-dev-local`, `secret-de-session-local-sans-valeur-de-secret`). Ça dit au lecteur ce qu'elles sont, et ça évite que gitleaks les prenne pour de vraies clés à chaque push et dans le hook `pre-push`.
+- `.env.dev` et `.env` n'ont **aucune variable en commun**, et les deux compositions n'ont ni le même port, ni le même nom de projet Docker. C'est ce qui remplace ici le garde-fou de la valeur distincte : une commande qui se trompe de contexte échoue, elle ne réussit pas ailleurs.
+
+Le jour où quelqu'un ajoute une vraie valeur à `.env.dev`, c'est la revue qui l'attrape, et c'est précisément ce qu'un `.env` invisible sur cinq postes ne permet pas.
 
 ## Pour aller plus loin
 
