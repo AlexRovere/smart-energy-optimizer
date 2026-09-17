@@ -228,11 +228,13 @@ Côté lecture, chaque consommateur vérifie ce qu'il reçoit avant de s'en serv
 
 La bibliothèque de lecture, elle, appartient à chaque service. Le service ML lit avec `pandas.read_parquet(chemin, columns=..., filters=...)`, qui rend le tableau de données attendu par l'entraînement et ne lit que les colonnes et les partitions demandées ; l'applicatif lit avec DuckDB, parce qu'il a des agrégats à calculer. Les deux lisent les mêmes fichiers.
 
-### L'écriture est atomique
+### L'écriture est atomique, la partition du jour en cours est fusionnée
 
 Écriture dans un fichier temporaire, puis renommage. Un fichier Parquet porte son index en **pied de page** : tant qu'il n'est pas écrit, le fichier est illisible. Sans renommage atomique, un lecteur tombera un jour sur un fichier en cours d'écriture, et ce jour-là sera le jour de la démonstration.
 
-Plusieurs lecteurs simultanés ne posent en revanche aucun problème : les fichiers sont immuables une fois écrits.
+Plusieurs lecteurs simultanés ne posent en revanche aucun problème : chaque écriture livre toujours une version complète du fichier, jamais un état partiel.
+
+**Écart noté le 17 septembre 2026** : une version précédente disait les fichiers « immuables une fois écrits ». C'était vrai tant que l'ETL ne tournait qu'en `periods`, un jour entier extrait puis écrit une seule fois. L'ajout d'une commande `hour` (cron horaire, pour que le modèle prédictif s'appuie sur un historique à jour) change ça : chaque écriture lit d'abord la partition existante si elle existe, fusionne avec les nouvelles lignes, déduplique sur `timestamp` (la nouvelle valeur l'emporte), puis réécrit tout atomiquement. En pratique, seule la partition du **jour en cours** est revisitée plusieurs fois par jour ; les jours passés ne sont plus retouchés une fois la journée terminée.
 
 ### Un test du pipeline fige le format
 
