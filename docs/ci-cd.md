@@ -146,7 +146,7 @@ Ce qui suit est connu, décidé, et non corrigé. C'est ce qui distingue une doc
 | Écart | Pourquoi |
 |---|---|
 | **Pas de registre d'images** | Quota de 500 Mo pour les paquets privés en offre gratuite, dépassé par la seule image du service ML. Le public exposerait le code. Décidé le 15 septembre 2026 (#50, #107) |
-| **`main` n'est pas protégée par règle** | Les règles de protection de branche ne sont pas activables sur un dépôt privé d'une organisation en offre gratuite. La règle est donc écrite dans [`CLAUDE.md`](../CLAUDE.md) et tenue à la main : rien ne refusera un push direct |
+| **`main` n'est pas protégée par règle** | Les règles de protection de branche ne sont pas activables sur un dépôt privé d'une organisation en offre gratuite. La règle est donc écrite dans [`CLAUDE.md`](../CLAUDE.md) et tenue à la main : rien ne refusera un push direct. Le jour où elle le devient, il faudra déclarer **deux** checks obligatoires, `CI` et `Sécurité`, et non un seul : c'est le prix du découpage en deux workflows |
 | **Les images construites ne sont pas scannées** | Le scan porte sur l'arbre de fichiers. #57 le complète |
 | **Pas de cache de dépendances côté Python** | `actions/setup-python` calcule sa clé sur `requirements.txt`, que le projet n'a pas : l'ETL et le ML sont sous `uv` avec un `uv.lock`. Le cache viendra avec `astral-sh/setup-uv`, quand ces jobs feront autre chose qu'un `echo`. Le cache `pnpm`, lui, est actif |
 | **Pas de seuil de couverture bloquant** | Retiré le 16 septembre 2026 (#51). Sur dix jours, un seuil non tenu est une CI rouge qui empêche de fusionner : un coût sans contrepartie |
