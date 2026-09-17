@@ -7,21 +7,26 @@
 # Pour rendre la revue obligatoire : Settings > Branches > protection de `main`
 # > cocher « Require review from Code Owners ».
 #
-# TODO équipe : remplacer les pseudos par les vrais comptes GitHub de chacun.
+# Les propriétaires sont les porteurs réels du domaine, pas le PO par défaut :
+# une revue que tout le monde attribue à la même personne n'est plus une revue.
 
 # Par défaut, tout le monde peut relire
 *                       @AlexRovere
 
-# Applicatif
-/apps/dashboard/        @AlexRovere
-/apps/etl/              @AlexRovere
-/apps/ml/               @AlexRovere
+# Applicatif, ETL, modele : chacun relit son domaine
+/apps/dashboard/        @antoinecoulon
+/apps/etl/              @Shurtugl
+/apps/ml/               @TanguyRaguenes
 
 # Infrastructure et chaîne de build
-/infra/                 @AlexRovere
-/.github/               @AlexRovere
-/docker-compose.yml     @AlexRovere
+/infra/                 @HugoMrnth
+/.github/               @HugoMrnth @AlexRovere
+/docker-compose.yml     @HugoMrnth
 
 # Livrables : relus par le Product Owner
 /docs/                  @AlexRovere
 *.md                    @AlexRovere
+
+# Secrets : un second relecteur, pas seulement l'auteur (règle la plus spécifique, donc en dernier).
+/.sops.yaml             @AlexRovere @HugoMrnth
+/secrets.enc.yaml       @AlexRovere @HugoMrnth

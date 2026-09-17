@@ -27,6 +27,11 @@ dist/
 secrets.yaml
 secrets.dec.yaml
 
+# Clés privées : jamais dans le dépôt. Les clés publiques restent autorisées (!*.pub).
+*.key
+keys.txt
+!*.pub
+
 # Données et modèles : trop volumineux, pas versionnables
 data/
 # ``apps/ml/src/data`` contains Python source code, not generated datasets.
@@ -36,10 +41,19 @@ mlruns/
 *.pkl
 *.joblib
 
+# Conceptions et plans de travail : documents de méthode, pas des livrables.
+# Ils restent sur le poste et dans l'historique, ils ne sont plus versionnés.
+.superpowers/
+docs/superpowers/
+
 # Divers
 *.log
 .DS_Store
 .idea/
 .vscode/
+.claude
+.hidden
 
 .kilo/
+
+.claude/

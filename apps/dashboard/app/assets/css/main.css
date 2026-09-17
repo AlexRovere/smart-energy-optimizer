@@ -1,0 +1,147 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+@theme {
+  /* Couleurs — surfaces */
+  --color-ev-bg: var(--ev-bg);
+  --color-ev-surface-0: var(--ev-surface-0);
+  --color-ev-surface-2: var(--ev-surface-2);
+  --color-ev-surface-light: var(--ev-surface-light);
+  --color-ev-ink-on-light: var(--ev-ink-on-light);
+
+  /* Couleurs — marque & sémantique */
+  --color-ev-green: var(--ev-green);
+  --color-ev-green-hover: var(--ev-green-hover);
+  --color-ev-on-green: var(--ev-on-green);
+  --color-ev-amber: var(--ev-amber);
+  --color-ev-amber-dark: var(--ev-amber-dark);
+  --color-ev-red: var(--ev-red);
+
+  /* Couleurs — teintes de fond sémantiques */
+  --color-ev-green-bg: var(--ev-green-bg);
+  --color-ev-green-bd: var(--ev-green-bd);
+  --color-ev-amber-bg: var(--ev-amber-bg);
+  --color-ev-amber-bd: var(--ev-amber-bd);
+  --color-ev-red-bg: var(--ev-red-bg);
+  --color-ev-red-bd: var(--ev-red-bd);
+
+  /* Couleurs — texte */
+  --color-ev-text: var(--ev-text);
+  --color-ev-text-2: var(--ev-text-2);
+  --color-ev-text-3: var(--ev-text-3);
+  --color-ev-text-4: var(--ev-text-4);
+  --color-ev-text-muted: var(--ev-text-muted);
+
+  /* Couleurs — bordures & voiles */
+  --color-ev-border: var(--ev-border);
+  --color-ev-border-strong: var(--ev-border-strong);
+  --color-ev-border-ctrl: var(--ev-border-ctrl);
+  --color-ev-border-hover: var(--ev-border-hover);
+  --color-ev-veil: var(--ev-veil);
+  --color-ev-veil-2: var(--ev-veil-2);
+
+  /* Rayons */
+  --radius-ev-xs: var(--ev-r-xs);
+  --radius-ev-sm: var(--ev-r-sm);
+  --radius-ev-md: var(--ev-r-md);
+  --radius-ev-btn: var(--ev-r-btn);
+  --radius-ev-lg: var(--ev-r-lg);
+  --radius-ev-pill: var(--ev-r-pill);
+
+  /* Espacement */
+  --spacing-ev-1: var(--ev-1);
+  --spacing-ev-2: var(--ev-2);
+  --spacing-ev-3: var(--ev-3);
+  --spacing-ev-4: var(--ev-4);
+  --spacing-ev-6: var(--ev-6);
+  --spacing-ev-8: var(--ev-8);
+
+  /* Fontes */
+  --font-ev: var(--ev-font);
+  --font-ev-mono: var(--ev-font-mono);
+}
+
+:root {
+  /* Surfaces */
+  --ev-bg:            #0F172A;  /* fond d'écran — Bleu Souverain */
+  --ev-surface-0:     #0B1220;  /* sidebar, rails latéraux */
+  --ev-surface-2:     #131C2F;  /* cards de données */
+  --ev-surface-light: #F3F4F6;  /* card graphique (une seule par écran) */
+  --ev-ink-on-light:  #0F172A;
+
+  /* Marque & sémantique */
+  --ev-green:         #10B981;  /* primaire · ok · data_quality good */
+  --ev-green-hover:   #34D399;
+  --ev-on-green:      #06281E;
+  --ev-amber:         #F59E0B;  /* prédiction · degraded · partial */
+  --ev-amber-dark:    #B45309;  /* ambre lisible sur fond clair */
+  --ev-red:           #EF4444;  /* critical */
+
+  /* Teintes de fond sémantiques */
+  --ev-green-bg:      rgba(16,185,129,0.12);
+  --ev-green-bd:      rgba(16,185,129,0.30);
+  --ev-amber-bg:      rgba(245,158,11,0.12);
+  --ev-amber-bd:      rgba(245,158,11,0.30);
+  --ev-red-bg:        rgba(239,68,68,0.12);
+  --ev-red-bd:        rgba(239,68,68,0.32);
+
+  /* Texte sur fond sombre */
+  --ev-text:          #F3F4F6;
+  --ev-text-2:        rgba(243,244,246,0.60);
+  --ev-text-3:        rgba(243,244,246,0.50);
+  --ev-text-4:        rgba(243,244,246,0.45);
+  --ev-text-muted:    rgba(243,244,246,0.30);
+
+  /* Bordures & voiles */
+  --ev-border:        rgba(243,244,246,0.08);
+  --ev-border-strong: rgba(243,244,246,0.14);
+  --ev-border-ctrl:   rgba(243,244,246,0.22);
+  --ev-border-hover:  rgba(243,244,246,0.40);
+  --ev-veil:          rgba(243,244,246,0.03); /* hover de ligne */
+  --ev-veil-2:        rgba(243,244,246,0.06); /* squelette, bouton off */
+
+  /* Typographie */
+  --ev-font:      Inter, system-ui, sans-serif;
+  --ev-font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Espacement — base 4 */
+  --ev-1: 4px;  --ev-2: 8px;  --ev-3: 12px; --ev-4: 16px;
+  --ev-6: 24px; --ev-8: 32px; --ev-12: 48px;
+  --ev-gap-card: 24px;
+  --ev-pad-card: 24px;
+  --ev-gutter:   20px;
+
+  /* Rayons */
+  --ev-r-xs:   6px;  /* badge mono */
+  --ev-r-sm:   8px;  /* input, badge, alerte inline */
+  --ev-r-md:  10px;  /* carte d'alerte */
+  --ev-r-btn: 12px;
+  --ev-r-lg:  16px;  /* card */
+  --ev-r-pill: 20px;
+
+  /* Focus */
+  --ev-focus-ring: 0 0 0 3px rgba(16,185,129,0.18);
+
+  /* Gabarit */
+  --ev-sidebar-w: 248px;
+  --ev-rail-w:    340px;
+  --ev-screen-w: 1440px;
+}
+
+/* Aucune ombre dans ce système : hiérarchie par surface + bordure. */
+
+@keyframes ev-pulse-dot { 0%, 100% { opacity: 1 } 50% { opacity: .35 } }
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+body {
+  margin: 0;
+  background: var(--ev-bg);
+  color: var(--ev-text);
+  font-family: var(--ev-font);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--ev-green); text-decoration: none; }
+a:hover { color: var(--ev-green-hover); }
+input::placeholder { color: rgba(243,244,246,0.35); }

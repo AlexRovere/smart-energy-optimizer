@@ -1,0 +1,13 @@
+# Destinataires des secrets. Une clé publique age n'est pas un secret.
+# Après toute modification de cette liste : `sops updatekeys secrets.enc.yaml`,
+# sans quoi le job `secrets` de la CI refuse la divergence. Voir docs/secrets.md.
+creation_rules:
+  - path_regex: ^secrets\.enc\.yaml$
+    key_groups:
+      - age:
+          - age1d9lzlejjw468jknwx7mvpfjmjqg3yagx2q6pc6cgafgcldw9nfwsyj3y0g # Alex Rovere, poste
+          - age1tjdaxtqcx3er9qanuvahrxrxyc2rp8egyumjj9ffrhj93d0ht9hqvmz3l5 # Antoine Coulon, poste
+          - age16qzdta4e7wqj27x54530qww5m56pzn0fec9kqd4r4jchdv8l49asnyp840 # Hugo Mrnth, poste
+          - age1lysx57cx8an7yezd9fdqlek36ewzahqj6rkwpqu5px2cnzv87ekqx7aa57 # Tanguy Raguenes, poste
+          - age12ypmhm3eqy0wa3t6y4f5fpmvhjklx8ngjexyh94qawn7hne6nf0qwgfv6k # Pierrick Anceaux, poste
+          - age1m9s5pcpa5qrehkz6pljc5eu4gmj6ag7qkdwyuylq06zj595q3ugqdyrg4a # CI GitHub Actions

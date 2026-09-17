@@ -1,15 +1,19 @@
-# Pile on-premise. Les services applicatifs sont commentés tant que leur
-# Dockerfile n'existe pas : `docker compose up -d` doit fonctionner dès le J1.
+# Pile on-premise.
 services:
-  timescaledb:
-    image: timescale/timescaledb:latest-pg16
+  # PostgreSQL nu, sans TimescaleDB : la base ne porte plus les mesures, qui
+  # vivent en fichiers Parquet sur le volume partagé. Il ne lui reste que le
+  # référentiel des sites, les comptes, les rôles et les périmètres d'accès.
+  postgres:
+    image: postgres:16-alpine
     container_name: enervision-db
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-enervision}
       POSTGRES_USER: ${POSTGRES_USER:-enervision}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?renseigner POSTGRES_PASSWORD dans .env}
+    # Lié à la boucle locale : pratique pour un client SQL sur son poste,
+    # injoignable depuis le réseau. Aucun service interne n'est exposé.
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -19,47 +23,73 @@ services:
       retries: 5
     restart: unless-stopped
 
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: enervision-prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prom_data:/prometheus
-    restart: unless-stopped
+  # Prometheus sert aussi à la dérive du modèle (C24), donc il reste prévu.
+  # Commenté plutôt que retiré : le temps de l'activer sur le serveur n'est
+  # pas garanti d'ici la fin du POC, et ce n'est pas la priorité. À
+  # décommenter (avec le volume prom_data ci-dessous) quand ça le devient.
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: enervision-prometheus
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+  #     - prom_data:/prometheus
+  #   restart: unless-stopped
 
-  grafana:
-    image: grafana/grafana:latest
-    container_name: enervision-grafana
+  # Pas de restart: ce service ne tourne jamais en continu. Il est déclenché
+  # par un cron sur la machine, via `docker compose run --rm etl ...`, ce qui
+  # ignore de toute façon la politique de restart. Le profil l'exclut d'un
+  # `docker compose up -d` classique : sans lui, le service démarrerait une
+  # fois, sortirait aussitôt faute d'argument à main.py, et resterait affiché
+  # comme arrêté sans raison apparente.
+  etl:
+    build: ./apps/etl
+    user: "1000:1000"
+    profiles: ["cron"]
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?renseigner GRAFANA_PASSWORD dans .env}
-    ports:
-      - "3001:3000"
+      MOCK_API_URL: ${MOCK_API_URL:?renseigner MOCK_API_URL dans .env}
+      PARQUET_DIR: /data
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-enervision}
+      # Le rôle etl, et surtout pas le propriétaire de la base : SELECT et
+      # INSERT sur la seule table sites, UPDATE sur sept de ses colonnes. Il
+      # ne peut lire ni les comptes, ni les sessions, ni les périmètres, et
+      # ne peut pas écrire warning_threshold_kw (docs/data.md).
+      POSTGRES_USER: etl
+      POSTGRES_PASSWORD: ${ETL_DB_PASSWORD:?renseigner ETL_DB_PASSWORD dans .env}
     volumes:
-      - grafana_data:/var/lib/grafana
+      - ${PARQUET_DIR_HOST:?}:/data
     depends_on:
-      - prometheus
+      postgres:
+        condition: service_healthy
+
+  ml:
+    build: ./apps/ml
+    environment:
+      PARQUET_DIR: /data
+    volumes:
+      - ${PARQUET_DIR_HOST:?}:/data:ro
     restart: unless-stopped
 
-  # À décommenter dès que le Dockerfile existe.
-  # etl:
-  #   build: ./apps/etl
-  #   environment:
-  #     MOCK_API_URL: ${MOCK_API_URL:?}
-  #     DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}
-  #   depends_on:
-  #     timescaledb: { condition: service_healthy }
-  #   restart: unless-stopped
-  #
-  # dashboard:
-  #   build: ./apps/dashboard
-  #   ports: ["3000:3000"]
-  #   depends_on:
-  #     timescaledb: { condition: service_healthy }
-  #   restart: unless-stopped
+  dashboard:
+    build: ./apps/dashboard
+    environment:
+      NUXT_DATABASE_URL: postgresql://${POSTGRES_USER:-enervision}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-enervision}
+      NUXT_PARQUET_DIR: /data
+      NUXT_ML_SERVICE_URL: ${ML_API_URL:-http://ml:8000}
+      NUXT_SESSION_SECRET: ${NUXT_SESSION_SECRET:?renseigner NUXT_SESSION_SECRET dans .env}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ${PARQUET_DIR_HOST:?}:/data:ro       # lecture seule, et rien d'autre que l'exposé
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ml:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   db_data:
-  prom_data:
-  grafana_data:
+  # prom_data: décommenter avec le service prometheus ci-dessus.

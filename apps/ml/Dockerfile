@@ -1,36 +1,52 @@
-FROM python:3.12-slim
+# syntax=docker/dockerfile:1
 
-# Copy uv from its official image instead of installing it with pip.
+# ---- build ----
+FROM python:3.12-slim AS build
+
+# Utilise une version figée de uv sans installation via pip.
 COPY --from=ghcr.io/astral-sh/uv:0.12.15 /uv /uvx /bin/
 
 WORKDIR /app
 
-# uv creates the virtual environment in /app/.venv. Adding it to PATH lets the
-# container start uvicorn directly, without keeping uv as the parent process.
 ENV UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy \
-    PATH="/app/.venv/bin:$PATH" \
+    UV_LINK_MODE=copy
+
+# Cette couche sera réutilisée tant que les dépendances ne changent pas.
+COPY pyproject.toml uv.lock README.md ./
+RUN uv sync --frozen --no-install-project --no-dev
+
+COPY src ./src
+COPY config ./config
+
+RUN uv sync --frozen --no-dev
+
+
+# ---- runtime ----
+FROM python:3.12-slim AS runtime
+
+RUN groupadd --system app \
+    && useradd --system --gid app --home /app app
+
+WORKDIR /app
+
+# Copie l'application et son environnement virtuel depuis l'étape de build.
+COPY --from=build --chown=app:app /app /app
+
+ENV PATH="/app/.venv/bin:$PATH" \
     ML_DATA_PATH=/app/datas/all_sites_combined.csv \
     ML_MODEL_PATH=/app/artifacts/catboost_model.cbm \
     ML_SITE_CONFIG_PATH=/app/config/sites.json
 
-# Install dependencies first. Docker can reuse this slow layer while only the
-# application source code changes.
-COPY pyproject.toml uv.lock README.md ./
-RUN uv sync --frozen --no-dev --no-install-project
-
-COPY src ./src
-COPY config ./config
-RUN uv sync --frozen --no-dev
-
-# The CSV is mounted read-only. The artifact directory stays writable because
-# POST /training saves the new CatBoost model there.
-RUN useradd --create-home --uid 10001 app \
-    && mkdir -p /app/datas /app/artifacts \
+# Le CSV sera monté en lecture seule.
+# Le dossier artifacts doit rester accessible en écriture pour l'entraînement.
+RUN mkdir -p /app/datas /app/artifacts \
     && chown -R app:app /app/datas /app/artifacts
 
 USER app
 
 EXPOSE 8000
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=5 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
 
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
