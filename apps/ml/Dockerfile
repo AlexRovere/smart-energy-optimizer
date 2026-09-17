@@ -3,18 +3,23 @@
 # ---- build ----
 FROM python:3.12-slim AS build
 
-RUN pip install --no-cache-dir uv
+# Utilise une version figée de uv sans installation via pip.
+COPY --from=ghcr.io/astral-sh/uv:0.12.15 /uv /uvx /bin/
 
 WORKDIR /app
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
 
-COPY pyproject.toml uv.lock ./
+# Cette couche sera réutilisée tant que les dépendances ne changent pas.
+COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --frozen --no-install-project --no-dev
 
-COPY . .
+COPY src ./src
+COPY config ./config
+
 RUN uv sync --frozen --no-dev
+
 
 # ---- runtime ----
 FROM python:3.12-slim AS runtime
@@ -29,19 +34,29 @@ RUN apt-get update \
     && apt-get upgrade -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-RUN groupadd --system app && useradd --system --gid app --home /app app
+RUN groupadd --system app \
+    && useradd --system --gid app --home /app app
 
 WORKDIR /app
 
+# Copie l'application et son environnement virtuel depuis l'étape de build.
 COPY --from=build --chown=app:app /app /app
 
-ENV PATH="/app/.venv/bin:$PATH"
+ENV PATH="/app/.venv/bin:$PATH" \
+    ML_DATA_PATH=/app/datas/all_sites_combined.csv \
+    ML_MODEL_PATH=/app/artifacts/catboost_model.cbm \
+    ML_SITE_CONFIG_PATH=/app/config/sites.json
+
+# Le CSV sera monté en lecture seule.
+# Le dossier artifacts doit rester accessible en écriture pour l'entraînement.
+RUN mkdir -p /app/datas /app/artifacts \
+    && chown -R app:app /app/datas /app/artifacts
 
 USER app
 
 EXPOSE 8000
 
 HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=5 \
-  CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/').status < 500 else 1)"
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
 
-CMD ["uvicorn", "ml.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

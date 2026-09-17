@@ -1,0 +1,33 @@
+﻿{
+  "SITE001": {
+    "working_days": [0, 1, 2, 3, 4, 5, 6],
+    "start_hour": 8,
+    "end_hour_inclusive": 18
+  },
+  "SITE002": {
+    "working_days": [0, 1, 2, 3, 4, 5, 6],
+    "start_hour": 6,
+    "end_hour_inclusive": 21
+  },
+  "SITE003": {
+    "always_open": true
+  },
+  "SITE004": {
+    "working_days": [0, 1, 2, 3, 4, 5, 6],
+    "start_hour": 9,
+    "end_hour_inclusive": 20
+  },
+  "SITE005": {
+    "always_open": true
+  },
+  "SITE006": {
+    "working_days": [0, 1, 2, 3, 4, 5, 6],
+    "start_hour": 8,
+    "end_hour_inclusive": 18
+  },
+  "SITE007": {
+    "working_days": [0, 1, 2, 3, 4, 5, 6],
+    "start_hour": 6,
+    "end_hour_inclusive": 21
+  }
+}
