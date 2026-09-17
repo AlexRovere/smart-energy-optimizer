@@ -50,9 +50,9 @@ CALENDAR_COLUMNS = ["hour", "day_of_week", "month", "is_weekend", "is_working_ho
 def test_align_timestamps_to_the_hour_rounds_to_the_nearest_hour():
     readings = pd.DataFrame(
         [
-            {"timestamp": "2026-09-15T03:18:25Z"},
-            {"timestamp": "2026-09-15T04:10:52Z"},
-            {"timestamp": "2026-09-15T04:59:14Z"},
+            {"site_id": "SITE001", "timestamp": "2026-09-15T03:18:25Z"},
+            {"site_id": "SITE001", "timestamp": "2026-09-15T04:10:52Z"},
+            {"site_id": "SITE001", "timestamp": "2026-09-15T04:59:14Z"},
         ]
     )
 
@@ -71,6 +71,24 @@ def test_transform_readings_shifts_timestamps_to_the_nearest_exact_hour():
     result = transform_readings(readings)
 
     assert result.loc[0, "timestamp"] == pd.Timestamp("2026-09-15T03:00:00Z")
+
+
+def test_transform_readings_deduplicates_rows_that_round_to_the_same_hour():
+    # le contexte (deja sur disque, deja arrondi) et le nouveau point extrait (heure encore brute)
+    # peuvent finir sur la meme heure une fois arrondis : sans dedoublonnage, add_consumption_lags
+    # plante (index avec doublons) au lieu de garder la valeur la plus recente
+    readings = pd.DataFrame(
+        [
+            {**SAMPLE_ROW, "timestamp": "2026-09-17T13:58:00Z", "consumption_kw": 10.0},
+            {**SAMPLE_ROW, "timestamp": "2026-09-17T14:02:00Z", "consumption_kw": 20.0},
+        ]
+    )
+
+    result = transform_readings(readings)
+
+    assert len(result) == 1
+    assert result.loc[0, "timestamp"] == pd.Timestamp("2026-09-17T14:00:00Z")
+    assert result.loc[0, "consumption_kw"] == 20.0
 
 
 def test_transform_readings_clones_each_correctable_column():

@@ -19,7 +19,11 @@ def align_timestamps_to_the_hour(readings: pd.DataFrame) -> pd.DataFrame:
     readings["timestamp"] = pd.to_datetime(
         readings["timestamp"], utc=True, format="ISO8601"
     ).dt.round("h")
-    return readings
+    # le contexte relu sur disque et le nouveau point extrait peuvent s'arrondir sur la meme heure :
+    # la ligne la plus recente (la derniere du lot) l'emporte, comme a l'ecriture
+    return readings.drop_duplicates(subset=["site_id", "timestamp"], keep="last").reset_index(
+        drop=True
+    )
 
 
 def forward_fill_corrected(readings: pd.DataFrame) -> pd.DataFrame:
