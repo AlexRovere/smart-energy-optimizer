@@ -62,8 +62,28 @@ docker compose up -d      # la pile complète
 docker compose ps
 ```
 
-Sur la machine sur site, c'est le pipeline qui joue cette commande, les valeurs
-venant de `sops exec-env` et non d'un `.env`. Voir [`docs/secrets.md`](./docs/secrets.md).
+**La même pile sur son poste, sans écrire un seul secret dans un fichier** :
+`sops exec-env` les fournit, et le `.env` ne garde que la section RÉGLAGES.
+
+```bash
+cp .env.example .env      # ne renseigner que les RÉGLAGES
+sops exec-env secrets.enc.yaml 'docker compose up -d'
+```
+
+L'environnement prime sur le `.env`, donc les valeurs déchiffrées l'emportent
+sur ce que le fichier contiendrait. C'est aussi, mot pour mot, la commande du
+déploiement. Elle demande d'être destinataire des secrets :
+[`docs/secrets.md`](./docs/secrets.md).
+
+Cette pile et celle de développement cohabitent sans se gêner : ni le même port,
+ni le même nom de projet Docker.
+
+Deux choses à savoir avant d'essayer. Si un PostgreSQL est déjà installé en
+service sur le poste, il tient 5432 et le lancement échoue sur `ports are not
+available` : poser `POSTGRES_PORT=15432` dans le `.env` suffit. Et aucun port
+n'est publié devant le dashboard, c'est le rôle du proxy de #39 : lancer la pile
+ici prouve qu'elle se construit et démarre, pas qu'on peut la parcourir au
+navigateur. Pour ça, la boucle de développement plus haut.
 
 Chaque application a son propre README avec ses prérequis.
 
