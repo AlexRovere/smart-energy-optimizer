@@ -2,56 +2,56 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import * as schema from '../../../server/database/schema'
 import {
-  compteDeSession,
-  DUREE_SESSION_MS,
-  ouvrirSession,
-  purgerSessionsExpirees,
-  revoquerSession,
-  sitesAutorises
+  accountForSession,
+  SESSION_DURATION_MS,
+  openSession,
+  purgeExpiredSessions,
+  revokeSession,
+  allowedSites
 } from '../../../server/utils/session'
 import { creerBaseDeTest, ligneAttendue, type BaseDeTest } from '../../database/base-de-test'
 
 describe('session', () => {
-  let base: BaseDeTest
+  let testDb: BaseDeTest
   let db: ReturnType<typeof drizzle<typeof schema>>
   let userId: string
 
   beforeAll(async () => {
-    base = await creerBaseDeTest()
-    db = drizzle(base.sql, { schema })
+    testDb = await creerBaseDeTest()
+    db = drizzle(testDb.sql, { schema })
 
-    await base.sql`INSERT INTO roles (name) VALUES ('ADMIN')`
-    const compte = ligneAttendue(
-      await base.sql<{ id: string }[]>`
+    await testDb.sql`INSERT INTO roles (name) VALUES ('ADMIN')`
+    const account = ligneAttendue(
+      await testDb.sql<{ id: string }[]>`
         INSERT INTO users (role_id, email, password_hash)
-        SELECT r.id, 'admin@enervision.local', 'empreinte'
+        SELECT r.id, 'admin@enervision.local', 'digest'
           FROM roles r WHERE r.name = 'ADMIN'
         RETURNING id
       `,
-      "le compte d'essai"
+      "le account d'essai"
     )
-    userId = compte.id
+    userId = account.id
   })
 
   afterAll(async () => {
-    await base.fermer()
+    await testDb.fermer()
   })
 
   it('ouvre une session qui expire au bout de la durée prévue', async () => {
-    const avant = Date.now()
-    const session = await ouvrirSession(db, { userId, ip: '203.0.113.7' })
+    const before = Date.now()
+    const session = await openSession(db, { userId, ip: '203.0.113.7' })
 
-    const ecart = session.expiresAt.getTime() - avant
-    expect(ecart).toBeGreaterThanOrEqual(DUREE_SESSION_MS - 5_000)
-    expect(ecart).toBeLessThanOrEqual(DUREE_SESSION_MS + 5_000)
+    const gap = session.expiresAt.getTime() - before
+    expect(gap).toBeGreaterThanOrEqual(SESSION_DURATION_MS - 5_000)
+    expect(gap).toBeLessThanOrEqual(SESSION_DURATION_MS + 5_000)
   })
 
-  it('rend le compte et son rôle du jour pour une session ouverte', async () => {
-    const session = await ouvrirSession(db, { userId, ip: null })
+  it('rend le account et son rôle du jour pour une session ouverte', async () => {
+    const session = await openSession(db, { userId, ip: null })
 
-    const compte = await compteDeSession(db, session.id)
+    const account = await accountForSession(db, session.id)
 
-    expect(compte).toEqual({
+    expect(account).toEqual({
       id: userId,
       email: 'admin@enervision.local',
       role: 'ADMIN'
@@ -59,18 +59,18 @@ describe('session', () => {
   })
 
   it('refuse une session révoquée, alors même qu\'elle n\'a pas expiré', async () => {
-    const session = await ouvrirSession(db, { userId, ip: null })
-    expect(await compteDeSession(db, session.id)).not.toBeNull()
+    const session = await openSession(db, { userId, ip: null })
+    expect(await accountForSession(db, session.id)).not.toBeNull()
 
-    await revoquerSession(db, session.id)
+    await revokeSession(db, session.id)
 
     expect(session.expiresAt.getTime()).toBeGreaterThan(Date.now())
-    expect(await compteDeSession(db, session.id)).toBeNull()
+    expect(await accountForSession(db, session.id)).toBeNull()
   })
 
   it('refuse une session dont la date de fin est passée', async () => {
     const session = ligneAttendue(
-      await base.sql<{ id: string }[]>`
+      await testDb.sql<{ id: string }[]>`
         INSERT INTO sessions (user_id, expires_at)
         VALUES (${userId}, NOW() - INTERVAL '1 minute')
         RETURNING id
@@ -78,81 +78,81 @@ describe('session', () => {
       'la session déjà expirée'
     )
 
-    expect(await compteDeSession(db, session.id)).toBeNull()
+    expect(await accountForSession(db, session.id)).toBeNull()
   })
 
-  it('refuse la session ouverte d\'un compte désactivé depuis', async () => {
-    const desactive = ligneAttendue(
-      await base.sql<{ id: string }[]>`
+  it('refuse la session ouverte d\'un account désactivé depuis', async () => {
+    const disabled = ligneAttendue(
+      await testDb.sql<{ id: string }[]>`
         INSERT INTO users (role_id, email, password_hash)
-        SELECT r.id, 'parti@enervision.local', 'empreinte'
+        SELECT r.id, 'parti@enervision.local', 'digest'
           FROM roles r WHERE r.name = 'ADMIN'
         RETURNING id
       `,
-      'le compte à désactiver'
+      'le account à désactiver'
     )
-    const session = await ouvrirSession(db, { userId: desactive.id, ip: null })
-    expect(await compteDeSession(db, session.id)).not.toBeNull()
+    const session = await openSession(db, { userId: disabled.id, ip: null })
+    expect(await accountForSession(db, session.id)).not.toBeNull()
 
-    await base.sql`UPDATE users SET is_active = FALSE WHERE id = ${desactive.id}`
+    await testDb.sql`UPDATE users SET is_active = FALSE WHERE id = ${disabled.id}`
 
-    expect(await compteDeSession(db, session.id)).toBeNull()
+    expect(await accountForSession(db, session.id)).toBeNull()
   })
 
-  it('rend le périmètre de sites du compte, vide plutôt que tout', async () => {
-    await base.sql`
+  it('rend le périmètre de sites du account, vide plutôt que tout', async () => {
+    await testDb.sql`
       INSERT INTO sites (id, name, type, capacity_kw, status)
       VALUES ('SITE001', 'Usine A', 'usine', 500, 'active'),
              ('SITE002', 'Usine B', 'usine', 800, 'active')
     `
     // Une seule ligne de périmètre : l'autre site ne doit PAS ressortir. Un
     // périmètre oublié donne zéro accès, jamais tous (data.md).
-    await base.sql`
+    await testDb.sql`
       INSERT INTO user_sites (user_id, site_id) VALUES (${userId}, 'SITE001')
     `
 
-    expect(await sitesAutorises(db, userId)).toEqual(['SITE001'])
+    expect(await allowedSites(db, userId)).toEqual(['SITE001'])
   })
 
-  it('purge les sessions expirées du compte sans toucher aux vivantes', async () => {
-    const proprietaire = ligneAttendue(
-      await base.sql<{ id: string }[]>`
+  it('purge les sessions expirées du account sans toucher aux vivantes', async () => {
+    const owner = ligneAttendue(
+      await testDb.sql<{ id: string }[]>`
         INSERT INTO users (role_id, email, password_hash)
-        SELECT r.id, 'purge@enervision.local', 'empreinte'
+        SELECT r.id, 'purge@enervision.local', 'digest'
           FROM roles r WHERE r.name = 'ADMIN'
         RETURNING id
       `,
-      'le compte de la purge'
+      'le account de la purge'
     )
 
-    await base.sql`
+    await testDb.sql`
       INSERT INTO sessions (user_id, expires_at)
-      VALUES (${proprietaire.id}, NOW() - INTERVAL '1 day')
+      VALUES (${owner.id}, NOW() - INTERVAL '1 day')
     `
-    const vivante = await ouvrirSession(db, { userId: proprietaire.id, ip: null })
+    const alive = await openSession(db, { userId: owner.id, ip: null })
     // Une session expirée d'un AUTRE compte : la purge ne doit pas l'emporter,
     // elle est bornée au compte qui se connecte.
-    await base.sql`
+    await testDb.sql`
       INSERT INTO sessions (user_id, expires_at)
       VALUES (${userId}, NOW() - INTERVAL '1 day')
     `
 
-    const expireesAilleurs = async () => Number(ligneAttendue(
-      await base.sql<{ nombre: string }[]>`
-        SELECT COUNT(*) AS nombre FROM sessions
+    const expiredElsewhere = async () => Number(ligneAttendue(
+      await testDb.sql<{ count: string }[]>`
+        SELECT COUNT(*) AS count FROM sessions
          WHERE user_id = ${userId} AND expires_at < NOW()
       `,
-      'le décompte des sessions expirées du compte voisin'
-    ).nombre)
-    const avant = await expireesAilleurs()
+      'le décompte des sessions expirées du account voisin'
+    ).count)
+    const before = await expiredElsewhere()
 
-    await purgerSessionsExpirees(db, proprietaire.id)
+    await purgeExpiredSessions(db, owner.id)
 
-    const restantes = await base.sql<{ id: string }[]>`
-      SELECT id FROM sessions WHERE user_id = ${proprietaire.id} AND expires_at < NOW()
+    const remaining = await testDb.sql<{ id: string }[]>`
+      SELECT id FROM sessions WHERE user_id = ${owner.id} AND expires_at < NOW()
     `
-    expect(restantes).toHaveLength(0)
-    expect(await expireesAilleurs()).toBe(avant)
-    expect(await compteDeSession(db, vivante.id)).not.toBeNull()
+    expect(remaining).toHaveLength(0)
+    expect(await expiredElsewhere()).toBe(before)
+    expect(await accountForSession(db, alive.id)).not.toBeNull()
   })
 })

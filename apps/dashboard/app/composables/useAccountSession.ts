@@ -2,41 +2,41 @@
 // porte qu'un identifiant opaque, illisible en JavaScript. Le navigateur ne
 // peut donc pas déduire s'il est connecté, il le DEMANDE, et `useUserSession`
 // de nuxt-auth-utils ne sert à rien ici pour la même raison.
-export interface CompteConnecte {
+export interface ConnectedAccount {
   id: string
   email: string
   role: string
   sites: string[]
 }
 
-export function useSessionUtilisateur() {
-  const compte = useState<CompteConnecte | null>('session-utilisateur', () => null)
+export function useAccountSession() {
+  const account = useState<ConnectedAccount | null>('session-utilisateur', () => null)
   // Distingue « pas encore demandé » de « demandé, personne » : sans ce
   // drapeau, chaque navigation rejouerait la requête pour un visiteur anonyme.
-  const demande = useState<boolean>('session-utilisateur-demande', () => false)
+  const fetched = useState<boolean>('session-utilisateur-fetched', () => false)
 
-  async function rafraichir(): Promise<CompteConnecte | null> {
+  async function refresh(): Promise<ConnectedAccount | null> {
     // Pendant le rendu serveur, `$fetch` ne transmet pas les en-têtes de la
     // requête entrante : sans cette forme, le cookie ne suivrait pas et tout
     // visiteur paraîtrait anonyme au premier rendu.
-    const requete = useRequestFetch()
+    const request = useRequestFetch()
     try {
-      const { user } = await requete<{ user: CompteConnecte }>('/api/auth/session')
-      compte.value = user
+      const { user } = await request<{ user: ConnectedAccount }>('/api/auth/session')
+      account.value = user
     }
     catch {
-      compte.value = null
+      account.value = null
     }
-    demande.value = true
-    return compte.value
+    fetched.value = true
+    return account.value
   }
 
-  async function seDeconnecter(): Promise<void> {
+  async function logout(): Promise<void> {
     await $fetch('/api/auth/logout', { method: 'POST' })
-    compte.value = null
-    demande.value = true
+    account.value = null
+    fetched.value = true
     await navigateTo('/login')
   }
 
-  return { compte, demande, rafraichir, seDeconnecter }
+  return { account, fetched, refresh, logout }
 }

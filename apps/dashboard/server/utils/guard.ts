@@ -6,18 +6,18 @@
 // (#29). La vérification a donc lieu en base, à chaque requête.
 import type { H3Event } from 'h3'
 import { db } from '../database'
-import { compteDeSession, type CompteAuthentifie } from './session'
+import { accountForSession, type AuthenticatedAccount } from './session'
 
-export async function exigerCompte(event: H3Event): Promise<CompteAuthentifie> {
+export async function requireAccount(event: H3Event): Promise<AuthenticatedAccount> {
   const { sessionId } = await getUserSession(event)
-  const compte = sessionId === undefined ? null : await compteDeSession(db, sessionId)
+  const account = sessionId === undefined ? null : await accountForSession(db, sessionId)
 
-  if (compte === null) {
+  if (account === null) {
     // Le cookie est effacé au passage : le garder ne servirait qu'à rejouer
     // cette requête perdue d'avance à chaque navigation.
     await clearUserSession(event)
     throw createError({ statusCode: 401, message: 'Session invalide' })
   }
 
-  return compte
+  return account
 }

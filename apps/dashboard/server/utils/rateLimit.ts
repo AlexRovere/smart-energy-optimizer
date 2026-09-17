@@ -11,54 +11,54 @@
 // se verrouillerait tout entier sur l'erreur d'un seul poste. Par compte seul,
 // un balayage de comptes depuis une adresse unique passerait inaperçu. Les deux
 // compteurs sont vérifiés, et le plus restrictif l'emporte.
-export const SEUIL_TENTATIVES = 5
-export const FENETRE_MS = 15 * 60_000
+export const MAX_ATTEMPTS = 5
+export const WINDOW_MS = 15 * 60_000
 
 export interface Verdict {
-  autorise: boolean
+  allowed: boolean
   // Zéro quand la tentative est autorisée. Sinon le délai à annoncer dans
   // l'en-tête `Retry-After`, qui se compte en secondes entières.
-  retryAfterSecondes: number
+  retryAfterSeconds: number
 }
 
-export interface OptionsLimiteur {
-  maintenant?: () => number
+export interface RateLimiterOptions {
+  now?: () => number
 }
 
-export function creerLimiteur({ maintenant = Date.now }: OptionsLimiteur = {}) {
-  const echecs = new Map<string, number[]>()
+export function createRateLimiter({ now = Date.now }: RateLimiterOptions = {}) {
+  const failures = new Map<string, number[]>()
 
-  function recents(cle: string): number[] {
-    const limite = maintenant() - FENETRE_MS
-    return (echecs.get(cle) ?? []).filter(instant => instant > limite)
+  function recent(key: string): number[] {
+    const cutoff = now() - WINDOW_MS
+    return (failures.get(key) ?? []).filter(stamp => stamp > cutoff)
   }
 
   return {
-    verifier(cles: string[]): Verdict {
+    check(keys: string[]): Verdict {
       // Le déblocage vient de la sortie de fenêtre de la plus ANCIENNE
       // tentative retenue : c'est elle qui rend un jeton au compteur.
-      const attentes = cles
-        .map(cle => recents(cle))
-        .filter(instants => instants.length >= SEUIL_TENTATIVES)
-        .map(instants => Math.min(...instants) + FENETRE_MS - maintenant())
+      const waits = keys
+        .map(key => recent(key))
+        .filter(stamps => stamps.length >= MAX_ATTEMPTS)
+        .map(stamps => Math.min(...stamps) + WINDOW_MS - now())
 
-      if (attentes.length === 0) return { autorise: true, retryAfterSecondes: 0 }
+      if (waits.length === 0) return { allowed: true, retryAfterSeconds: 0 }
 
       return {
-        autorise: false,
-        retryAfterSecondes: Math.ceil(Math.max(...attentes) / 1_000)
+        allowed: false,
+        retryAfterSeconds: Math.ceil(Math.max(...waits) / 1_000)
       }
     },
 
-    enregistrerEchec(cles: string[]): void {
-      for (const cle of cles) {
-        echecs.set(cle, [...recents(cle), maintenant()])
+    recordFailure(keys: string[]): void {
+      for (const key of keys) {
+        failures.set(key, [...recent(key), now()])
       }
     },
 
-    reinitialiser(cles: string[]): void {
-      for (const cle of cles) {
-        echecs.delete(cle)
+    reset(keys: string[]): void {
+      for (const key of keys) {
+        failures.delete(key)
       }
     }
   }
@@ -66,11 +66,11 @@ export function creerLimiteur({ maintenant = Date.now }: OptionsLimiteur = {}) {
 
 // L'instance que partagent les requêtes. Elle vit aussi longtemps que le
 // processus, et pas une seconde de plus : c'est la faiblesse assumée plus haut.
-export const limiteurConnexion = creerLimiteur()
+export const loginRateLimiter = createRateLimiter()
 
-export function clesDeTentative(ip: string, email: string): string[] {
+export function attemptKeys(ip: string, email: string): string[] {
   // L'adresse est préfixée pour qu'une adresse ne puisse jamais collisionner
   // avec une adresse électronique, et l'email est normalisé en minuscules :
   // sinon il suffirait d'alterner la casse pour se donner un quota neuf.
-  return [`ip:${ip}`, `compte:${email.toLowerCase()}`]
+  return [`ip:${ip}`, `account:${email.toLowerCase()}`]
 }

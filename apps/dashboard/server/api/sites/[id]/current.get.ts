@@ -1,7 +1,7 @@
 import { createError } from 'h3'
 import { z } from 'zod'
 import { energyReadingSchema } from '../../../../shared/energyReadingSchema'
-import { exigerCompte } from '../../../utils/garde'
+import { requireAccount } from '../../../utils/guard'
 import { fetchMockApi } from '../../../utils/mockApiClient'
 
 const siteIdSchema = z.string().regex(/^SITE\d{3}$/)
@@ -9,7 +9,7 @@ const siteIdSchema = z.string().regex(/^SITE\d{3}$/)
 export default defineEventHandler(async (event) => {
   // La garde vient AVANT la validation de l'identifiant : un anonyme n'a pas à
   // apprendre, par un 422, quelles formes d'identifiant existent.
-  await exigerCompte(event)
+  await requireAccount(event)
 
   const id = getRouterParam(event, 'id')
   const parsed = siteIdSchema.safeParse(id)

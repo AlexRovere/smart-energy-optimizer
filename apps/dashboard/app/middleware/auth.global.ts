@@ -1,18 +1,18 @@
 // Ce middleware range l'écran, il ne protège rien. La protection est au
 // serveur : chaque route d'API relit la session en base et répond 401. Sans
 // cela, il suffirait de désactiver JavaScript pour lire les données.
-const ROUTES_PUBLIQUES = ['/login']
+const PUBLIC_ROUTES = ['/login']
 
 export default defineNuxtRouteMiddleware(async (to) => {
-  const { compte, demande, rafraichir } = useSessionUtilisateur()
+  const { account, fetched, refresh } = useAccountSession()
 
-  if (!demande.value) {
-    await rafraichir()
+  if (!fetched.value) {
+    await refresh()
   }
 
-  if (ROUTES_PUBLIQUES.includes(to.path)) return
+  if (PUBLIC_ROUTES.includes(to.path)) return
 
-  if (compte.value === null) {
+  if (account.value === null) {
     return navigateTo('/login')
   }
 })

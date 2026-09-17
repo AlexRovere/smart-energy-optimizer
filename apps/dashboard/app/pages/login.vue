@@ -7,7 +7,7 @@ definePageMeta({
   layout: 'blank',
 })
 
-const { rafraichir } = useSessionUtilisateur()
+const { refresh } = useAccountSession()
 
 const state = reactive<LoginInput>({
   email: '',
@@ -22,18 +22,18 @@ async function onSubmit(event: FormSubmitEvent<LoginInput>) {
   loading.value = true
 
   try {
-    // La réponse ne porte aucun jeton : tout ce qui compte arrive dans le
+    // La réponse ne porte aucun jeton : tout ce qui account arrive dans le
     // cookie, que ce code ne peut pas lire et n'a pas à lire.
     await $fetch('/api/auth/login', { method: 'POST', body: event.data })
-    await rafraichir()
+    await refresh()
     await navigateTo('/')
   }
   catch (err) {
-    const echec = err as FetchError
-    const delai = Number(echec.response?.headers.get('retry-after'))
-    errorMessage.value = messageDeConnexion(
-      echec.statusCode ?? 503,
-      Number.isFinite(delai) && delai > 0 ? delai : undefined
+    const failure = err as FetchError
+    const delay = Number(failure.response?.headers.get('retry-after'))
+    errorMessage.value = loginErrorMessage(
+      failure.statusCode ?? 503,
+      Number.isFinite(delay) && delay > 0 ? delay : undefined
     )
   }
   finally {
