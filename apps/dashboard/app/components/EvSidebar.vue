@@ -3,7 +3,7 @@ import type { NavigationMenuItem } from '@nuxt/ui'
 
 const { sites } = useSites()
 
-const pilotageItems: NavigationMenuItem[] = [
+const pilotageItems = computed<NavigationMenuItem[]>(() => [
   {
     label: 'Vue d\'ensemble',
     icon: 'i-heroicons-chart-bar-square',
@@ -14,7 +14,7 @@ const pilotageItems: NavigationMenuItem[] = [
     icon: 'i-heroicons-building-office-2',
     to: '/sites',
     children: sites.value.map(s => ({
-      label: `${s.site_id}-${s.site_name}`,
+      label: `${s.site_id} — ${s.site_name}`,
       to: `/sites/${s.site_id}`,
       health: s.health
     }))
@@ -25,7 +25,7 @@ const pilotageItems: NavigationMenuItem[] = [
     to: '/predictions',
     badge: '3',
   }
-]
+])
 
 const systemeItems: NavigationMenuItem[] = [
   {
