@@ -26,3 +26,7 @@
 # Livrables : relus par le Product Owner
 /docs/                  @AlexRovere
 *.md                    @AlexRovere
+
+# Secrets : un second relecteur, pas seulement l'auteur (règle la plus spécifique, donc en dernier).
+/.sops.yaml             @AlexRovere @HugoMrnth
+/secrets.enc.yaml       @AlexRovere @HugoMrnth

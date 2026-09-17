@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# Hook pre-push : refuse un push qui emporterait un secret.
+#
+# Un scan en CI constate qu'un secret est parti ; ce hook essaie de l'empêcher
+# de partir. Les deux sont voulus, l'un ne remplace pas l'autre : ce hook ne
+# s'installe pas tout seul (voir docs/secrets.md), et `git push --no-verify`
+# le contourne volontairement, la porte de secours restant nécessaire.
+#
+# Un fichier, un sujet : ce hook ne fait que le scan de secrets. Le lint
+# (ruff, eslint...) posera son propre pre-commit à côté, dans un autre ticket.
+#
+# Deux contrôles indépendants, qui n'attrapent pas la même chose :
+#   1. gitleaks sur les commits qui partent : des motifs de secrets connus.
+#   2. la forme de secrets.enc.yaml : gitleaks cherche des motifs, pas
+#      l'absence de chiffrement, et une valeur déchiffrée en place peut n'en
+#      porter aucun. Voir docs/secrets.md pour le détail de ce que chacun
+#      attrape et ce qu'il n'attrape pas.
+
+set -euo pipefail
+
+zero="0000000000000000000000000000000000000000"
+status=0
+
+# gitleaks absent n'est pas « secret trouvé » : deux causes, deux messages.
+# Le push reste refusé (échouer fermé), mais un message faux pousserait vers
+# --no-verify en permanence, désactivant le garde-fou pour de bon.
+gitleaks_available=1
+if ! command -v gitleaks >/dev/null 2>&1; then
+    gitleaks_available=0
+    echo "pre-push : gitleaks est introuvable dans le PATH, le scan de motifs de secrets ne peut pas tourner." >&2
+    echo "pre-push : installez-le (section « Installer sops et age » de docs/secrets.md), ou désactivez ce hook en connaissance de cause (git config --unset core.hooksPath)." >&2
+    echo "pre-push : le contrôle sur secrets.enc.yaml, lui, ne dépend d'aucun outil externe et va quand même s'exécuter." >&2
+fi
+
+# Vérifie que secrets.enc.yaml, tel qu'il existera après le push (à la
+# révision $sha), reste entièrement chiffré. Contrôle de forme, déterministe,
+# sans heuristique : aucune valeur n'est lue ni déchiffrée.
+check_encrypted_file() {
+    local sha="$1" path="secrets.enc.yaml"
+
+    if ! git cat-file -e "$sha:$path" 2>/dev/null; then
+        return 0
+    fi
+
+    local content
+    content="$(git show "$sha:$path")"
+
+    if ! grep -q '^sops:' <<<"$content"; then
+        echo "pre-push : $path (à $sha) ne porte pas de bloc de métadonnées sops:, refus." >&2
+        return 1
+    fi
+
+    local data_lines total enc
+    data_lines="$(awk '/^sops:/{exit} NF{print}' <<<"$content")"
+    total="$(printf '%s\n' "$data_lines" | grep -c '.' || true)"
+    enc="$(printf '%s\n' "$data_lines" | grep -c 'ENC\[AES256_GCM' || true)"
+
+    if [ "$total" -eq 0 ] || [ "$total" -ne "$enc" ]; then
+        echo "pre-push : $path (à $sha) contient une valeur non chiffrée ($enc/$total clés chiffrées), refus." >&2
+        return 1
+    fi
+
+    return 0
+}
+
+# git fournit une ligne par référence poussée, sur l'entrée standard :
+# <réf locale> <sha locale> <réf distante> <sha distante>
+while read -r local_ref local_sha remote_ref remote_sha; do
+    [ "$local_sha" = "$zero" ] && continue
+
+    if [ "$remote_sha" = "$zero" ]; then
+        # Première fois que cette branche part : pas de base connue en face,
+        # on scanne tout l'historique local qui part avec elle.
+        log_opts="--all -m --full-history"
+        range_desc="$local_sha (nouvelle référence distante)"
+    else
+        log_opts="$remote_sha..$local_sha -m --full-history"
+        range_desc="$remote_sha..$local_sha"
+    fi
+
+    if [ "$gitleaks_available" -eq 1 ]; then
+        echo "pre-push : scan gitleaks sur $range_desc"
+        if ! gitleaks git . --log-opts="$log_opts" --redact --exit-code 1; then
+            echo "pre-push : gitleaks a trouvé un secret potentiel dans ce qui part, push refusé." >&2
+            status=1
+        fi
+    else
+        status=1
+    fi
+
+    if ! check_encrypted_file "$local_sha"; then
+        status=1
+    fi
+done
+
+exit "$status"

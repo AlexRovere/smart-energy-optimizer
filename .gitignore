@@ -27,6 +27,11 @@ dist/
 secrets.yaml
 secrets.dec.yaml
 
+# Clés privées : jamais dans le dépôt. Les clés publiques restent autorisées (!*.pub).
+*.key
+keys.txt
+!*.pub
+
 # Données et modèles : trop volumineux, pas versionnables
 data/
 mlruns/

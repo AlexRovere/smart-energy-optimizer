@@ -53,4 +53,6 @@ Exemple : `EADL_2025_NANTES_G1/feat-18-ingestion-etl`.
 
 ## Secrets
 
-Aucun secret en clair dans le dépôt. Les secrets applicatifs sont chiffrés au repos avec SOPS et age (`secrets.enc.yaml`), les secrets de la CI vivent dans GitHub Secrets. Voir `docs/`.
+Aucun secret en clair dans le dépôt. Les secrets applicatifs sont chiffrés au repos avec SOPS et age (`secrets.enc.yaml`), les secrets de la CI vivent dans GitHub Secrets.
+
+La procédure complète est dans [`docs/secrets.md`](./docs/secrets.md) : installer les outils, générer sa clé, se faire ajouter comme destinataire, lire et modifier une valeur. Elle est à suivre avant de toucher à `secrets.enc.yaml`, l'ajout d'un destinataire et le rechiffrement du fichier allant ensemble sous peine de voir la CI refuser la pull request.
