@@ -63,3 +63,14 @@ export function creerLimiteur({ maintenant = Date.now }: OptionsLimiteur = {}) {
     }
   }
 }
+
+// L'instance que partagent les requêtes. Elle vit aussi longtemps que le
+// processus, et pas une seconde de plus : c'est la faiblesse assumée plus haut.
+export const limiteurConnexion = creerLimiteur()
+
+export function clesDeTentative(ip: string, email: string): string[] {
+  // L'adresse est préfixée pour qu'une adresse ne puisse jamais collisionner
+  // avec une adresse électronique, et l'email est normalisé en minuscules :
+  // sinon il suffirait d'alterner la casse pour se donner un quota neuf.
+  return [`ip:${ip}`, `compte:${email.toLowerCase()}`]
+}

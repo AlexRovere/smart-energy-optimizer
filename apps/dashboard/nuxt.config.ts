@@ -29,6 +29,10 @@ export default defineNuxtConfig({
         path: '/'
       }
     },
+    // Faux tant que l'applicatif est joignable en direct. Passe à vrai le jour
+    // où le proxy de #39 est SEUL à pouvoir l'atteindre, et pas avant : c'est
+    // ce drapeau qui autorise la limitation par IP à croire X-Forwarded-For.
+    trustProxy: false,
     databaseUrl: '',
     mockApiUrl: '',
     parquetDirExpose: '',

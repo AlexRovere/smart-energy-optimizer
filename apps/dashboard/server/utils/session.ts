@@ -19,6 +19,15 @@ export const DUREE_SESSION_MS = 2 * 60 * 60_000
 
 export type BaseApplicative = PostgresJsDatabase<typeof schema>
 
+// Ce que le cookie scellé porte, et RIEN d'autre : un identifiant de session
+// opaque. Pas le rôle, qui se relit en base à chaque requête, pas l'adresse
+// électronique, qui est une donnée personnelle.
+declare module '#auth-utils' {
+  interface UserSession {
+    sessionId?: string
+  }
+}
+
 export interface SessionOuverte {
   id: string
   expiresAt: Date
