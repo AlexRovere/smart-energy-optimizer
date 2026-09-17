@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { creerBaseDeTest, DOSSIER_MIGRATIONS, ligneAttendue, type BaseDeTest } from './base-de-test'
+import { baseDisponible, creerBaseDeTest, DOSSIER_MIGRATIONS, ligneAttendue, type BaseDeTest } from './base-de-test'
 import { amorcer, COMPTES_DE_DEMONSTRATION, ROLES } from '../../server/database/seed'
 
 const OPTIONS = {
@@ -17,7 +17,7 @@ const OPTIONS = {
 // jusqu'ici avec autre chose qu'un mot de passe sage.
 const MOT_DE_PASSE_ETL_HOSTILE = 'a\'b\\c"d'
 
-describe('amorçage', () => {
+describe.skipIf(!baseDisponible())('amorçage', () => {
   let base: BaseDeTest
 
   beforeAll(async () => {

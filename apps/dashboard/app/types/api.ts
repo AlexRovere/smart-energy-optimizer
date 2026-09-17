@@ -137,12 +137,11 @@ export interface HealthResponse {
 
 // ---- À DÉFINIR (bloquants d'intégration) -------------------------------
 
-/** Auth : endpoint, forme du token, scopes. Absent de la mock. */
-export interface AuthSessionTODO {
-  token: string;
-  user: { id: string; name: string; role: 'admin' | 'operator' | 'viewer' };
-  expires_at: string;
-}
+// L'authentification n'est plus à définir : #29 l'a livrée, et sa forme est
+// l'inverse de ce qui était esquissé ici. Aucun jeton ne descend au navigateur,
+// le cookie ne porte qu'un identifiant de session opaque, et le compte se
+// demande à `GET /api/auth/session`. Le type vit avec le composable qui le
+// consomme, `ConnectedAccount` dans `app/composables/useAccountSession.ts`.
 
 /** Prédiction ML : horizon, pas, confiance, format des recommandations. */
 export interface PredictionPoint {

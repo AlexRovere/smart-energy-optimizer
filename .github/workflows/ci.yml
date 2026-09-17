@@ -1,11 +1,14 @@
 name: CI
 
-# Le pipeline agit comme un sas : lint, tests, puis scan de sécurité bloquant,
-# puis build. Un filtrage par chemin évite de tout rejouer à chaque commit,
-# ce qui est l'intérêt d'un monorepo bien câblé.
+# Un sas par domaine : lint, tests, puis construction et scan de l'image.
+# L'image est construite pour vérifier que le Dockerfile tient, jamais publiée.
+# Un filtrage par chemin évite de rejouer les domaines non modifiés, ce qui est
+# l'intérêt d'un monorepo bien câblé.
 #
-# Le scan de sécurité vit dans security.yml, qui tourne aussi sur push pour
-# ne pas attendre l'ouverture d'une pull request.
+# Le scan du code vit dans security.yml, qui tourne sur tout push pour ne pas
+# attendre l'ouverture d'une pull request. Seul le scan des images est ici,
+# parce qu'il lui faut les images. docs/ci-cd.md décrit le pipeline entier,
+# ses écarts assumés et comment le rejouer.
 
 on:
   push:
@@ -40,16 +43,23 @@ jobs:
       - uses: dorny/paths-filter@v4
         id: filter
         with:
+          # Chaque domaine écoute aussi ce fichier : une modification du
+          # pipeline rejoue tout, sans quoi une PR qui ne touche que la CI ne
+          # déclenche aucun job et ne prouve donc rien.
           filters: |
             etl:
               - 'apps/etl/**'
+              - '.github/workflows/ci.yml'
             ml:
               - 'apps/ml/**'
+              - '.github/workflows/ci.yml'
             dashboard:
               - 'apps/dashboard/**'
+              - '.github/workflows/ci.yml'
             infra:
               - 'infra/**'
               - 'docker-compose.yml'
+              - '.github/workflows/ci.yml'
 
   etl:
     needs: changes
@@ -57,15 +67,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # Le cache pip se réactive avec requirements.txt : il en calcule sa clé,
-      # et sans le fichier l'action échoue avant même le premier TODO.
       - uses: actions/setup-python@v7
         with: { python-version: "3.12" }
-      # TODO : décommenter dès que les dépendances existent, cache compris.
-      #   with: { python-version: "3.12", cache: pip }
-      # - run: pip install -r apps/etl/requirements.txt
-      # - run: ruff check apps/etl
-      # - run: pytest apps/etl --cov=apps/etl --cov-fail-under=80
+      # Les dépendances sont sous uv et uv.lock, pas requirements.txt : le cache
+      # de setup-python ne s'applique pas, c'est setup-uv qui le porte.
+      # TODO : les règles de lint arrivent avec #90, les tests avec #51.
+      # - uses: astral-sh/setup-uv@v7
+      #   with: { enable-cache: true, cache-dependency-glob: apps/etl/uv.lock }
+      # - run: uv run --directory apps/etl ruff check .
+      # - run: uv run --directory apps/etl pytest
       - run: echo "TODO ETL - lint et tests unitaires, dont la gestion des null et de data_quality"
 
   ml:
@@ -76,11 +86,12 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with: { python-version: "3.12" }
-      # TODO : décommenter dès que les dépendances existent, cache compris.
-      #   with: { python-version: "3.12", cache: pip }
-      # - run: pip install -r apps/ml/requirements.txt
-      # - run: ruff check apps/ml
-      # - run: pytest apps/ml
+      # Même remarque que pour l'ETL : uv.lock, donc setup-uv pour le cache.
+      # TODO : les règles de lint arrivent avec #90, les tests avec #51.
+      # - uses: astral-sh/setup-uv@v7
+      #   with: { enable-cache: true, cache-dependency-glob: apps/ml/uv.lock }
+      # - run: uv run --directory apps/ml ruff check .
+      # - run: uv run --directory apps/ml pytest
       - run: echo "TODO ML - lint et tests du contrat de l API de prediction"
 
   dashboard:
@@ -122,8 +133,123 @@ jobs:
       - uses: actions/checkout@v7
       # Terraform est passé hors périmètre au J1 : plus de ressource de
       # fournisseur à créer, la machine est fournie. Ce job valide désormais la
-      # configuration Ansible et la composition. TODO : décommenter dès que le
-      # playbook et les Dockerfile existent.
+      # composition. TODO : décommenter avec le playbook, infra/ansible n'ayant
+      # pour l'instant qu'un README.
       # - run: pipx install ansible-lint && ansible-lint infra/ansible
-      # - run: docker compose config --quiet
-      - run: echo "TODO infra - ansible-lint du playbook et validation de la composition"
+      # Les valeurs sont bidon et c'est voulu : `:?` refuse une variable vide
+      # autant qu'absente, et la validation porte sur la structure du fichier,
+      # jamais sur ce que les variables contiennent.
+      - name: La composition est valide
+        env:
+          POSTGRES_PASSWORD: ci
+          ETL_DB_PASSWORD: ci
+          SESSION_SECRET: ci
+          MOCK_API_URL: http://ci
+          PARQUET_DIR_HOST: ./data/parquet
+        run: docker compose config --quiet
+
+  # Les trois jobs qui suivent construisent les images sans les publier. Le
+  # quota de paquets privés de l'offre gratuite est de 500 Mo et l'image du
+  # service ML le dépasse à elle seule ; les publier en public exposerait le
+  # code. Le déploiement reconstruit sur la machine (#107). Construire ici ne
+  # sert donc qu'à une chose, mais elle compte : savoir que le Dockerfile tient
+  # avant de fusionner, et non le soir du déploiement.
+  #
+  # Chacun attend son domaine : construire une image dont le lint ou les tests
+  # échouent achète des minutes de runner contre rien.
+  #
+  # Deux passages de Trivy sur l'image qui vient d'être construite, jamais
+  # reconstruite : elle est déjà dans le démon local. Le premier affiche ce
+  # qu'il trouve sans bloquer, le second échoue sur une vulnérabilité critique.
+  #
+  # Le seuil bloquant est CRITICAL ici, alors que security.yml bloque dès HIGH.
+  # Ce n'est pas une incohérence : security.yml scanne NOS dépendances, qu'on
+  # choisit et qu'on peut monter le jour même. Une image scanne en plus les
+  # paquets système de la base Debian, dont le rythme de correction ne nous
+  # appartient pas. Bloquer dessus rendrait la CI rouge pendant des jours sans
+  # que personne ne puisse rien y faire, et une CI rouge en permanence apprend
+  # à l'équipe à ignorer le rouge. Les HIGH restent affichés, pour qu'aucun ne
+  # se découvre le jour où il devient critique.
+  image-etl:
+    needs: [changes, etl]
+    if: needs.changes.outputs.etl == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker build --tag enervision-etl:ci apps/etl
+      - name: Vulnérabilités de l'image (signalement)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: enervision-etl:ci
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+      # skip-setup-trivy : le binaire et la base sont déjà là depuis l'étape
+      # précédente, les retélécharger coûterait une minute pour rien.
+      - name: Aucune vulnérabilité critique
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: enervision-etl:ci
+          scanners: vuln
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+          skip-setup-trivy: true
+
+  image-ml:
+    needs: [changes, ml]
+    if: needs.changes.outputs.ml == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker build --tag enervision-ml:ci apps/ml
+      - name: Vulnérabilités de l'image (signalement)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: enervision-ml:ci
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+      # skip-setup-trivy : le binaire et la base sont déjà là depuis l'étape
+      # précédente, les retélécharger coûterait une minute pour rien.
+      - name: Aucune vulnérabilité critique
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: enervision-ml:ci
+          scanners: vuln
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+          skip-setup-trivy: true
+
+  image-dashboard:
+    needs: [changes, dashboard]
+    if: needs.changes.outputs.dashboard == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker build --tag enervision-dashboard:ci apps/dashboard
+      - name: Vulnérabilités de l'image (signalement)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: enervision-dashboard:ci
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+      # skip-setup-trivy : le binaire et la base sont déjà là depuis l'étape
+      # précédente, les retélécharger coûterait une minute pour rien.
+      - name: Aucune vulnérabilité critique
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: enervision-dashboard:ci
+          scanners: vuln
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+          skip-setup-trivy: true
