@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import pandas as pd
-from psycopg2.extensions import connection as Connection
+
+# noqa volontaire : psycopg2 expose son type de connexion sous un nom en
+# minuscules. L'aliaser en Connection est la forme conventionnelle pour s'en
+# servir en annotation, et la renommer rendrait les annotations moins lisibles.
+from psycopg2.extensions import connection as Connection  # noqa: N812
 
 SITE_COLUMNS = ["id", "type", "name", "location", "capacity_kw", "status"]
 

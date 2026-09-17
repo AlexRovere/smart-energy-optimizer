@@ -1,4 +1,5 @@
-# point d'entrée Transform : nettoie les noms de colonnes du référentiel des sites, et le dédoublonne
+# point d'entrée Transform : nettoie les noms de colonnes du référentiel des sites, et le
+# dédoublonne
 from __future__ import annotations
 
 import pandas as pd

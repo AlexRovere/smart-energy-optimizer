@@ -1,12 +1,18 @@
-# teste l'écriture Parquet de l'historique des mesures : partition, schéma déclaré, écriture atomique
+# teste l'écriture Parquet de l'historique des mesures : partition, schéma déclaré, écriture
+# atomique
 import os
 from datetime import date
 
 import pandas as pd
 import pyarrow.parquet as pq
 import pytest
-
-from load.readings import RAW_READING_COLUMNS, SCHEMA, existing_days, read_context_days, write_readings
+from load.readings import (
+    RAW_READING_COLUMNS,
+    SCHEMA,
+    existing_days,
+    read_context_days,
+    write_readings,
+)
 
 READING_SITE001_DAY1 = {
     "site_id": "SITE001",
@@ -155,7 +161,9 @@ def test_write_readings_produces_files_matching_the_reference_schema(tmp_path):
 def test_write_readings_raises_when_a_column_does_not_fit_the_schema(tmp_path):
     readings = pd.DataFrame([_reading(consumption_kw="pas un nombre")])
 
-    with pytest.raises(Exception):
+    # pyarrow lève ArrowInvalid, qui hérite de ValueError : assez précis pour
+    # dire ce qu'on attend, sans coupler le test au nom interne de pyarrow.
+    with pytest.raises(ValueError):
         write_readings(readings, str(tmp_path))
 
 
@@ -225,9 +233,7 @@ def test_read_context_days_returns_only_raw_columns_for_the_requested_days(tmp_p
     )
     write_readings(readings, str(tmp_path))
 
-    result = read_context_days(
-        str(tmp_path), "SITE001", {date(2026, 9, 15), date(2026, 9, 17)}
-    )
+    result = read_context_days(str(tmp_path), "SITE001", {date(2026, 9, 15), date(2026, 9, 17)})
 
     assert sorted(result["timestamp"].dt.date.unique()) == [date(2026, 9, 15), date(2026, 9, 17)]
     assert list(result.columns) == RAW_READING_COLUMNS
@@ -237,9 +243,7 @@ def test_read_context_days_ignores_days_that_do_not_exist(tmp_path):
     readings = pd.DataFrame([_reading(site_id="SITE001", timestamp="2026-09-15T10:00:00Z")])
     write_readings(readings, str(tmp_path))
 
-    result = read_context_days(
-        str(tmp_path), "SITE001", {date(2026, 9, 15), date(2026, 9, 1)}
-    )
+    result = read_context_days(str(tmp_path), "SITE001", {date(2026, 9, 15), date(2026, 9, 1)})
 
     assert list(result["timestamp"].dt.date.unique()) == [date(2026, 9, 15)]
 

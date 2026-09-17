@@ -1,4 +1,5 @@
-# affiche la progression de 'main.py periods --verbose' sur une seule ligne : etape, %, temps ecoule/restant
+# affiche la progression de 'main.py periods --verbose' sur une seule ligne : étape, %, temps
+# écoulé/restant
 from __future__ import annotations
 
 import time
