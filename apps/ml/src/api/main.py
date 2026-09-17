@@ -2,12 +2,13 @@ import os
 from functools import lru_cache
 from typing import Annotated
 
+from catboost import CatBoostRegressor
 from fastapi import Depends, FastAPI, HTTPException
 from pydantic import Field
 
 from api.schemas import PredictionRequest, PredictionResponse, TrainingResponse
-from data import read_history
-from features import load_site_schedules
+from data import read_recent_history
+from features import SiteSchedules, load_site_schedules
 from models import PredictionService, PredictionTarget, load_model
 from training import train_model
 
@@ -29,19 +30,21 @@ def get_site_config_path() -> str:
     return os.getenv("ML_SITE_CONFIG_PATH", DEFAULT_SITE_CONFIG_PATH)
 
 
+# Seuls le modèle CatBoost et la configuration changent rarement. Ils restent
+# en mémoire, contrairement à l'historique qui est relu à chaque requête.
 @lru_cache(maxsize=1)
-def get_prediction_service() -> PredictionService:
-    """Load the data and model once, on the first prediction request."""
-    try:
-        return PredictionService(
-            load_model(get_model_path()),
-            read_history(get_data_path()),
-            load_site_schedules(get_site_config_path()),
-        )
-    except (FileNotFoundError, ValueError) as error:
-        raise HTTPException(status_code=503, detail=str(error)) from error
+def get_prediction_model() -> CatBoostRegressor:
+    return load_model(get_model_path())
 
 
+@lru_cache(maxsize=1)
+def get_site_schedules() -> SiteSchedules:
+    return load_site_schedules(get_site_config_path())
+
+
+
+# Une requête contient entre 1 et 168 prédictions horaires,
+# ce qui correspond à l'horizon maximal de 7 jours.
 PredictionRequests = Annotated[
     list[PredictionRequest],
     Field(min_length=1, max_length=168),
@@ -68,22 +71,29 @@ def create_training() -> TrainingResponse:
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
 
-    # A prediction service may already hold the previous model in memory.
-    # Clearing this one-entry cache makes the next prediction load the new file.
-    get_prediction_service.cache_clear()
+    # The next prediction must load the model that has just been trained.
+    get_prediction_model.cache_clear()
     return TrainingResponse(**result.__dict__)
 
 
 @app.post("/predictions", response_model=list[PredictionResponse])
 def create_predictions(
     requests: PredictionRequests,
-    service: Annotated[PredictionService, Depends(get_prediction_service)],
+    model: Annotated[CatBoostRegressor, Depends(get_prediction_model)],
+    schedules: Annotated[SiteSchedules, Depends(get_site_schedules)],
 ) -> list[PredictionResponse]:
     targets = [
         PredictionTarget(site_id=request.site_id, timestamp=request.timestamp())
         for request in requests
     ]
+    site_ids = list(dict.fromkeys(target.site_id for target in targets))
 
+    try:
+        history = read_recent_history(get_data_path(), site_ids)
+    except (FileNotFoundError, ValueError) as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+    service = PredictionService(model, history, schedules)
     try:
         predictions = service.predict(targets)
     except ValueError as error:

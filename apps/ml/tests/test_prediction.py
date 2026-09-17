@@ -20,9 +20,11 @@ class IncrementModel:
 
     def __init__(self) -> None:
         self.calls = 0
+        self.feature_rows = []
 
     def predict(self, data: pd.DataFrame) -> list[float]:
         self.calls += 1
+        self.feature_rows.append(data.iloc[0].to_dict())
         return [float(data.iloc[0]["consumption_lag_1h"]) + 1]
 
 
@@ -50,6 +52,8 @@ def test_recursive_prediction_fills_intermediate_hours_and_keeps_request_order()
     )
 
     assert model.calls == 3
+    assert model.feature_rows[0]["consumption_lag_1h"] == 167
+    assert model.feature_rows[1]["consumption_lag_1h"] == 168
     assert [prediction.consumption_kwh for prediction in predictions] == [170.0, 168.0]
 
 
@@ -69,4 +73,25 @@ def test_prediction_rejects_incomplete_hourly_history():
     with pytest.raises(ValueError, match="consecutive hours"):
         service.predict(
             [PredictionTarget("SITE001", datetime(2025, 1, 8, 1))]
+        )
+
+
+def test_prediction_accepts_exactly_168_hour_horizon():
+    model = IncrementModel()
+    service = PredictionService(model, make_history(), SCHEDULES)
+
+    predictions = service.predict(
+        [PredictionTarget("SITE001", datetime(2025, 1, 14, 23))]
+    )
+
+    assert model.calls == 168
+    assert predictions[0].consumption_kwh == 335.0
+
+
+def test_prediction_rejects_less_than_168_hours_of_initial_history():
+    service = PredictionService(IncrementModel(), make_history(20), SCHEDULES)
+
+    with pytest.raises(ValueError, match="at least 168 hours of history"):
+        service.predict(
+            [PredictionTarget("SITE001", datetime(2025, 1, 1, 20))]
         )

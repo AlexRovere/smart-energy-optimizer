@@ -1,10 +1,10 @@
-from datetime import datetime
+﻿from datetime import datetime
 
 import pandas as pd
 from fastapi.testclient import TestClient
 
-from api.main import app, get_prediction_service
-from models import PredictionService
+import api.main as api_main
+from api.main import app, get_prediction_model, get_site_schedules
 from training import TrainingResult
 
 
@@ -22,8 +22,8 @@ class ConstantModel:
         return [42.5]
 
 
-def make_service() -> PredictionService:
-    history = pd.DataFrame(
+def make_history() -> pd.DataFrame:
+    return pd.DataFrame(
         {
             "site_id": ["SITE001"] * 168,
             "site_type": ["office"] * 168,
@@ -32,11 +32,18 @@ def make_service() -> PredictionService:
             "consumption_kwh_corrected": [10.0] * 168,
         }
     )
-    return PredictionService(ConstantModel(), history, SCHEDULES)
 
 
-def test_predictions_endpoint_accepts_and_returns_a_list():
-    app.dependency_overrides[get_prediction_service] = make_service
+def set_prediction_dependencies(monkeypatch) -> None:
+    app.dependency_overrides[get_prediction_model] = ConstantModel
+    app.dependency_overrides[get_site_schedules] = lambda: SCHEDULES
+    monkeypatch.setattr(
+        api_main, "read_recent_history", lambda path, site_ids: make_history()
+    )
+
+
+def test_predictions_endpoint_accepts_and_returns_a_list(monkeypatch):
+    set_prediction_dependencies(monkeypatch)
     client = TestClient(app)
 
     response = client.post(
@@ -63,8 +70,8 @@ def test_predictions_endpoint_accepts_and_returns_a_list():
     ]
 
 
-def test_predictions_endpoint_rejects_more_than_168_requests():
-    app.dependency_overrides[get_prediction_service] = make_service
+def test_predictions_endpoint_rejects_more_than_168_requests(monkeypatch):
+    set_prediction_dependencies(monkeypatch)
     client = TestClient(app)
     request = {"site_id": "SITE001", "date": "2025-01-08", "hour": 0}
 
@@ -93,3 +100,37 @@ def test_training_endpoint_returns_training_summary(monkeypatch):
     assert response.json()["training_rows"] == 100
     assert response.json()["sites"] == 2
     assert response.json()["model_path"] == "artifacts/catboost_model.cbm"
+
+
+def test_predictions_reload_history_but_reuse_model_and_schedules(monkeypatch):
+    calls = {"model": 0, "history": 0, "schedules": 0}
+
+    def fake_load_model(path):
+        calls["model"] += 1
+        return ConstantModel()
+
+    def fake_read_recent_history(path, site_ids):
+        calls["history"] += 1
+        return make_history()
+
+    def fake_load_schedules(path):
+        calls["schedules"] += 1
+        return SCHEDULES
+
+    monkeypatch.setattr(api_main, "load_model", fake_load_model)
+    monkeypatch.setattr(api_main, "read_recent_history", fake_read_recent_history)
+    monkeypatch.setattr(api_main, "load_site_schedules", fake_load_schedules)
+    api_main.get_prediction_model.cache_clear()
+    api_main.get_site_schedules.cache_clear()
+    client = TestClient(app)
+    request = [{"site_id": "SITE001", "date": "2025-01-08", "hour": 0}]
+
+    first_response = client.post("/predictions", json=request)
+    second_response = client.post("/predictions", json=request)
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200
+    assert calls == {"model": 1, "history": 2, "schedules": 1}
+
+    api_main.get_prediction_model.cache_clear()
+    api_main.get_site_schedules.cache_clear()

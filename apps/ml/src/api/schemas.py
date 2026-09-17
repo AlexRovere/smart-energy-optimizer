@@ -7,8 +7,8 @@ class PredictionRequest(BaseModel):
     """One requested site and one future round hour."""
 
     site_id: str = Field(min_length=1, examples=["SITE001"])
-    date: dt.date = Field(examples=["2026-09-17"])
-    hour: int = Field(ge=0, le=23, examples=[14])
+    date: dt.date = Field(examples=["2024-12-31"])
+    hour: int = Field(ge=0, le=23, examples=[1])
 
     def timestamp(self) -> dt.datetime:
         # Receiving an integer hour makes minutes and seconds impossible in the

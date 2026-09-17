@@ -30,7 +30,7 @@ class Prediction:
 
 
 class PredictionService:
-    """Produce hourly forecasts from a model and a known consumption history."""
+    """Forecast at most 168 hours from 168 consecutive historical hours."""
 
     def __init__(
         self, model: PredictionModel, history: pd.DataFrame, schedules: SiteSchedules

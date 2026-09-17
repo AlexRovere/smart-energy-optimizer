@@ -3,7 +3,7 @@ from pathlib import Path
 
 from catboost import CatBoostRegressor
 
-from data import read_history
+from data import read_training_history
 from features import FEATURE_COLUMNS, add_training_features
 
 
@@ -22,7 +22,7 @@ class TrainingResult:
 
 def train_model(data_path: str | Path, model_path: str | Path) -> TrainingResult:
     """Train and save the final CatBoost configuration selected in the notebook."""
-    history = read_history(data_path)
+    history = read_training_history(data_path)
     featured = add_training_features(history)
 
     # The notebook uses the first 70% for training, the next 15% for

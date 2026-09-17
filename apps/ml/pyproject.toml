@@ -29,6 +29,7 @@ ml-api = "api.main:run"
 [dependency-groups]
 dev = [
     "pytest>=8.4.0",
+    "pytest-cov>=7.1.0",
 ]
 
 [build-system]
@@ -37,3 +38,11 @@ build-backend = "uv_build"
 
 [tool.uv.build-backend]
 module-name = ["api", "data", "features", "models", "training"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "--cov=src",
+    "--cov-report=term-missing",
+    "--cov-fail-under=80",
+]
