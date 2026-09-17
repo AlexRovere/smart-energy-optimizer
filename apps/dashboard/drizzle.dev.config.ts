@@ -12,15 +12,15 @@ import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { loadEnvFile } from 'node:process'
 import { defineConfig } from 'drizzle-kit'
+import { databaseUrlFromEnv } from './server/database/databaseUrl'
 
 const ENV_DEV = resolve(process.cwd(), '../../.env.dev')
 if (existsSync(ENV_DEV)) {
   loadEnvFile(ENV_DEV)
 }
-
-if (!process.env.NUXT_DATABASE_URL) {
+else if (!process.env.NUXT_DATABASE_URL) {
   throw new Error(
-    "NUXT_DATABASE_URL n'est pas renseignée et .env.dev est introuvable. Ce fichier est versionné : un clone complet le porte."
+    '.env.dev est introuvable. Ce fichier est versionné : un clone complet le porte.'
   )
 }
 
@@ -29,6 +29,6 @@ export default defineConfig({
   schema: './server/database/schema.ts',
   out: './server/database/migrations',
   dbCredentials: {
-    url: process.env.NUXT_DATABASE_URL
+    url: databaseUrlFromEnv()
   }
 })

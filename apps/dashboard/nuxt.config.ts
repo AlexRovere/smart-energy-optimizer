@@ -33,7 +33,19 @@ export default defineNuxtConfig({
     // où le proxy de #39 est SEUL à pouvoir l'atteindre, et pas avant : c'est
     // ce drapeau qui autorise la limitation par IP à croire X-Forwarded-For.
     trustProxy: false,
+    // Surcharge explicite, alimentée par NUXT_DATABASE_URL. Les tests la
+    // reçoivent toute faite de Testcontainers, et la boucle locale s'en sert.
+    // Hors de ces deux cas, c'est l'applicatif qui assemble, à partir des
+    // morceaux ci-dessous : l'hôte et le port ne sont pas des secrets et
+    // changent selon d'où l'on appelle (#158).
     databaseUrl: '',
+    postgres: {
+      host: '',
+      port: '',
+      database: '',
+      user: '',
+      password: ''
+    },
     mockApiUrl: '',
     parquetDir: '',
     mlServiceUrl: '',

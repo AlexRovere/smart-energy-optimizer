@@ -76,7 +76,14 @@ services:
   dashboard:
     build: ./apps/dashboard
     environment:
-      NUXT_DATABASE_URL: postgresql://${POSTGRES_USER:-enervision}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-enervision}
+      # Les morceaux, comme pour l'ETL : c'est l'applicatif qui assemble son URL.
+      # La composition n'a plus à le faire, et le mot de passe n'a plus à être
+      # sans caractère spécial, l'assemblage l'encodant (#158).
+      NUXT_POSTGRES_HOST: postgres
+      NUXT_POSTGRES_PORT: 5432
+      NUXT_POSTGRES_DB: ${POSTGRES_DB:-enervision}
+      NUXT_POSTGRES_USER: ${POSTGRES_USER:-enervision}
+      NUXT_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       NUXT_PARQUET_DIR: /data
       NUXT_ML_SERVICE_URL: ${ML_API_URL:-http://ml:8000}
       NUXT_MOCK_API_URL: ${MOCK_API_URL:?renseigner MOCK_API_URL dans .env}
