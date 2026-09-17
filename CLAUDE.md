@@ -69,4 +69,8 @@ Ne jamais supprimer définitivement un fichier. Sur Windows, passer par la corbe
 
 ## Périmètres
 
-`apps/dashboard/CLAUDE.md` couvre l'applicatif en propre et reste la référence pour ce répertoire. `.github/CODEOWNERS` dit qui relit quoi.
+`.github/CODEOWNERS` dit qui relit quoi.
+
+## Méthodologies
+
+- API / Dashboard : méthodologie TDD systématiques (tests red, implémentation, tests green).

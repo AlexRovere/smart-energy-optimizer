@@ -10,7 +10,7 @@ async function sleep(ms: number): Promise<void> {
 
 export async function fetchMockApi<T>(
   path: string,
-  baseUrl: string,
+  baseUrl: string = useRuntimeConfig().mockApiUrl as string,
   { sleepFn = sleep }: { sleepFn?: (ms: number) => Promise<void> } = {},
 ): Promise<T> {
   let lastError: unknown

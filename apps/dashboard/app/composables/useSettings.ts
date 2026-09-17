@@ -1,3 +1,4 @@
+import { ref, computed } from 'vue'
 import type { UserRole, SiteThresholdEntry, NotificationPreferences, SessionInfo } from '~/types/api'
 
 const ROLE_CAPABILITIES: Record<UserRole, string[]> = {

@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@duckdb/node-api':
+        specifier: 1.5.5-r.5
+        version: 1.5.5-r.5
       '@node-rs/argon2':
         specifier: ^2.2.1
         version: 2.2.1
@@ -17,6 +20,9 @@ importers:
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(postgres@3.4.9)
+      h3:
+        specifier: ^1.15.11
+        version: 1.15.11
       nuxt:
         specifier: ^4.5.2
         version: 4.5.2(@babel/plugin-syntax-jsx@7.29.7(@babel/core@7.29.7))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7))(@oxc-project/types@0.149.0)(@types/node@26.5.1)(@vue/compiler-sfc@3.5.42)(cac@7.0.0)(commander@14.0.3)(db0@0.3.4(drizzle-orm@0.45.2(postgres@3.4.9)))(drizzle-orm@0.45.2(postgres@3.4.9))(esbuild@0.28.2)(eslint@10.10.0(jiti@2.7.0))(ioredis@5.11.1)(lightningcss@1.33.0)(magicast@0.5.5)(optionator@0.9.4)(rolldown@1.2.8)(rollup-plugin-visualizer@7.1.1(rolldown@1.2.8)(rollup@4.63.2))(rollup@4.63.2)(srvx@0.11.22)(terser@5.51.2)(tsx@4.23.13)(typescript@5.9.3)(vite@8.3.0(@types/node@26.5.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))(vue-tsc@3.3.11(typescript@5.9.3))(yaml@2.9.1)
@@ -273,6 +279,56 @@ packages:
 
   '@drizzle-team/brocli@0.10.2':
     resolution: {integrity: sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w==}
+
+  '@duckdb/node-api@1.5.5-r.5':
+    resolution: {integrity: sha512-ZMX+sel3DjSKbGuQ44Y5Tp5LwYjlJkhB5faKr+9sSMcxixDMSW+8vaTOD1uRDuN9o0udUoCY/XX9PI1haEZuZg==}
+
+  '@duckdb/node-bindings-darwin-arm64@1.5.5-r.5':
+    resolution: {integrity: sha512-WJdeLTFy4pRg60rkbp9smtlP1iIQ8ErtIJkxS+2LQtM1ZZMSByyW+3WPpNoKe7IwPtVl2fLlPw7tDmQW4Z974g==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@duckdb/node-bindings-darwin-x64@1.5.5-r.5':
+    resolution: {integrity: sha512-rN0KjX13MwVQ5V5ufykolty/tf4SaafOpGWcUA1Cegf98jPeRdsJsEE1IMXn8n3u6WvMSZEVJmHJ3ma4Hr7Vzg==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@duckdb/node-bindings-linux-arm64-musl@1.5.5-r.5':
+    resolution: {integrity: sha512-00z3mYHUBAucp3L73EoftKDdaGOaV8ENELejiT+PK7dFjTzdXxqhJwZ1LaQV1/zEhIecz+x23f6WvFhWw+7XXQ==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  '@duckdb/node-bindings-linux-arm64@1.5.5-r.5':
+    resolution: {integrity: sha512-CafH2AIvXtpwDynG3KB/4uEOHRGlFoB7auCRMIwH3BKNIobsANV5LSpDJ3tfyRCFIsK6e8AT1eseWVnu2Dv3cw==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@duckdb/node-bindings-linux-x64-musl@1.5.5-r.5':
+    resolution: {integrity: sha512-S5qEc7F+GjXt85T2xArjjvN5oc/IjtH6zsLJsuo8N3fQolheBCefemIMdZoK2Jik8a0sBxidiS6Ld4qprMPPDw==}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  '@duckdb/node-bindings-linux-x64@1.5.5-r.5':
+    resolution: {integrity: sha512-kCyq6BXhn6QXfwF8yVdVKriSSHP+rfVWcJ56cG8qZzlOZpxyvT5WGm6jMshxg4ditLlOsHsIN/D47RYrcjXuHQ==}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@duckdb/node-bindings-win32-arm64@1.5.5-r.5':
+    resolution: {integrity: sha512-L3Mroc23xhqOowWVElni8LgEmsm5e9DdG1y2pLka/1ug3Pl2vpQMl1Phxwz4UEMF8DOBbMgN5BBNrYwG2BFo+g==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@duckdb/node-bindings-win32-x64@1.5.5-r.5':
+    resolution: {integrity: sha512-mBGFn8netT/AAhK4TOG6Fw47+Db68CxCVtQ9qfxZc1kZAjds+aYrh17Fd/u5CbTDdxILsrcyuF8q9cUcm54kQA==}
+    cpu: [x64]
+    os: [win32]
+
+  '@duckdb/node-bindings@1.5.5-r.5':
+    resolution: {integrity: sha512-sR7x91TfBunLqLbdvrcdiPCU+VGEQFPicxh1STZM402fuHW2ituPTAo2bY3IlntsvJShltrKF4R6B+JYPlAPZg==}
 
   '@dxup/nuxt@0.5.10':
     resolution: {integrity: sha512-54Vehb7LmR7qYpC6KFwjDTSm6CB1CayBu+JXdHrPLrIjjr5xAgb43jvgOU+mnB+tsRh414fSsEy0QjBMKILQ8g==}
@@ -3845,8 +3901,8 @@ packages:
   h3@1.15.11:
     resolution: {integrity: sha512-L3THSe2MPeBwgIZVSH5zLdBBU90TOxarvhK9d04IDY2AmVS8j2Jz2LIWtwsGOU3lu2I5jCN7FNvVfY2+XyF+mg==}
 
-  h3@2.0.1-rc.31:
-    resolution: {integrity: sha512-AG7qZzF99a0BSYoXT3evJgIhwSIUKow7R+hwkLRZS06WJ9nbSb7QXUDgs1ByBjp6svTvl++N/GKA7I9YPz9cQQ==}
+  h3@2.0.1-rc.32:
+    resolution: {integrity: sha512-Epg1E85L8yIKd9UeAQAVdm6QVrnHbppMsQ641EjpNi4c0IlAg+PJlwp4Xw03Z1loRXPQaH9k64gJT5qDELqm+g==}
     engines: {node: '>=20.11.1'}
     hasBin: true
     peerDependencies:
@@ -5256,8 +5312,8 @@ packages:
     engines: {node: '>=20.16.0'}
     hasBin: true
 
-  srvx@1.0.4:
-    resolution: {integrity: sha512-eZmYaxUfZSo7/8m8UdsHRJNmTLSCTPPom9d7a60vMmuVeZvwhbvflRR+00/CxTCjMOFa5+H8tgBeNDVZ+w7AAQ==}
+  srvx@1.0.5:
+    resolution: {integrity: sha512-KvSKRpgPG/oaq3cyT614OQ2bAa7DynuGamivCZeoZzIUULOdbQz6wUtnnVuC4+DCx2Zglzo8v5gBYmWIWYhDxA==}
     engines: {node: '>=20.16.0'}
     hasBin: true
 
@@ -6332,6 +6388,47 @@ snapshots:
   '@colordx/core@5.8.0': {}
 
   '@drizzle-team/brocli@0.10.2': {}
+
+  '@duckdb/node-api@1.5.5-r.5':
+    dependencies:
+      '@duckdb/node-bindings': 1.5.5-r.5
+
+  '@duckdb/node-bindings-darwin-arm64@1.5.5-r.5':
+    optional: true
+
+  '@duckdb/node-bindings-darwin-x64@1.5.5-r.5':
+    optional: true
+
+  '@duckdb/node-bindings-linux-arm64-musl@1.5.5-r.5':
+    optional: true
+
+  '@duckdb/node-bindings-linux-arm64@1.5.5-r.5':
+    optional: true
+
+  '@duckdb/node-bindings-linux-x64-musl@1.5.5-r.5':
+    optional: true
+
+  '@duckdb/node-bindings-linux-x64@1.5.5-r.5':
+    optional: true
+
+  '@duckdb/node-bindings-win32-arm64@1.5.5-r.5':
+    optional: true
+
+  '@duckdb/node-bindings-win32-x64@1.5.5-r.5':
+    optional: true
+
+  '@duckdb/node-bindings@1.5.5-r.5':
+    dependencies:
+      detect-libc: 2.1.2
+    optionalDependencies:
+      '@duckdb/node-bindings-darwin-arm64': 1.5.5-r.5
+      '@duckdb/node-bindings-darwin-x64': 1.5.5-r.5
+      '@duckdb/node-bindings-linux-arm64': 1.5.5-r.5
+      '@duckdb/node-bindings-linux-arm64-musl': 1.5.5-r.5
+      '@duckdb/node-bindings-linux-x64': 1.5.5-r.5
+      '@duckdb/node-bindings-linux-x64-musl': 1.5.5-r.5
+      '@duckdb/node-bindings-win32-arm64': 1.5.5-r.5
+      '@duckdb/node-bindings-win32-x64': 1.5.5-r.5
 
   '@dxup/nuxt@0.5.10(esbuild@0.28.2)(magicast@0.5.5)(rolldown@1.2.8)(rollup@4.63.2)(vite@8.3.0(@types/node@26.5.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))':
     dependencies:
@@ -9289,7 +9386,7 @@ snapshots:
       '@standard-schema/spec': 1.1.0
       birpc: 4.2.0
       crossws: 0.4.12(srvx@0.11.22)
-      h3: 2.0.1-rc.31(crossws@0.4.12(srvx@0.11.22))
+      h3: 2.0.1-rc.32(crossws@0.4.12(srvx@0.11.22))
       mrmime: 2.0.1
       nostics: 1.2.0
       pathe: 2.0.3
@@ -10027,10 +10124,10 @@ snapshots:
       ufo: 1.6.4
       uncrypto: 0.1.3
 
-  h3@2.0.1-rc.31(crossws@0.4.12(srvx@0.11.22)):
+  h3@2.0.1-rc.32(crossws@0.4.12(srvx@0.11.22)):
     dependencies:
       rou3: 0.9.2
-      srvx: 1.0.4
+      srvx: 1.0.5
     optionalDependencies:
       crossws: 0.4.12(srvx@0.11.22)
 
@@ -11613,7 +11710,7 @@ snapshots:
 
   srvx@0.11.22: {}
 
-  srvx@1.0.4: {}
+  srvx@1.0.5: {}
 
   ssh-remote-port-forward@1.0.4:
     dependencies:

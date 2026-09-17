@@ -35,7 +35,7 @@ export default defineNuxtConfig({
     trustProxy: false,
     databaseUrl: '',
     mockApiUrl: '',
-    parquetDirExpose: '',
+    parquetDir: '',
     mlServiceUrl: '',
     logLevel: 'info'
   },

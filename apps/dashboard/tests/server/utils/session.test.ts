@@ -9,9 +9,9 @@ import {
   revokeSession,
   allowedSites
 } from '../../../server/utils/session'
-import { creerBaseDeTest, ligneAttendue, type BaseDeTest } from '../../database/base-de-test'
+import { baseDisponible, creerBaseDeTest, ligneAttendue, type BaseDeTest } from '../../database/base-de-test'
 
-describe('session', () => {
+describe.skipIf(!baseDisponible())('session', () => {
   let testDb: BaseDeTest
   let db: ReturnType<typeof drizzle<typeof schema>>
   let userId: string

@@ -1,26 +1,7 @@
-import type { Alert, AlertSeverity, CurrentReading, Reading, SensorHealth, SensorStatus, Site, SiteId, StatsSummary } from '../types/api'
+import { ref, computed } from 'vue'
+import type { Alert, AlertSeverity, CurrentReading, Reading, SensorHealth, SensorStatus, Site, SiteId } from '../types/api'
 import { fmtNum, fmtPct } from '../utils/format'
-
-function mockStats(): StatsSummary {
-  return {
-    timestamp: '2026-09-15T22:00:00Z',
-    total_consumption_kw: 1166,
-    total_capacity_kw: 4130,
-    avg_load_pct: 35.0,
-    sites_counted: 6,
-    sites_total: 7,
-    excluded_sites: ['SITE003'],
-    sites: [
-      { site_id: 'SITE001', site_name: 'Bureau Paris La Défense',  site_type: 'office',     current_consumption_kw: 71.95,  capacity_kw: 300,  load_percent: 24.0, data_quality: 'good'     },
-      { site_id: 'SITE002', site_name: 'Usine Lyon Vénissieux',    site_type: 'factory',    current_consumption_kw: 571.65, capacity_kw: 1000, load_percent: 57.2, data_quality: 'partial'  },
-      { site_id: 'SITE003', site_name: 'Data Center Marseille',    site_type: 'datacenter', current_consumption_kw: null,   capacity_kw: 800,  load_percent: null, data_quality: 'critical' },
-      { site_id: 'SITE004', site_name: 'Entrepôt Lille Seclin',    site_type: 'warehouse',  current_consumption_kw: 85.22,  capacity_kw: 450,  load_percent: 18.9, data_quality: 'good'     },
-      { site_id: 'SITE005', site_name: 'Atelier Nantes Carquefou', site_type: 'factory',    current_consumption_kw: 193.09, capacity_kw: 600,  load_percent: 32.2, data_quality: 'degraded' },
-      { site_id: 'SITE006', site_name: 'Bureau Bordeaux Mérignac', site_type: 'office',     current_consumption_kw: 59.95,  capacity_kw: 280,  load_percent: 21.4, data_quality: 'good'     },
-      { site_id: 'SITE007', site_name: 'Laboratoire Grenoble',     site_type: 'lab',        current_consumption_kw: 184.12, capacity_kw: 700,  load_percent: 26.3, data_quality: 'good'     },
-    ],
-  }
-}
+import { useFleetSummary } from './useFleetSummary'
 
 function mockAlerts(): Alert[] {
   const now = Date.now()
@@ -95,12 +76,11 @@ function mockReadings(siteId: SiteId): Reading[] {
 }
 
 export function useFleetOverview() {
-  const stats = ref<StatsSummary | null>(mockStats())
+  const { summary: stats, pending } = useFleetSummary()
   const alerts = ref<Alert[]>(mockAlerts())
   const sensors = ref<SensorStatus[]>(mockSensors())
   const siteDetails = ref<Site[]>(mockSites())
   const currentReadings = ref<CurrentReading[]>(mockCurrentReadings())
-  const pending = ref(false)
 
   function getReadingsForSite(id: SiteId): Reading[] {
     return mockReadings(id)
@@ -209,7 +189,7 @@ export function useFleetOverview() {
   // -- Incomplete data -----------------------------------------
 
   const hasIncompleteData = computed(() =>
-    (stats.value?.excluded_sites.length ?? 0) > 0,
+    (stats.value?.excluded_sites?.length ?? 0) > 0,
   )
 
   const excludedSites = computed<SiteId[]>(() =>
