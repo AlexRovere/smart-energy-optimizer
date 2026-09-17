@@ -59,6 +59,7 @@ jobs:
             infra:
               - 'infra/**'
               - 'docker-compose.yml'
+              - 'docker-compose.dev.yml'
               - '.github/workflows/ci.yml'
 
   etl:
@@ -147,6 +148,10 @@ jobs:
           MOCK_API_URL: http://ci
           PARQUET_DIR_HOST: ./data/parquet
         run: docker compose config --quiet
+      # Aucune variable, et c'est le contrôle : la composition de développement
+      # doit se lire sur un poste qui n'a rien configuré.
+      - name: La composition de développement est valide sans aucune variable
+        run: docker compose -f docker-compose.dev.yml config --quiet
 
   # Les trois jobs qui suivent construisent les images sans les publier. Le
   # quota de paquets privés de l'offre gratuite est de 500 Mo et l'image du

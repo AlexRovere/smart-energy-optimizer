@@ -17,14 +17,53 @@ Monorepo. La structure du dépôt n'est pas l'architecture de déploiement : les
 | `.github/workflows/` | Pipeline build, test, scan, deploy                                       | `domain:cicd`                |
 | `docs/`              | Livrables et documentation technique                                     | `domain:doc`                 |
 | `docker-compose.yml` | La pile complète, à la racine pour un `docker compose up` direct         | `domain:cloud`               |
+| `docker-compose.dev.yml` | Le seul PostgreSQL, pour la boucle de développement locale           | `domain:cloud`               |
 
 ## Démarrage
+
+Deux façons de lancer le projet, qui ne servent pas la même chose et ne partagent
+aucun fichier de valeurs.
+
+### Développer
+
+Un PostgreSQL dans Docker, l'applicatif sur le poste avec rechargement à chaud.
+Prérequis : Docker et Node 22 ou plus. `pnpm` passe par corepack, il n'a pas à
+être installé.
+
+```bash
+corepack pnpm@10.11.0 --dir apps/dashboard install
+corepack pnpm@10.11.0 --dir apps/dashboard dev:db   # base, migrations, amorçage
+corepack pnpm@10.11.0 --dir apps/dashboard dev      # http://localhost:3000
+```
+
+**Rien à copier, rien à renseigner** : les valeurs de la boucle locale vivent
+dans [`.env.dev`](./.env.dev), versionné parce qu'il ne contient aucun secret.
+Depuis `apps/dashboard/`, les mêmes commandes s'écrivent `pnpm install`,
+`pnpm dev:db`, `pnpm dev`.
+
+La connexion se fait avec `admin@enervision.local` et le `SEED_PASSWORD` de
+`.env.dev`. Deux autres comptes existent, `operator@` et `viewer@`.
+
+`pnpm dev:db` est rejouable : un second passage ne casse rien.
+`pnpm dev:db:stop` arrête la base et libère le port, `pnpm dev:db:reset` jette
+en plus le volume et rend une base vide au passage suivant.
+
+La version longue des commandes est dans le [README du
+dashboard](./apps/dashboard/README.md).
+
+### Déployer
+
+La pile complète, qui construit ses images et exige toutes ses variables. Rien
+ne démarre sur une valeur oubliée, c'est voulu.
 
 ```bash
 cp .env.example .env      # renseigner les valeurs
 docker compose up -d      # la pile complète
 docker compose ps
 ```
+
+Sur la machine sur site, c'est le pipeline qui joue cette commande, les valeurs
+venant de `sops exec-env` et non d'un `.env`. Voir [`docs/secrets.md`](./docs/secrets.md).
 
 Chaque application a son propre README avec ses prérequis.
 
