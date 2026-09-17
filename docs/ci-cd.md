@@ -8,7 +8,7 @@ Il couvre le pipeline entier, y compris ce qui n'est pas encore en place : chaqu
 
 | Fichier | Nom affiché | Déclencheur | Ce qu'il vérifie |
 |---|---|---|---|
-| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | CI | pull request vers `main`, et push sur `main` | Lint, types, tests, validation de la composition, construction des images |
+| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | CI | pull request vers `main`, et push sur `main` | Lint, types, tests, validation de la composition, construction **et scan** des images |
 | [`.github/workflows/security.yml`](../.github/workflows/security.yml) | Sécurité | **tout** push, sur n'importe quelle branche | Vulnérabilités, secrets dans l'arbre et dans l'historique, cohérence du chiffrement SOPS |
 
 La séparation n'est pas cosmétique. Un secret poussé par erreur ne doit pas attendre l'ouverture d'une pull request pour être détecté : le workflow `Sécurité` tourne donc dès le premier push de la branche. Le reste coûte des minutes de runner et reste attaché aux pull requests.
@@ -40,8 +40,8 @@ L'enchaînement est **par domaine** : lint, puis tests, puis construction de l'i
 | 2 | Types | `dashboard` : `vue-tsc` | Une erreur de typage | En place |
 | 3 | Tests | `dashboard` : `vitest` | Un test rouge | En place pour l'applicatif, #51 pour le reste |
 | 4 | Composition | `infra` : `docker compose config` | Un `docker-compose.yml` invalide | En place |
-| 5 | Images | `image-*` : `docker build` | Un Dockerfile cassé | En place |
-| 6 | Scan | `security.yml` : Trivy, gitleaks, SOPS | Une vulnérabilité critique ou élevée, un secret, un destinataire oublié | En place, hors chaîne (voir plus bas) |
+| 5 | Images | `image-*` : `docker build`, puis Trivy | Un Dockerfile cassé, une vulnérabilité **critique** dans l'image | En place |
+| 6 | Scan du code | `security.yml` : Trivy, gitleaks, SOPS | Une vulnérabilité critique **ou élevée**, un secret, un destinataire oublié | En place, hors chaîne (voir plus bas) |
 | 7 | Déploiement | à venir | Ne s'exécute que si tout ce qui précède est vert | #107 |
 
 L'ordre du ticket #50 plaçait la construction des images avant les tests. Elle vient après, ici : les tests ne tournent pas dans l'image, donc la construire avant de savoir si le lint passe achète des minutes de runner contre rien. L'enchaînement, lui, est bien celui demandé.
@@ -57,6 +57,8 @@ Les trois jobs `image-etl`, `image-ml` et `image-dashboard` lancent un `docker b
 Ce n'est pas un oubli. L'organisation est en offre gratuite : le quota de stockage des paquets privés est de 500 Mo, et l'image du service ML le dépasse à elle seule (`pandas`, `scikit-learn`, `prophet`, `statsmodels`). Les publier en paquets publics exposerait le code d'un dépôt privé. Le déploiement (#107) reconstruit donc **sur la machine** à partir du code récupéré.
 
 Construire ici ne sert qu'à une chose, mais elle compte : savoir qu'un Dockerfile tient avant de fusionner, et non le soir du déploiement.
+
+Chaque image construite est scannée sur place, dans le même job : elle est déjà dans le démon local, la scanner ailleurs obligerait à la reconstruire ou à la publier quelque part, c'est-à-dire à faire exactement ce que le paragraphe précédent explique qu'on ne fait pas.
 
 Conséquence assumée : l'applicatif est construit deux fois sur une pull request qui le touche, une fois par `pnpm build` dans le job `dashboard`, une fois dans l'image. Environ deux minutes. C'est le prix d'un Dockerfile réellement vérifié.
 
@@ -80,13 +82,30 @@ Une vulnérabilité détectée est corrigée, ou acceptée explicitement. Jamais
 2. Si aucun correctif n'existe, ajouter l'identifiant (CVE ou GHSA) dans un fichier `.trivyignore` à la racine, **avec un commentaire** disant pourquoi elle est acceptable ici et ce qui la rouvrira.
 3. L'acceptation passe par une pull request comme le reste. `.github/CODEOWNERS` route la revue vers les propriétaires de la chaîne de build.
 
-Le fichier `.trivyignore` n'existe pas encore : aucune vulnérabilité n'a eu besoin d'être acceptée à ce jour.
+Le fichier [`.trivyignore`](../.trivyignore) existe et ne contient aucune exception : rien n'a eu besoin d'être accepté à ce jour. Il porte la procédure en commentaire, le jour où une faille bloquera une fusion urgente étant exactement celui où l'on créerait ce fichier mal.
 
-### Ce qui manque encore (#57)
+### Le scan des images
 
-Le scan porte sur l'arbre de fichiers, pas sur les images construites par `ci.yml`. Scanner l'image plutôt que le code voit en plus les paquets du système de base. #57 ajoutera ce passage, sur l'image déjà construite pour ne pas la reconstruire, et vérifiera le caractère bloquant **en introduisant volontairement un défaut** : une chaîne réputée bloquante mais jamais vue bloquer est une hypothèse.
+Les jobs `image-*` de `ci.yml` passent Trivy sur l'image qu'ils viennent de construire, en deux fois : un passage affiche les vulnérabilités `CRITICAL` et `HIGH` sans bloquer, un second échoue sur une `CRITICAL`. L'image n'est jamais reconstruite pour ça, elle est déjà dans le démon local du runner.
+
+Scanner l'image plutôt que le code voit en plus les paquets du système de base, que la couche `FROM` apporte sans qu'aucun fichier du dépôt ne les mentionne.
+
+**Le seuil bloquant y est plus permissif que celui du scan de code**, qui bloque dès `HIGH`. Ce n'est pas un relâchement. `security.yml` scanne nos dépendances : on les choisit, et on peut les monter le jour même. Une image porte en plus les paquets de la base Debian, dont le rythme de correction ne nous appartient pas. Bloquer dessus rendrait la CI rouge pendant des jours sans que personne ne puisse rien y faire, et une CI rouge en permanence apprend à l'équipe à ignorer le rouge. Les `HIGH` restent affichés, pour qu'aucun ne se découvre le jour où il devient critique.
 
 Un scan dynamique de l'application déployée (OWASP ZAP ou équivalent) reste un plus, pas un attendu.
+
+### Ce que le premier scan a trouvé
+
+Le premier run bloquant a échoué sur les trois images ([run 35203374182](https://github.com/EADL-2026/enerVision/actions/runs/35203374182)). C'est ce qui a vérifié le garde-fou : il n'a pas fallu introduire un défaut, il y en avait déjà.
+
+| Image | Vulnérabilité | Origine | Traitement |
+|---|---|---|---|
+| ETL, ML | 3 CVE `CRITICAL` dans `perl-base` | Base `python:3.12-slim`, pas encore reconstruite avec le correctif publié par Debian | `apt-get upgrade` à la construction |
+| Dashboard | `CVE-2026-59873` dans `tar` 7.5.11 | Le `npm` embarqué dans `node:22-bookworm-slim`, et non nos dépendances : `pnpm-lock.yaml` résout `tar` en 7.5.22 | `npm`, `npx` et `corepack` retirés de l'image d'exécution |
+
+Aucune des deux n'est passée par `.trivyignore`. C'est l'ordre que la procédure impose : on corrige tant qu'un correctif existe, et les deux en avaient un.
+
+**Le second cas est celui qui justifie tout ce chapitre.** Le scan de fichiers de `security.yml` était vert sur ce même commit : il lit `pnpm-lock.yaml`, où `tar` est déjà en 7.5.22, et n'a aucun moyen de voir la copie que `npm` transporte dans l'image de base. Une faille critique était donc dans l'image livrable sans qu'aucun fichier du dépôt ne la mentionne. C'est exactement ce que le premier critère de #57 demandait de couvrir, démontré sans l'avoir cherché.
 
 ## Le déploiement (#107)
 
@@ -116,6 +135,9 @@ Chaque étape de la CI a un équivalent local. C'est volontaire : un échec qu'o
 | Images | `docker build apps/etl`, puis `apps/ml` et `apps/dashboard` |
 | Trivy | `docker run --rm -v "$PWD:/src" aquasec/trivy fs --scanners vuln,secret,misconfig --severity CRITICAL,HIGH --ignore-unfixed /src` |
 | gitleaks | `gitleaks git . --log-opts="--all -m --full-history" --redact` |
+| Scan d'une image | `trivy image --scanners vuln --severity CRITICAL --ignore-unfixed --exit-code 1 enervision-etl:ci`, l'image ayant été construite juste avant |
+
+Le scan de fichiers lancé sur un poste voit des répertoires que la CI ne voit pas, `.claude/` en tête : un worktree local d'une autre branche y apparaît comme une seconde copie du dépôt, avec ses propres fichiers de verrouillage. Les résultats sont donc en double, et ce n'est pas un bug. Ajouter `--skip-dirs .claude` pour retrouver la vue de la CI.
 
 La validation de la composition lit le `.env` du poste. En CI il n'y en a pas, et `docker-compose.yml` déclare plusieurs variables en `${VAR:?message}` : le job leur donne des valeurs bidon, parce que `:?` refuse une variable vide autant qu'absente et que la validation porte sur la structure du fichier, jamais sur ce que les variables contiennent.
 
@@ -138,6 +160,7 @@ Le bloc `concurrency` annule le run précédent de la même branche quand un nou
 | `ERR_PNPM_IGNORED_BUILDS` à la construction de l'image de l'applicatif | pnpm 12 bloque les scripts de build non listés dans `allowBuilds` ; le Dockerfile épingle pnpm 10 |
 | Le cache d'une action échoue avant la première commande | L'action calcule sa clé sur un fichier de verrouillage absent |
 | Un check reste en échec sur une pull request sans job correspondant | Doublon push et pull request annulé par `concurrency` ; le check annulé ne se met plus à jour |
+| **Plus aucun job ne se déclenche sur une pull request**, alors qu'elle en déclenchait avant | La pull request est en conflit avec `main`. GitHub fait tourner les workflows `pull_request` sur la fusion théorique, qu'il ne sait pas calculer tant que le conflit dure : il n'annonce rien, il ne lance simplement plus rien. Fusionner `main` dans la branche rétablit tout |
 
 ## Écarts assumés
 
@@ -147,11 +170,13 @@ Ce qui suit est connu, décidé, et non corrigé. C'est ce qui distingue une doc
 |---|---|
 | **Pas de registre d'images** | Quota de 500 Mo pour les paquets privés en offre gratuite, dépassé par la seule image du service ML. Le public exposerait le code. Décidé le 15 septembre 2026 (#50, #107) |
 | **`main` n'est pas protégée par règle** | Les règles de protection de branche ne sont pas activables sur un dépôt privé d'une organisation en offre gratuite. La règle est donc écrite dans [`CLAUDE.md`](../CLAUDE.md) et tenue à la main : rien ne refusera un push direct. Le jour où elle le devient, il faudra déclarer **deux** checks obligatoires, `CI` et `Sécurité`, et non un seul : c'est le prix du découpage en deux workflows |
-| **Les images construites ne sont pas scannées** | Le scan porte sur l'arbre de fichiers. #57 le complète |
+| **Un `HIGH` dans une image ne bloque pas** | Seule une `CRITICAL` bloque, là où le scan de code bloque dès `HIGH`. Les paquets de la base Debian ne se corrigent pas à notre rythme. Ils restent affichés dans le log du job |
 | **Pas de cache de dépendances côté Python** | `actions/setup-python` calcule sa clé sur `requirements.txt`, que le projet n'a pas : l'ETL et le ML sont sous `uv` avec un `uv.lock`. Le cache viendra avec `astral-sh/setup-uv`, quand ces jobs feront autre chose qu'un `echo`. Le cache `pnpm`, lui, est actif |
 | **Pas de seuil de couverture bloquant** | Retiré le 16 septembre 2026 (#51). Sur dix jours, un seuil non tenu est une CI rouge qui empêche de fusionner : un coût sans contrepartie |
 | **Les jobs `etl` et `ml` ne font rien** | L'étape existe pour ne pas avoir à l'insérer après coup, ce qui coûte plus cher que de la prévoir. Les règles arrivent avec #90, les tests avec #51 |
 | **`ansible-lint` est commenté** | `infra/ansible/` ne contient qu'un README. Le playbook arrive avec #47 |
 | **Le scan n'est pas dans le graphe de `ci.yml`** | Il tourne sur tout push, donc plus tôt et plus souvent que s'il attendait une pull request. Le chaîner le rendrait plus tardif, pas plus sûr |
 | **L'applicatif est construit deux fois** | Une fois par `pnpm build`, une fois dans l'image. Environ deux minutes, contre un Dockerfile réellement vérifié |
+| **Les images ETL et ML mettent à jour leurs paquets à la construction** | Un `apt-get upgrade` applique les correctifs Debian sans attendre la reconstruction du tag amont. Deux images construites à deux jours d'intervalle peuvent donc différer, ce qui affaiblit la reproductibilité. Assumé : un correctif publié doit entrer le jour où il paraît |
+| **L'image du dashboard n'a plus `npm`** | Volontaire. Un conteneur d'exécution n'installe pas de paquets, et le `npm` de la base transportait une CVE critique. Conséquence à connaître : aucun `npm` ni `npx` dans ce conteneur pour diagnostiquer, `node` seul |
 | **Pas de rapport de qualité publié** | #90 le porte, en artefact de CI |

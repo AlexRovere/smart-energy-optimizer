@@ -1,13 +1,14 @@
 name: CI
 
-# Un sas par domaine : lint, tests, puis construction de l'image. L'image est
-# construite pour vérifier que le Dockerfile tient, jamais publiée. Un filtrage
-# par chemin évite de rejouer les domaines non modifiés, ce qui est l'intérêt
-# d'un monorepo bien câblé.
+# Un sas par domaine : lint, tests, puis construction et scan de l'image.
+# L'image est construite pour vérifier que le Dockerfile tient, jamais publiée.
+# Un filtrage par chemin évite de rejouer les domaines non modifiés, ce qui est
+# l'intérêt d'un monorepo bien câblé.
 #
-# Le scan de sécurité vit dans security.yml, qui tourne sur tout push pour ne
-# pas attendre l'ouverture d'une pull request. docs/ci-cd.md décrit le pipeline
-# entier, ses écarts assumés et comment le rejouer.
+# Le scan du code vit dans security.yml, qui tourne sur tout push pour ne pas
+# attendre l'ouverture d'une pull request. Seul le scan des images est ici,
+# parce qu'il lui faut les images. docs/ci-cd.md décrit le pipeline entier,
+# ses écarts assumés et comment le rejouer.
 
 on:
   push:
@@ -156,6 +157,19 @@ jobs:
   #
   # Chacun attend son domaine : construire une image dont le lint ou les tests
   # échouent achète des minutes de runner contre rien.
+  #
+  # Deux passages de Trivy sur l'image qui vient d'être construite, jamais
+  # reconstruite : elle est déjà dans le démon local. Le premier affiche ce
+  # qu'il trouve sans bloquer, le second échoue sur une vulnérabilité critique.
+  #
+  # Le seuil bloquant est CRITICAL ici, alors que security.yml bloque dès HIGH.
+  # Ce n'est pas une incohérence : security.yml scanne NOS dépendances, qu'on
+  # choisit et qu'on peut monter le jour même. Une image scanne en plus les
+  # paquets système de la base Debian, dont le rythme de correction ne nous
+  # appartient pas. Bloquer dessus rendrait la CI rouge pendant des jours sans
+  # que personne ne puisse rien y faire, et une CI rouge en permanence apprend
+  # à l'équipe à ignorer le rouge. Les HIGH restent affichés, pour qu'aucun ne
+  # se découvre le jour où il devient critique.
   image-etl:
     needs: [changes, etl]
     if: needs.changes.outputs.etl == 'true'
@@ -163,6 +177,26 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: docker build --tag enervision-etl:ci apps/etl
+      - name: Vulnérabilités de l'image (signalement)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: enervision-etl:ci
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+      # skip-setup-trivy : le binaire et la base sont déjà là depuis l'étape
+      # précédente, les retélécharger coûterait une minute pour rien.
+      - name: Aucune vulnérabilité critique
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: enervision-etl:ci
+          scanners: vuln
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+          skip-setup-trivy: true
 
   image-ml:
     needs: [changes, ml]
@@ -171,6 +205,26 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: docker build --tag enervision-ml:ci apps/ml
+      - name: Vulnérabilités de l'image (signalement)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: enervision-ml:ci
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+      # skip-setup-trivy : le binaire et la base sont déjà là depuis l'étape
+      # précédente, les retélécharger coûterait une minute pour rien.
+      - name: Aucune vulnérabilité critique
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: enervision-ml:ci
+          scanners: vuln
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+          skip-setup-trivy: true
 
   image-dashboard:
     needs: [changes, dashboard]
@@ -179,3 +233,23 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: docker build --tag enervision-dashboard:ci apps/dashboard
+      - name: Vulnérabilités de l'image (signalement)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: enervision-dashboard:ci
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+      # skip-setup-trivy : le binaire et la base sont déjà là depuis l'étape
+      # précédente, les retélécharger coûterait une minute pour rien.
+      - name: Aucune vulnérabilité critique
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: enervision-dashboard:ci
+          scanners: vuln
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+          skip-setup-trivy: true
