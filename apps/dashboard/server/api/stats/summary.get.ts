@@ -1,9 +1,10 @@
 import { createError, defineEventHandler } from 'h3'
 import { parkSummarySchema } from '../../../shared/parkSummarySchema'
 import { fetchMockApi } from '../../utils/mockApiClient'
+import { requireAccount } from '../../utils/guard'
 
 export default defineEventHandler(async (event) => {
-  await requireUserSession(event)
+  await requireAccount(event)
 
   let réponse: unknown
   try {

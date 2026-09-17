@@ -11,7 +11,7 @@ import { hash } from '@node-rs/argon2'
 import { fetch, setup } from '@nuxt/test-utils/e2e'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { PARAMETRES_ARGON2ID } from '../../server/database/seed'
-import { creerBaseDeTest, type BaseDeTest } from '../database/base-de-test'
+import { baseDisponible, creerBaseDeTest, type BaseDeTest } from '../database/base-de-test'
 
 const EMAIL = 'admin@enervision.local'
 const PASSWORD = 'mot-de-passe-de-demonstration'
@@ -22,6 +22,7 @@ let testDb: BaseDeTest
 // de déclaration, et le serveur Nuxt doit démarrer avec l'URL de base déjà en
 // environnement.
 beforeAll(async () => {
+  if (!baseDisponible()) return
   testDb = await creerBaseDeTest()
   process.env.NUXT_DATABASE_URL = testDb.url
   process.env.NUXT_SESSION_PASSWORD = 'mot-de-passe-de-test-de-trente-deux-signes'
@@ -53,7 +54,7 @@ async function signIn(email: string, password: string): Promise<Response> {
   })
 }
 
-describe('authentification', async () => {
+describe.skipIf(!baseDisponible())('authentification', async () => {
   await setup({
     rootDir: fileURLToPath(new URL('../..', import.meta.url)),
     server: true,

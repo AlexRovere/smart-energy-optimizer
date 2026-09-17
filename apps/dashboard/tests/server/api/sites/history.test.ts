@@ -22,6 +22,10 @@ vi.mock('h3', async (importOriginal) => {
   }
 })
 
+vi.mock('../../../../server/utils/guard', () => ({
+  requireAccount: vi.fn().mockResolvedValue(undefined)
+}))
+
 
 const mockEvent = {} as H3Event
 

@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
-import type { StatsSummary } from '../../app/types/api'
+import type { StatsSummary, SiteId } from '../../app/types/api'
 import { useSites } from '../../app/composables/useSites'
-import type { SiteId } from '../../app/types/api'
 
 vi.mock('../../app/composables/useFleetSummary', () => ({
   useFleetSummary: () => ({

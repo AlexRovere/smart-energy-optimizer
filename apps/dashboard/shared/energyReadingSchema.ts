@@ -4,7 +4,7 @@ export const energyReadingSchema = z.object({
   timestamp: z.string().datetime(),
   site_id: z.string(),
   site_type: z.string().optional(),
-  consumption_kw: z.number(),
+  consumption_kw: z.number().nullable(),
   consumption_kw_raw: z.number().nullable().optional(),
   consumption_kwh: z.number().nullable().optional(),
   voltage_v: z.number().nullable().optional(),

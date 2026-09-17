@@ -1,6 +1,7 @@
 import { createError, defineEventHandler, getQuery, getRouterParam } from 'h3'
 import { z } from 'zod'
 import { querySiteHistory } from '../../../utils/parquetReader'
+import { requireAccount } from '../../../utils/guard'
 
 const siteIdSchema = z.string().regex(/^SITE\d{3}$/)
 
@@ -11,7 +12,7 @@ const querySchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-  await requireUserSession(event)
+  await requireAccount(event)
 
   const id = getRouterParam(event, 'id')
   const parsedId = siteIdSchema.safeParse(id)

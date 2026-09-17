@@ -11,6 +11,11 @@ vi.mock('../../../../server/utils/mockApiClient', () => ({
   fetchMockApi: mockFetchMockApi
 }))
 
+vi.mock('../../../../server/utils/guard', () => ({
+  requireAccount: vi.fn().mockResolvedValue(undefined)
+}))
+
+
 
 const summaryValide = {
   timestamp: '2026-09-16T14:32:00Z',
