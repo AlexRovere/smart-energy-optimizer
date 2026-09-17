@@ -160,6 +160,7 @@ Le bloc `concurrency` annule le run précédent de la même branche quand un nou
 | `ERR_PNPM_IGNORED_BUILDS` à la construction de l'image de l'applicatif | pnpm 12 bloque les scripts de build non listés dans `allowBuilds` ; le Dockerfile épingle pnpm 10 |
 | Le cache d'une action échoue avant la première commande | L'action calcule sa clé sur un fichier de verrouillage absent |
 | Un check reste en échec sur une pull request sans job correspondant | Doublon push et pull request annulé par `concurrency` ; le check annulé ne se met plus à jour |
+| **Plus aucun job ne se déclenche sur une pull request**, alors qu'elle en déclenchait avant | La pull request est en conflit avec `main`. GitHub fait tourner les workflows `pull_request` sur la fusion théorique, qu'il ne sait pas calculer tant que le conflit dure : il n'annonce rien, il ne lance simplement plus rien. Fusionner `main` dans la branche rétablit tout |
 
 ## Écarts assumés
 
