@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest'
-import { creerBaseDeTest, ligneAttendue, type BaseDeTest } from './base-de-test'
+import { baseDisponible, creerBaseDeTest, ligneAttendue, type BaseDeTest } from './base-de-test'
 
-describe('socle de test', () => {
+describe.skipIf(!baseDisponible())('socle de test', () => {
   const basesOuvertes: BaseDeTest[] = []
 
   afterAll(async () => {

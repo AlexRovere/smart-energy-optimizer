@@ -1,13 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import postgres from 'postgres'
-import { creerBaseDeTest, ligneAttendue, type BaseDeTest } from './base-de-test'
+import { baseDisponible, creerBaseDeTest, ligneAttendue, type BaseDeTest } from './base-de-test'
 
 // Mot de passe de test, jamais un secret : le rôle vit dans un conteneur
 // jetable qui n'est joignable que par cette suite.
 const MOT_DE_PASSE = 'mot-de-passe-de-test'
 const PRIVILEGE_INSUFFISANT = '42501'
 
-describe('le rôle etl ne peut faire que ce que data.md lui accorde', () => {
+describe.skipIf(!baseDisponible())('le rôle etl ne peut faire que ce que data.md lui accorde', () => {
   let base: BaseDeTest
   let etl: postgres.Sql
 

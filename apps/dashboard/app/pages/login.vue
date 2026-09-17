@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { FormSubmitEvent } from '@nuxt/ui'
-import { loginSchema, type LoginInput } from '~~/shared/schema';
+import { loginSchema, type LoginInput } from '~~/shared/authSchema';
 
 definePageMeta({
   layout: 'blank',

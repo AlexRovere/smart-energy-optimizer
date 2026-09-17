@@ -79,6 +79,7 @@ services:
       NUXT_DATABASE_URL: postgresql://${POSTGRES_USER:-enervision}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-enervision}
       NUXT_PARQUET_DIR: /data
       NUXT_ML_SERVICE_URL: ${ML_API_URL:-http://ml:8000}
+      NUXT_MOCK_API_URL: ${MOCK_API_URL:?renseigner MOCK_API_URL dans .env}
       NUXT_SESSION_SECRET: ${NUXT_SESSION_SECRET:?renseigner NUXT_SESSION_SECRET dans .env}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
@@ -89,6 +90,7 @@ services:
       ml:
         condition: service_healthy
     restart: unless-stopped
+
 
 volumes:
   db_data:
