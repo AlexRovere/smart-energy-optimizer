@@ -3,10 +3,7 @@ import { parkSummarySchema } from '../../../shared/parkSummarySchema'
 import { fetchMockApi } from '../../utils/mockApiClient'
 
 export default defineEventHandler(async (event) => {
-  // #29 — requireUserSession(event) bloqué par l'incompatibilité de types
-  // entre nuxt-auth-utils (h3 v1) et Nuxt 4 (h3 v2).
-  // TODO: À rétablir quand le module sera mis à jour.
-  void event
+  await requireUserSession(event)
 
   let réponse: unknown
   try {
