@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { creerBaseDeTest, type BaseDeTest } from './base-de-test'
+import { baseDisponible, creerBaseDeTest, type BaseDeTest } from './base-de-test'
 import {
   clesEtrangeresDocumentees,
   clesPrimairesDocumentees,
@@ -25,7 +25,7 @@ function clefTri(valeurs: readonly string[]): string {
   return valeurs.join('|')
 }
 
-describe('le schéma appliqué correspond à docs/data.md', () => {
+describe.skipIf(!baseDisponible())('le schéma appliqué correspond à docs/data.md', () => {
   const documentees = lireTablesDocumentees()
   // Dérivées une seule fois du document : ces appels lèvent déjà si
   // l'extraction par expression régulière ne trouve plus rien, avant même

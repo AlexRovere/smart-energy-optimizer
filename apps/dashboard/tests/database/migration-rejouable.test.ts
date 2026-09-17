@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
-import { creerBaseDeTest, DOSSIER_MIGRATIONS, ligneAttendue, type BaseDeTest } from './base-de-test'
+import { baseDisponible, creerBaseDeTest, DOSSIER_MIGRATIONS, ligneAttendue, type BaseDeTest } from './base-de-test'
 
 interface EntreeJournal {
   id: number
@@ -9,7 +9,7 @@ interface EntreeJournal {
   created_at: string
 }
 
-describe('rejouabilité des migrations Drizzle', () => {
+describe.skipIf(!baseDisponible())('rejouabilité des migrations Drizzle', () => {
   let base: BaseDeTest
   let premierPassage: EntreeJournal[]
 

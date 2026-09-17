@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { creerBaseDeTest, ligneAttendue, type BaseDeTest } from './base-de-test'
+import { baseDisponible, creerBaseDeTest, ligneAttendue, type BaseDeTest } from './base-de-test'
 
 const TABLES = ['roles', 'users', 'sessions', 'sites', 'user_sites']
 
-describe('schéma appliqué', () => {
+describe.skipIf(!baseDisponible())('schéma appliqué', () => {
   let base: BaseDeTest
 
   beforeAll(async () => {
