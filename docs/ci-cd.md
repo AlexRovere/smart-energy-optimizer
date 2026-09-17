@@ -94,6 +94,19 @@ Scanner l'image plutôt que le code voit en plus les paquets du système de base
 
 Un scan dynamique de l'application déployée (OWASP ZAP ou équivalent) reste un plus, pas un attendu.
 
+### Ce que le premier scan a trouvé
+
+Le premier run bloquant a échoué sur les trois images ([run 35203374182](https://github.com/EADL-2026/enerVision/actions/runs/35203374182)). C'est ce qui a vérifié le garde-fou : il n'a pas fallu introduire un défaut, il y en avait déjà.
+
+| Image | Vulnérabilité | Origine | Traitement |
+|---|---|---|---|
+| ETL, ML | 3 CVE `CRITICAL` dans `perl-base` | Base `python:3.12-slim`, pas encore reconstruite avec le correctif publié par Debian | `apt-get upgrade` à la construction |
+| Dashboard | `CVE-2026-59873` dans `tar` 7.5.11 | Le `npm` embarqué dans `node:22-bookworm-slim`, et non nos dépendances : `pnpm-lock.yaml` résout `tar` en 7.5.22 | `npm`, `npx` et `corepack` retirés de l'image d'exécution |
+
+Aucune des deux n'est passée par `.trivyignore`. C'est l'ordre que la procédure impose : on corrige tant qu'un correctif existe, et les deux en avaient un.
+
+**Le second cas est celui qui justifie tout ce chapitre.** Le scan de fichiers de `security.yml` était vert sur ce même commit : il lit `pnpm-lock.yaml`, où `tar` est déjà en 7.5.22, et n'a aucun moyen de voir la copie que `npm` transporte dans l'image de base. Une faille critique était donc dans l'image livrable sans qu'aucun fichier du dépôt ne la mentionne. C'est exactement ce que le premier critère de #57 demandait de couvrir, démontré sans l'avoir cherché.
+
 ## Le déploiement (#107)
 
 Non implémenté à ce jour. La cible, pour que la lecture du pipeline soit complète :
@@ -163,4 +176,6 @@ Ce qui suit est connu, décidé, et non corrigé. C'est ce qui distingue une doc
 | **`ansible-lint` est commenté** | `infra/ansible/` ne contient qu'un README. Le playbook arrive avec #47 |
 | **Le scan n'est pas dans le graphe de `ci.yml`** | Il tourne sur tout push, donc plus tôt et plus souvent que s'il attendait une pull request. Le chaîner le rendrait plus tardif, pas plus sûr |
 | **L'applicatif est construit deux fois** | Une fois par `pnpm build`, une fois dans l'image. Environ deux minutes, contre un Dockerfile réellement vérifié |
+| **Les images ETL et ML mettent à jour leurs paquets à la construction** | Un `apt-get upgrade` applique les correctifs Debian sans attendre la reconstruction du tag amont. Deux images construites à deux jours d'intervalle peuvent donc différer, ce qui affaiblit la reproductibilité. Assumé : un correctif publié doit entrer le jour où il paraît |
+| **L'image du dashboard n'a plus `npm`** | Volontaire. Un conteneur d'exécution n'installe pas de paquets, et le `npm` de la base transportait une CVE critique. Conséquence à connaître : aucun `npm` ni `npx` dans ce conteneur pour diagnostiquer, `node` seul |
 | **Pas de rapport de qualité publié** | #90 le porte, en artefact de CI |
