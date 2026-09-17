@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref } from 'vue'
-import { useFleetSummary } from '../../app/composables/useFleetSummary'
+import { useFleetSummary, POLLING_INTERVAL_MS } from '../../app/composables/useFleetSummary'
 
 const { mockUseFetch } = vi.hoisted(() => {
   const mockUseFetch = vi.fn()
@@ -92,5 +92,14 @@ describe('useFleetSummary', () => {
     })
     const { pending } = useFleetSummary()
     expect(pending.value).toBe(true)
+  })
+
+  it('POLLING_INTERVAL_MS est un entier positif', () => {
+    expect(POLLING_INTERVAL_MS).toBeGreaterThan(0)
+    expect(Number.isInteger(POLLING_INTERVAL_MS)).toBe(true)
+  })
+
+  it('POLLING_INTERVAL_MS vaut 30 000 ms', () => {
+    expect(POLLING_INTERVAL_MS).toBe(30_000)
   })
 })

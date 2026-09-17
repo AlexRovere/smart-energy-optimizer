@@ -3,6 +3,14 @@ import { ref } from 'vue'
 import type { StatsSummary } from '../../app/types/api'
 import { usePredictions } from '../../app/composables/usePredictions'
 
+vi.mock('../../app/composables/useSitesList', () => ({
+  useSitesList: () => ({
+    sites: ref([]),
+    pending: ref(false),
+    error: ref(null)
+  })
+}))
+
 vi.mock('../../app/composables/useFleetSummary', () => ({
   useFleetSummary: () => ({
     summary: ref<StatsSummary>({

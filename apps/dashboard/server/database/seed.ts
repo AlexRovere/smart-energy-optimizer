@@ -40,6 +40,18 @@ export const COMPTES_DE_DEMONSTRATION = [
   { email: 'viewer@enervision.local', role: 'VIEWER' }
 ] as const
 
+// Sites de démonstration uniquement : l'ETL est la source de vérité en
+// production (#21). Ce bloc permet de tester le dashboard sans ETL.
+export const SITES_DE_DEMONSTRATION = [
+  { id: 'SITE001', name: 'Bureau Paris La Défense',  type: 'office',     location: 'Paris, France',     capacity_kw: 300,  status: 'active',      warning_threshold_kw: 240  },
+  { id: 'SITE002', name: 'Usine Lyon Vénissieux',    type: 'factory',    location: 'Lyon, France',      capacity_kw: 1000, status: 'active',      warning_threshold_kw: 720  },
+  { id: 'SITE003', name: 'Data Center Marseille',    type: 'datacenter', location: 'Marseille, France', capacity_kw: 800,  status: 'maintenance', warning_threshold_kw: null },
+  { id: 'SITE004', name: 'Entrepôt Lille Seclin',    type: 'warehouse',  location: 'Lille, France',     capacity_kw: 450,  status: 'active',      warning_threshold_kw: 300  },
+  { id: 'SITE005', name: 'Atelier Nantes Carquefou', type: 'factory',    location: 'Nantes, France',    capacity_kw: 600,  status: 'active',      warning_threshold_kw: 480  },
+  { id: 'SITE006', name: 'Bureau Bordeaux Mérignac', type: 'office',     location: 'Bordeaux, France',  capacity_kw: 280,  status: 'active',      warning_threshold_kw: null },
+  { id: 'SITE007', name: 'Laboratoire Grenoble',     type: 'lab',        location: 'Grenoble, France',  capacity_kw: 700,  status: 'active',      warning_threshold_kw: 560  },
+] as const
+
 export interface OptionsAmorcage {
   motDePasseDemonstration: string
   motDePasseEtl: string
@@ -48,6 +60,8 @@ export interface OptionsAmorcage {
 export interface ResultatAmorcage {
   rolesCrees: number
   comptesCrees: number
+  sitesCrees: number
+  accèsCrees: number
 }
 
 export async function amorcer(
@@ -83,7 +97,35 @@ export async function amorcer(
 
   await activerRoleEtl(sql, options.motDePasseEtl)
 
-  return { rolesCrees, comptesCrees }
+  let sitesCrees = 0
+  for (const site of SITES_DE_DEMONSTRATION) {
+    const inseres = await sql`
+      INSERT INTO sites (id, name, type, location, capacity_kw, status, warning_threshold_kw)
+      VALUES (${site.id}, ${site.name}, ${site.type}, ${site.location}, ${site.capacity_kw}, ${site.status}, ${site.warning_threshold_kw})
+      ON CONFLICT (id) DO NOTHING
+      RETURNING id
+    `
+    sitesCrees += inseres.length
+  }
+
+  // Tous les comptes de démonstration accèdent à tous les sites de démonstration.
+  let accèsCrees = 0
+  for (const compte of COMPTES_DE_DEMONSTRATION) {
+    for (const site of SITES_DE_DEMONSTRATION) {
+      const inseres = await sql`
+        INSERT INTO user_sites (user_id, site_id)
+        SELECT u.id, ${site.id}
+          FROM users u
+          JOIN roles r ON r.id = u.role_id
+         WHERE u.email = ${compte.email}
+        ON CONFLICT DO NOTHING
+        RETURNING user_id
+      `
+      accèsCrees += inseres.length
+    }
+  }
+
+  return { rolesCrees, comptesCrees, sitesCrees, accèsCrees }
 }
 
 // La migration 0001 crée le rôle sans LOGIN ni mot de passe. C'est ici qu'il
