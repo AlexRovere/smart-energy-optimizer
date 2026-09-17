@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { useSettings } from '~/composables/useSettings'
+import { useSettings } from '../../app/composables/useSettings'
 
 describe('useSettings', () => {
   describe('rôle actif (RBAC)', () => {

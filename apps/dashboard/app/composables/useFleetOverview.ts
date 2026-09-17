@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import type { Alert, AlertSeverity, CurrentReading, Reading, SensorHealth, SensorStatus, Site, SiteId, StatsSummary } from '../types/api'
+import type { Alert, AlertSeverity, CurrentReading, Reading, SensorHealth, SensorStatus, Site, SiteId } from '../types/api'
 import { fmtNum, fmtPct } from '../utils/format'
 import { useFleetSummary } from './useFleetSummary'
 
