@@ -269,7 +269,7 @@ Deux nommages coexistent volontairement : `.env` porte des noms neutres, la comp
 | `.env` | Conteneur | Nom dans le conteneur |
 | :--- | :--- | :--- |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | applicatif | `NUXT_DATABASE_URL`, composée |
-| `SESSION_SECRET` | applicatif | `NUXT_SESSION_SECRET` |
+| `SESSION_SECRET` | applicatif | `NUXT_SESSION_PASSWORD`, nom lu par `nuxt-auth-utils` |
 | `MOCK_API_URL` | applicatif, ETL | `NUXT_MOCK_API_URL` / `MOCK_API_URL` |
 | `PARQUET_DIR_HOST` | composition seule | sert au montage |
 | *(constante `/data`)* | applicatif, ETL, ML | `NUXT_PARQUET_DIR` / `PARQUET_DIR` |
