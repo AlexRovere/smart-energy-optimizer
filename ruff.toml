@@ -36,9 +36,23 @@ select = [
   "DTZ", # flake8-datetimez : datetime sans fuseau, voir plus bas
 ]
 
-# Aucune règle n'est désactivée globalement. Les exceptions ci-dessous sont
-# bornées à un répertoire et portent chacune son motif, parce qu'une exception
-# sans motif est indiscernable d'un oubli six mois plus tard.
+# Une seule règle est désactivée pour tout le dépôt, ci-dessous. Les autres
+# exceptions sont bornées à un répertoire. Toutes portent leur motif : une
+# exception sans motif est indiscernable d'un oubli six mois plus tard.
+ignore = [
+  # UP017 remplace `datetime.timezone.utc` par `datetime.UTC`, alias ajouté en
+  # 3.11. Les deux sont exacts et équivalents. La règle relève 64 occurrences
+  # dans l'ETL, écrites ainsi par quelqu'un qui savait ce qu'il faisait, et les
+  # réécrire ferait la moitié du diff d'une pull request de mise en place
+  # d'outil pour un gain de goût. `timezone.utc` dit d'ailleurs à la lecture ce
+  # que `UTC` laisse deviner.
+  #
+  # C'est le genre de règle qui apprend à détester les linters, et un linter
+  # détesté finit désactivé en entier. Le reste du jeu UP est conservé : il
+  # attrape de vraies tournures dépassées, pas des synonymes.
+  "UP017",
+]
+
 [lint.per-file-ignores]
 
 # DTZ001 exige un fuseau sur tout `datetime`. La règle vise le code qui écrit ou
