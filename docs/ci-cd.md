@@ -36,7 +36,7 @@ L'enchaînement est **par domaine** : lint, puis tests, puis construction de l'i
 
 | Ordre | Étape | Où | Ce qu'elle bloque | État |
 |---|---|---|---|---|
-| 1 | Lint | `eslint` (dashboard), `ruff` (ETL, ML) | Une violation de règle | En place. **Non bloquant sur l'ETL** le temps de #140 |
+| 1 | Lint | `eslint` (dashboard), `ruff` (ETL, ML) | Une violation de règle | En place, bloquant partout |
 | 1 bis | Formatage | `ruff format --check` | Un fichier Python non formaté | En place pour le Python. Différé côté TypeScript |
 | 2 | Types | `dashboard` : `vue-tsc` | Une erreur de typage | En place |
 | 3 | Tests | `dashboard` : `vitest` | Un test rouge | En place pour l'applicatif, #51 pour le reste |
@@ -57,7 +57,7 @@ Un jeu de règles par langage, versionné, et le pipeline échoue sur une violat
 
 | Langage | Outil | Configuration | Bloquant |
 |---|---|---|---|
-| Python | `ruff` 0.16.8 | [`ruff.toml`](../ruff.toml), à la racine, commun aux deux applications | Oui pour `apps/ml`, **non pour `apps/etl`** |
+| Python | `ruff` 0.16.8 | [`ruff.toml`](../ruff.toml), à la racine, commun aux deux applications | Oui |
 | TypeScript, Vue | `eslint` via `@nuxt/eslint` | [`apps/dashboard/eslint.config.ts`](../apps/dashboard/eslint.config.ts) | Oui |
 
 La version de `ruff` est épinglée dans le workflow. Son jeu de règles par défaut change d'une version à l'autre : une CI qui devient rouge parce qu'un outil s'est mis à jour tout seul n'apprend rien à personne, elle apprend à être désactivée.
@@ -66,9 +66,15 @@ La version de `ruff` est épinglée dans le workflow. Son jeu de règles par dé
 
 ### Les règles désactivées, et pourquoi
 
-`ruff.toml` ne désactive **aucune** règle globalement. Une seule exception existe, bornée aux répertoires de tests : `DTZ001`, qui exige un fuseau sur tout `datetime`.
+Trois exceptions existent, et trois seulement. Chacune porte son motif dans `ruff.toml`, à l'endroit où elle est posée.
 
-La règle vise le code qui écrit ou compare des horodatages réels, où un décalage passe inaperçu jusqu'au changement d'heure. Un jeu d'essai est autre chose : `datetime(2025, 1, 1, 12)` dans un test dit « midi », pas « midi à Paris ». Elle reste active sur tout le code qui tourne, l'ETL compris, qui écrit les horodatages que le modèle relit.
+| Règle | Portée | Motif résumé |
+|---|---|---|
+| `DTZ001` | Répertoires de tests | Exige un fuseau sur tout `datetime`. Vise le code qui compare des horodatages réels, où un décalage passe inaperçu jusqu'au changement d'heure. `datetime(2025, 1, 1, 12)` dans un test dit « midi », pas « midi à Paris ». Reste active sur tout le code qui tourne, l'ETL compris |
+| `UP017` | Tout le dépôt | Remplace `datetime.timezone.utc` par `datetime.UTC`. Les deux sont exacts. 64 occurrences à réécrire pour un synonyme, soit la moitié du diff d'une mise en place d'outil. C'est le genre de règle qui fait détester les linters, et un linter détesté finit désactivé en entier |
+| `N812` | Deux lignes, par `noqa` | `psycopg2` expose son type de connexion en minuscules. L'aliaser en `Connection` est la forme conventionnelle pour l'annotation |
+
+Le reste du jeu `UP` est conservé : il attrape de vraies tournures dépassées, pas des synonymes.
 
 Le motif est écrit dans `ruff.toml` à côté de l'exception, pas ici : une règle désactivée se lit là où elle l'est.
 
@@ -214,7 +220,6 @@ Ce qui suit est connu, décidé, et non corrigé. C'est ce qui distingue une doc
 | **`ansible-lint` est commenté** | `infra/ansible/` ne contient qu'un README. Le playbook arrive avec #47 |
 | **Le scan n'est pas dans le graphe de `ci.yml`** | Il tourne sur tout push, donc plus tôt et plus souvent que s'il attendait une pull request. Le chaîner le rendrait plus tardif, pas plus sûr |
 | **L'applicatif est construit deux fois** | Une fois par `pnpm build`, une fois dans l'image. Environ deux minutes, contre un Dockerfile réellement vérifié |
-| **Le lint de l'ETL n'est pas bloquant** | #140 réécrit ses seize fichiers Python. Rendre le lint bloquant avant sa fusion ferait partir cette pull request au rouge sur du code jamais linté. Les 16 violations restent visibles dans le rapport. `continue-on-error` à retirer dès que #140 est fusionnée et son code passé par `ruff check --fix` |
 | **Le formatage TypeScript n'est pas automatisé** | Les règles stylistiques de `@nuxt/eslint` reformateraient tout le dashboard, en collision avec les branches en cours dessus. Pull request dédiée quand elles auront atterri |
 | **Le notebook d'exploration n'est pas linté** | `apps/ml/notebooks` est exclu. Un notebook garde des cellules dans le désordre et des variables d'essai, qui sont la trace du raisonnement. Le code qui en sort est repris dans `apps/ml/src`, lui bien linté |
 | **Les images ETL et ML mettent à jour leurs paquets à la construction** | Un `apt-get upgrade` applique les correctifs Debian sans attendre la reconstruction du tag amont. Deux images construites à deux jours d'intervalle peuvent donc différer, ce qui affaiblit la reproductibilité. Assumé : un correctif publié doit entrer le jour où il paraît |

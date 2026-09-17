@@ -70,20 +70,15 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with: { enable-cache: true, cache-dependency-glob: apps/etl/uv.lock }
 
-      # continue-on-error, et c'est temporaire : #140 réécrit les seize fichiers
-      # Python de l'ETL. Rendre le lint bloquant maintenant ferait partir cette
-      # pull request au rouge sur du code qui n'a jamais été linté, ce qui est
-      # une façon de prendre en otage le travail d'un autre. Le rapport, lui,
-      # remonte bien les 16 violations : elles sont visibles, pas silencieuses.
+      # Bloquant, comme le service ML. #140 est fusionnée et son code est passé
+      # dans cette même PR par `ruff check --fix`, `ruff format`, puis dix-neuf
+      # corrections à la main. Les 103 tests de l'ETL passent après.
       #
-      # TODO : retirer les deux continue-on-error dès que #140 est fusionnée et
-      # son code passé par `ruff check --fix` et `ruff format`.
+      # Voir le job ml pour le motif de l'épinglage de version.
       - name: Lint (ruff)
-        continue-on-error: true
         run: uvx ruff@0.16.8 check apps/etl --output-format github
 
       - name: Formatage (ruff)
-        continue-on-error: true
         run: uvx ruff@0.16.8 format --check apps/etl
 
       - name: Rapport qualité
