@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
   try {
     réponse = await fetchMockApi('/api/v1/stats/summary')
   } catch (erreur) {
-    throw createError({ status: 503, statusText: 'Source de données indisponible' })
+    throw createError({ status: 503, statusText: 'Source de données indisponible', cause: erreur })
   }
 
   const parse = parkSummarySchema.safeParse(réponse)

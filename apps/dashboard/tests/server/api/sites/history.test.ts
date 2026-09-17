@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { H3Event } from 'h3'
+import handler from '../../../../server/api/sites/[id]/history.get'
 
 const { mockQuerySiteHistory, mockGetQuery, mockGetRouterParam } = vi.hoisted(() => {
   const mockQuerySiteHistory = vi.fn()
@@ -21,7 +22,6 @@ vi.mock('h3', async (importOriginal) => {
   }
 })
 
-import handler from '../../../../server/api/sites/[id]/history.get'
 
 const mockEvent = {} as H3Event
 

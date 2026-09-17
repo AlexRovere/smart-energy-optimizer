@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import handler from '../../../../server/api/stats/summary.get'
+import { createError } from 'h3'
 
 const { mockFetchMockApi } = vi.hoisted(() => {
   const mockFetchMockApi = vi.fn()
@@ -9,8 +11,6 @@ vi.mock('../../../../server/utils/mockApiClient', () => ({
   fetchMockApi: mockFetchMockApi
 }))
 
-import handler from '../../../../server/api/stats/summary.get'
-import { createError } from 'h3'
 
 const summaryValide = {
   timestamp: '2026-09-16T14:32:00Z',

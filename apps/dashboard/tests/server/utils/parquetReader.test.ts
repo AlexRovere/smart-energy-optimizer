@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { querySiteHistory } from '../../../server/utils/parquetReader'
 
 // vi.hoisted garantit que ces variables sont initialisées avant le hissage de vi.mock
 const { mockRun, mockPrepare, mockConnect, mockCreate } = vi.hoisted(() => {
@@ -13,7 +14,6 @@ vi.mock('@duckdb/node-api', () => ({
   DuckDBInstance: { create: mockCreate }
 }))
 
-import { querySiteHistory } from '../../../server/utils/parquetReader'
 
 const mesureFixture = {
   timestamp: new Date('2026-09-16T14:00:00Z'),
