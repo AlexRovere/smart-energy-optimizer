@@ -63,6 +63,23 @@ describe('authentification', async () => {
     expect(reponse.status).toBe(401)
   })
 
+  it('renvoie un visiteur sans session vers la page de connexion', async () => {
+    const reponse = await fetch('/')
+
+    expect(reponse.url).toContain('/login')
+    expect(await reponse.text()).toContain('Accès au portail EnerVision')
+  })
+
+  it('laisse entrer le porteur d\'une session valide', async () => {
+    const connexion = await seConnecter(EMAIL, MOT_DE_PASSE)
+    const cookie = cookieDe(connexion)
+
+    const reponse = await fetch('/', { headers: { cookie } })
+
+    expect(reponse.url).not.toContain('/login')
+    expect(reponse.status).toBe(200)
+  })
+
   it('refuse une entrée qui ne respecte pas le contrat', async () => {
     const reponse = await seConnecter('pas-une-adresse', 'court')
 
