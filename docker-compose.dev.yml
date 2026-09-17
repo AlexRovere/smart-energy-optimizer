@@ -1,0 +1,38 @@
+# Boucle de développement locale : la base seule, Nuxt restant sur le poste pour
+# garder le rechargement à chaud. Ce n'est pas un artefact de déploiement, d'où
+# des valeurs par défaut là où docker-compose.yml porte des `${VAR:?}`.
+#
+# Passer par `pnpm dev:db`, jamais par ce fichier à la main : les scripts posent
+# `--env-file ../../.env.dev`, sans quoi Compose charge le `.env` de la racine,
+# celui de la production.
+#
+# Sans `name:`, les deux compositions partagent le projet `enervision-mvp`, donc
+# le préfixe des volumes.
+name: enervision-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: enervision-db-dev
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-enervision}
+      POSTGRES_USER: ${POSTGRES_USER:-enervision}
+      # Un défaut et non un `:?` : ce mot de passe n'ouvre qu'une base liée à la
+      # boucle locale. La valeur qui fait foi est celle de `.env.dev`.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-enervision-dev-local}
+    # Port distinct de la production, pour que les deux coexistent sur un poste.
+    ports:
+      - "127.0.0.1:${DEV_DB_PORT:-55432}:5432"
+    volumes:
+      - db_data_dev:/var/lib/postgresql/data
+    # Intervalle serré, là où la production interroge toutes les dix secondes :
+    # c'est ce healthcheck qu'attend `up -d --wait`, plusieurs fois par jour.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-enervision}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+volumes:
+  db_data_dev:

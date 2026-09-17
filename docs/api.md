@@ -281,7 +281,9 @@ Deux nommages coexistent volontairement : `.env` porte des noms neutres, la comp
 | `MOCK_API_URL` | applicatif, ETL | `NUXT_MOCK_API_URL` / `MOCK_API_URL` |
 | `PARQUET_DIR_HOST` | composition seule | sert au montage |
 | *(constante `/data`)* | applicatif, ETL, ML | `NUXT_PARQUET_DIR` / `PARQUET_DIR` |
-| `ML_API_URL` | applicatif | `NUXT_ML_API_URL` |
+| `ML_API_URL` | applicatif | `NUXT_ML_SERVICE_URL`, la clé `mlServiceUrl` du `runtimeConfig` |
 | `LOG_LEVEL` | tous | `NUXT_LOG_LEVEL` / `LOG_LEVEL` |
+
+**Hors composition**, personne ne traduit : l'applicatif lit directement les noms `NUXT_`. La boucle de développement les pose donc tels quels dans `.env.dev`, versionné parce qu'il ne contient aucun secret (voir le README et [`secrets.md`](./secrets.md)).
 
 Aucun secret en clair dans un fichier versionné : SOPS et age.

@@ -4,7 +4,12 @@
   "private": true,
   "scripts": {
     "build": "nuxt build",
-    "dev": "nuxt dev",
+    "dev": "nuxt dev --dotenv=../../.env.dev",
+    "dev:db": "docker compose --env-file ../../.env.dev -f ../../docker-compose.dev.yml up -d --wait && drizzle-kit migrate --config drizzle.dev.config.ts && tsx --env-file=../../.env.dev server/database/seed.cli.ts",
+    "dev:db:migrate": "drizzle-kit migrate --config drizzle.dev.config.ts",
+    "dev:db:seed": "tsx --env-file=../../.env.dev server/database/seed.cli.ts",
+    "dev:db:stop": "docker compose --env-file ../../.env.dev -f ../../docker-compose.dev.yml down",
+    "dev:db:reset": "docker compose --env-file ../../.env.dev -f ../../docker-compose.dev.yml down --volumes",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",

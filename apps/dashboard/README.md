@@ -83,12 +83,38 @@ Le script d'amorçage idempotent crée les **trois rôles** et **un compte de d�
 Il n'amorce **aucun site** : le référentiel appartient à l'ETL, et les attributs des sept sites ne
 sont pas connus du dépôt. Voir [`docs/data.md`](../../docs/data.md).
 
+### Démarrage
+
+```bash
+pnpm install
+pnpm dev:db     # la base, les migrations, l'amorçage
+pnpm dev        # http://localhost:3000
+```
+
+Aucun fichier à copier, aucune variable à renseigner : la boucle locale lit
+[`.env.dev`](../../.env.dev), versionné parce qu'il ne contient aucun secret.
+Connexion avec `admin@enervision.local` et le `SEED_PASSWORD` qui s'y trouve.
+
+Depuis la racine du dépôt, préfixer par `pnpm --dir apps/dashboard`. Si `pnpm`
+n'est pas sur le `PATH`, `corepack pnpm@10.11.0` fait le même travail avec la
+version qu'épingle la CI.
+
+Ce que `pnpm dev:db` lance : **un seul conteneur**, `enervision-db-dev`, sur
+`127.0.0.1:55432`, décrit par [`docker-compose.dev.yml`](../../docker-compose.dev.yml).
+Ni ETL, ni ML, ni Parquet, et un port distinct de la composition de production
+pour que les deux puissent coexister.
+
 ### Commandes
 
 | Commande | Effet |
 |---|---|
+| `pnpm dev:db` | Démarre la base, attend qu'elle réponde, migre et amorce. Rejouable |
+| `pnpm dev:db:migrate` | Les seules migrations, après une modification du schéma |
+| `pnpm dev:db:seed` | Le seul amorçage |
+| `pnpm dev:db:stop` | Arrête la base et libère le port. Les données restent |
+| `pnpm dev:db:reset` | Arrête et **jette le volume**. Base vide au passage suivant |
 | `pnpm db:generate` | Génère une migration depuis `server/database/schema.ts`. À commiter |
-| `pnpm db:migrate` | Applique les migrations en attente. Rejouable |
+| `pnpm db:migrate` | Applique les migrations en attente, sur la base décrite par `.env`. Rejouable |
 | `pnpm db:seed` | Trois rôles, trois comptes de démonstration, et active le rôle `etl` |
 | `pnpm lint` | ESLint sur l'applicatif |
 | `pnpm typecheck` | Contrôle des types par `vue-tsc -b --noEmit` sur les quatre projets du `tsconfig` de Nuxt : `app`, `server`, `shared`, `node` |
@@ -99,8 +125,13 @@ Les tests démarrent eux-mêmes un conteneur `postgres:16-alpine` jetable, par
 Testcontainers : il n'y a ni base de test à créer à la main, ni composition à
 lancer au préalable. La première exécution tire l'image, les suivantes non.
 
-Les variables attendues sont dans [`.env.example`](../../.env.example) :
-`NUXT_DATABASE_URL`, `ETL_DB_PASSWORD` et `SEED_PASSWORD`.
+**Deux fichiers de valeurs, deux usages.** [`.env.dev`](../../.env.dev) sert la
+boucle locale : versionné, sans secret, lu par `pnpm dev` et par les commandes
+`dev:db`. [`.env.example`](../../.env.example) décrit celles de la composition,
+à copier en `.env` et à renseigner ; ce sont `pnpm db:migrate` et `pnpm db:seed`
+qui lisent ce dernier. **Aucune variable n'est commune aux deux**, pour qu'une
+commande qui se trompe de contexte échoue au lieu de réussir sur la mauvaise
+base. Les tests, eux, n'ont besoin ni de l'un ni de l'autre.
 
 ## Mots de passe : Argon2id
 
