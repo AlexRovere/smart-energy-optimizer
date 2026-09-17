@@ -210,7 +210,7 @@ Ce qui suit est connu, décidé, et non corrigé. C'est ce qui distingue une doc
 | **Un `HIGH` dans une image ne bloque pas** | Seule une `CRITICAL` bloque, là où le scan de code bloque dès `HIGH`. Les paquets de la base Debian ne se corrigent pas à notre rythme. Ils restent affichés dans le log du job |
 | **Pas de cache de dépendances côté Python** | `actions/setup-python` calcule sa clé sur `requirements.txt`, que le projet n'a pas : l'ETL et le ML sont sous `uv` avec un `uv.lock`. Le cache viendra avec `astral-sh/setup-uv`, quand ces jobs feront autre chose qu'un `echo`. Le cache `pnpm`, lui, est actif |
 | **Pas de seuil de couverture bloquant** | Retiré le 16 septembre 2026 (#51). Sur dix jours, un seuil non tenu est une CI rouge qui empêche de fusionner : un coût sans contrepartie |
-| **Les jobs `etl` et `ml` ne font rien** | L'étape existe pour ne pas avoir à l'insérer après coup, ce qui coûte plus cher que de la prévoir. Les règles arrivent avec #90, les tests avec #51 |
+| **Les jobs `etl` et `ml` ne lancent pas de tests** | Ils lintent et formatent depuis #90, mais leur étape de tests reste un `echo`. Elle arrive avec #51 |
 | **`ansible-lint` est commenté** | `infra/ansible/` ne contient qu'un README. Le playbook arrive avec #47 |
 | **Le scan n'est pas dans le graphe de `ci.yml`** | Il tourne sur tout push, donc plus tôt et plus souvent que s'il attendait une pull request. Le chaîner le rendrait plus tardif, pas plus sûr |
 | **L'applicatif est construit deux fois** | Une fois par `pnpm build`, une fois dans l'image. Environ deux minutes, contre un Dockerfile réellement vérifié |
@@ -219,4 +219,3 @@ Ce qui suit est connu, décidé, et non corrigé. C'est ce qui distingue une doc
 | **Le notebook d'exploration n'est pas linté** | `apps/ml/notebooks` est exclu. Un notebook garde des cellules dans le désordre et des variables d'essai, qui sont la trace du raisonnement. Le code qui en sort est repris dans `apps/ml/src`, lui bien linté |
 | **Les images ETL et ML mettent à jour leurs paquets à la construction** | Un `apt-get upgrade` applique les correctifs Debian sans attendre la reconstruction du tag amont. Deux images construites à deux jours d'intervalle peuvent donc différer, ce qui affaiblit la reproductibilité. Assumé : un correctif publié doit entrer le jour où il paraît |
 | **L'image du dashboard n'a plus `npm`** | Volontaire. Un conteneur d'exécution n'installe pas de paquets, et le `npm` de la base transportait une CVE critique. Conséquence à connaître : aucun `npm` ni `npx` dans ce conteneur pour diagnostiquer, `node` seul |
-| **Pas de rapport de qualité publié** | #90 le porte, en artefact de CI |
