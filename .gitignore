@@ -34,6 +34,9 @@ keys.txt
 
 # Données et modèles : trop volumineux, pas versionnables
 data/
+# ``apps/ml/src/data`` contains Python source code, not generated datasets.
+!apps/ml/src/data/
+!apps/ml/src/data/**
 mlruns/
 *.pkl
 *.joblib
@@ -50,5 +53,7 @@ docs/superpowers/
 .vscode/
 .claude
 .hidden
+
+.kilo/
 
 .claude/

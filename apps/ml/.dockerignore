@@ -8,3 +8,13 @@ __pycache__
 mlruns
 .pytest_cache
 .ruff_cache
+
+.venv/
+dist/
+notebooks/
+tests/
+datas/
+artifacts/
+**/__pycache__/
+*.pyc
+*.cbm
