@@ -1,6 +1,5 @@
-﻿import pandas as pd
+import pandas as pd
 import pytest
-
 from data import read_history, read_recent_history, read_training_history
 
 
@@ -30,12 +29,12 @@ def make_rows(site_id: str, timestamps: pd.DatetimeIndex) -> pd.DataFrame:
 def test_read_history_combines_parquet_files_and_forward_fills(tmp_path):
     directory = tmp_path / "history"
     directory.mkdir()
-    make_rows(
-        "SITE001", pd.date_range("2025-01-01", periods=1, freq="h")
-    ).assign(consumption_kwh=10.0).to_parquet(directory / "part-1.parquet")
-    make_rows(
-        "SITE001", pd.date_range("2025-01-01 01:00", periods=1, freq="h")
-    ).assign(consumption_kwh=None).to_parquet(directory / "part-2.parquet")
+    make_rows("SITE001", pd.date_range("2025-01-01", periods=1, freq="h")).assign(
+        consumption_kwh=10.0
+    ).to_parquet(directory / "part-1.parquet")
+    make_rows("SITE001", pd.date_range("2025-01-01 01:00", periods=1, freq="h")).assign(
+        consumption_kwh=None
+    ).to_parquet(directory / "part-2.parquet")
 
     history = read_history(directory)
 
@@ -46,9 +45,7 @@ def test_read_history_combines_parquet_files_and_forward_fills(tmp_path):
 
 def test_read_history_accepts_current_csv_format(tmp_path):
     path = tmp_path / "history.csv"
-    make_rows(
-        "SITE001", pd.date_range("2025-01-01", periods=1, freq="h")
-    ).to_csv(path, index=False)
+    make_rows("SITE001", pd.date_range("2025-01-01", periods=1, freq="h")).to_csv(path, index=False)
 
     history = read_history(path)
 
@@ -59,12 +56,8 @@ def test_read_history_accepts_current_csv_format(tmp_path):
 def test_recent_history_reads_only_requested_site_and_hours(tmp_path):
     directory = tmp_path / "history"
     directory.mkdir()
-    site_one = make_rows(
-        "SITE001", pd.date_range("2025-01-01", periods=200, freq="h")
-    )
-    site_two = make_rows(
-        "SITE002", pd.date_range("2025-01-01", periods=200, freq="h")
-    )
+    site_one = make_rows("SITE001", pd.date_range("2025-01-01", periods=200, freq="h"))
+    site_two = make_rows("SITE002", pd.date_range("2025-01-01", periods=200, freq="h"))
     site_one.iloc[:100].to_parquet(directory / "part-1.parquet")
     site_one.iloc[100:].to_parquet(directory / "part-2.parquet")
     site_two.to_parquet(directory / "part-3.parquet")
@@ -91,9 +84,7 @@ def test_training_history_keeps_only_latest_two_years(tmp_path):
 
 def test_single_parquet_file_is_rejected(tmp_path):
     path = tmp_path / "history.parquet"
-    make_rows(
-        "SITE001", pd.date_range("2025-01-01", periods=1, freq="h")
-    ).to_parquet(path)
+    make_rows("SITE001", pd.date_range("2025-01-01", periods=1, freq="h")).to_parquet(path)
 
     with pytest.raises(FileNotFoundError, match="CSV file or Parquet directory"):
         read_history(path)
