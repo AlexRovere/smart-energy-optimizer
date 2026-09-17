@@ -1,15 +1,15 @@
 import { createError } from 'h3'
 import { z } from 'zod'
 import { energyReadingSchema } from '../../../../shared/energyReadingSchema'
+import { exigerCompte } from '../../../utils/garde'
 import { fetchMockApi } from '../../../utils/mockApiClient'
 
 const siteIdSchema = z.string().regex(/^SITE\d{3}$/)
 
 export default defineEventHandler(async (event) => {
-  // #29 — requireUserSession(event) bloqué par l'incompatibilité de types
-  // entre nuxt-auth-utils (h3 v1) et Nuxt 4 (h3 v2). 
-  // TODO: À rétablir quand le module sera mis à jour.
-  void event
+  // La garde vient AVANT la validation de l'identifiant : un anonyme n'a pas à
+  // apprendre, par un 422, quelles formes d'identifiant existent.
+  await exigerCompte(event)
 
   const id = getRouterParam(event, 'id')
   const parsed = siteIdSchema.safeParse(id)

@@ -25,6 +25,9 @@ beforeAll(async () => {
   base = await creerBaseDeTest()
   process.env.NUXT_DATABASE_URL = base.url
   process.env.NUXT_SESSION_PASSWORD = 'mot-de-passe-de-test-de-trente-deux-signes'
+  // Une source qui refuse la connexion tout de suite : la route de #20 doit
+  // échouer vite et de façon prévisible, pas dépendre d'un réseau.
+  process.env.NUXT_MOCK_API_URL = 'http://127.0.0.1:1'
 
   const empreinte = await hash(MOT_DE_PASSE, PARAMETRES_ARGON2ID)
   await base.sql`INSERT INTO roles (name) VALUES ('ADMIN')`
@@ -78,6 +81,19 @@ describe('authentification', async () => {
 
     expect(reponse.url).not.toContain('/login')
     expect(reponse.status).toBe(200)
+  })
+
+  it('protège aussi les routes de données, pas seulement celles de session', async () => {
+    // #20 a livré cette route sans garde, en attendant #29. Sans session elle
+    // répond 401 ; avec, elle atteint sa source, injoignable ici, donc 503.
+    const anonyme = await fetch('/api/sites/SITE001/current')
+    expect(anonyme.status).toBe(401)
+
+    const connexion = await seConnecter(EMAIL, MOT_DE_PASSE)
+    const authentifie = await fetch('/api/sites/SITE001/current', {
+      headers: { cookie: cookieDe(connexion) }
+    })
+    expect(authentifie.status).not.toBe(401)
   })
 
   it('refuse une entrée qui ne respecte pas le contrat', async () => {

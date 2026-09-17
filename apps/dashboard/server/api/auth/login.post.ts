@@ -1,6 +1,6 @@
 import { verify } from '@node-rs/argon2'
 import { and, eq } from 'drizzle-orm'
-import { loginSchema } from '../../../shared/schema'
+import { loginSchema } from '../../../shared/authSchema'
 import { db } from '../../database'
 import * as schema from '../../database/schema'
 import { clesDeTentative, limiteurConnexion } from '../../utils/limiteTentatives'
