@@ -10,9 +10,11 @@ const siteSummaryItemSchema = z.object({
 })
 
 export const parkSummarySchema = z.object({
-  timestamp: z.string().datetime(),
+  // L'API peut renvoyer un datetime local sans fuseau (ex : "2026-09-17T12:21:39.091922")
+  timestamp: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/, 'Format datetime attendu'),
   total_sites: z.number().int(),
-  excluded_sites: z.array(z.string()),
+  // Absent de la réponse quand tous les sites sont actifs
+  excluded_sites: z.array(z.string()).default([]),
   total_consumption_kw: z.number().nullable(),
   total_capacity_kw: z.number(),
   average_load_percent: z.number().nullable(),
