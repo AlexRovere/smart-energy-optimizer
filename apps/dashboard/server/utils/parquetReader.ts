@@ -28,7 +28,7 @@ export async function querySiteHistory(
   const sql = `
     SELECT
       timestamp, site_id, site_type,
-      consumption_kw, consumption_kw_raw, consumption_kwh,
+      consumption_kw, consumption_kw_corrected, consumption_kwh,
       voltage_v, current_a, power_factor,
       temperature_celsius, humidity_percent,
       null_reasons, data_quality
@@ -43,15 +43,20 @@ export async function querySiteHistory(
   const instance = await DuckDBInstance.create(':memory:')
   const connexion = await instance.connect()
   const déclaration = await connexion.prepare(sql)
-  const résultat = await déclaration.run()
+  const résultat = await déclaration.runAndReadAll()
 
   const mesures: EnergyReading[] = []
-  for await (const ligne of résultat) {
-    const parse = energyReadingSchema.safeParse(normaliserLigne(ligne as unknown as Record<string, unknown>))
+  for (const ligne of résultat.getRowObjectsJS()) {
+    const parse = energyReadingSchema.safeParse(normaliserLigne(ligne as Record<string, unknown>))
     if (parse.success) {
       mesures.push(parse.data)
     }
-    // Une ligne invalide est ignorée silencieusement plutôt que de casser toute la réponse
+    else {
+      console.warn(
+        `[parquetReader] ligne rejetée site_id=${(ligne as Record<string, unknown>).site_id} timestamp=${(ligne as Record<string, unknown>).timestamp} :`,
+        parse.error.issues
+      )
+    }
   }
   return mesures
 }

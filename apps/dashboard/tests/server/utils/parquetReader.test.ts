@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { querySiteHistory } from '../../../server/utils/parquetReader'
 
 // vi.hoisted garantit que ces variables sont initialisées avant le hissage de vi.mock
-const { mockRun, mockPrepare, mockConnect, mockCreate } = vi.hoisted(() => {
-  const mockRun = vi.fn()
-  const mockPrepare = vi.fn().mockResolvedValue({ run: mockRun })
+const { mockRunAndReadAll, mockPrepare, mockConnect, mockCreate } = vi.hoisted(() => {
+  const mockRunAndReadAll = vi.fn()
+  const mockPrepare = vi.fn().mockResolvedValue({ runAndReadAll: mockRunAndReadAll })
   const mockConnect = vi.fn().mockResolvedValue({ prepare: mockPrepare })
   const mockCreate = vi.fn().mockResolvedValue({ connect: mockConnect })
-  return { mockRun, mockPrepare, mockConnect, mockCreate }
+  return { mockRunAndReadAll, mockPrepare, mockConnect, mockCreate }
 })
 
 vi.mock('@duckdb/node-api', () => ({
@@ -20,7 +20,6 @@ const mesureFixture = {
   site_id: 'SITE001',
   site_type: 'office',
   consumption_kw: 87.34,
-  consumption_kw_raw: null,
   consumption_kwh: null,
   voltage_v: null,
   current_a: null,
@@ -32,11 +31,7 @@ const mesureFixture = {
 }
 
 function mockResultReader(rows: Record<string, unknown>[]) {
-  return {
-    [Symbol.asyncIterator]: async function* () {
-      for (const row of rows) yield row
-    }
-  }
+  return { getRowObjectsJS: () => rows }
 }
 
 describe('querySiteHistory', () => {
@@ -45,8 +40,8 @@ describe('querySiteHistory', () => {
   beforeEach(() => {
     process.env.NUXT_PARQUET_DIR = '/data/parquet'
     vi.clearAllMocks()
-    mockRun.mockResolvedValue(mockResultReader([mesureFixture]))
-    mockPrepare.mockResolvedValue({ run: mockRun })
+    mockRunAndReadAll.mockResolvedValue(mockResultReader([mesureFixture]))
+    mockPrepare.mockResolvedValue({ runAndReadAll: mockRunAndReadAll })
     mockConnect.mockResolvedValue({ prepare: mockPrepare })
     mockCreate.mockResolvedValue({ connect: mockConnect })
   })
@@ -62,7 +57,7 @@ describe('querySiteHistory', () => {
   })
 
   it('retourne un tableau vide si aucune mesure sur la période', async () => {
-    mockRun.mockResolvedValue(mockResultReader([]))
+    mockRunAndReadAll.mockResolvedValue(mockResultReader([]))
     const résultat = await querySiteHistory('SITE001', '2026-09-16T00:00:00Z', '2026-09-17T00:00:00Z', 500)
     expect(résultat).toEqual([])
   })
@@ -75,7 +70,7 @@ describe('querySiteHistory', () => {
   })
 
   it('propage l\'erreur DuckDB si la requête échoue', async () => {
-    mockRun.mockRejectedValue(new Error('DuckDB: fichier introuvable'))
+    mockRunAndReadAll.mockRejectedValue(new Error('DuckDB: fichier introuvable'))
     await expect(
       querySiteHistory('SITE001', '2026-09-16T00:00:00Z', '2026-09-17T00:00:00Z', 500)
     ).rejects.toThrow('DuckDB: fichier introuvable')
@@ -91,5 +86,18 @@ describe('querySiteHistory', () => {
     await querySiteHistory('SITE001', '2026-09-16T00:00:00Z', '2026-09-17T00:00:00Z', 42)
     const sql: string = mockPrepare.mock.calls[0]![0] as string
     expect(sql).toContain('LIMIT 42')
+  })
+
+  it('émet un avertissement quand une ligne est rejetée par le schéma', async () => {
+    const ligneInvalide = { ...mesureFixture, data_quality: 'inconnue' }
+    mockRunAndReadAll.mockResolvedValue(mockResultReader([ligneInvalide]))
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const résultat = await querySiteHistory('SITE001', '2026-09-16T00:00:00Z', '2026-09-17T00:00:00Z', 500)
+
+    expect(résultat).toHaveLength(0)
+    expect(warnSpy).toHaveBeenCalledOnce()
+    expect(warnSpy.mock.calls[0]![0]).toContain('SITE001')
+    warnSpy.mockRestore()
   })
 })
