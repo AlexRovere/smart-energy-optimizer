@@ -12,6 +12,7 @@ dependencies = [
     "ipywidgets>=8.1.9",
     "jupyterlab>=4.6.3",
     "matplotlib>=3.11.2",
+    "mlflow>=2.22.0",
     "pandas>=3.0.5",
     "plotly>=7.0.0",
     "prophet>=1.4.0",
