@@ -5,6 +5,7 @@ from typing import Annotated
 from catboost import CatBoostRegressor
 from fastapi import Depends, FastAPI, HTTPException
 from pydantic import Field
+import mlflow
 
 from api.schemas import PredictionRequest, PredictionResponse, TrainingResponse
 from data import read_recent_history
@@ -16,6 +17,10 @@ from training import train_model
 DEFAULT_DATA_PATH = "datas/all_sites_combined.csv"
 DEFAULT_MODEL_PATH = "artifacts/catboost_model.cbm"
 DEFAULT_SITE_CONFIG_PATH = "config/sites.json"
+
+mlflow.set_tracking_uri(
+    os.getenv("MLFLOW_TRACKING_URI", "sqlite:///artifacts/mlflow.db")
+)
 
 
 def get_data_path() -> str:
