@@ -46,15 +46,13 @@ def _make_csv(tmp_path: Path) -> Path:
 
 def test_training_uses_notebook_configuration(tmp_path, monkeypatch):
     data_path = _make_csv(tmp_path)
-    model_path = tmp_path / "artifacts" / "model.cbm"
     monkeypatch.setattr("training.train.CatBoostRegressor", FakeCatBoost)
     monkeypatch.setattr("mlflow.catboost.log_model", lambda *a, **kw: None)
     monkeypatch.setattr("mlflow.register_model", lambda *a, **kw: type("R", (), {"version": "1"})())
-    fake_client = type("C", (), {"set_registered_model_alias": lambda *a, **kw: None})()
-    monkeypatch.setattr("mlflow.MlflowClient", lambda: fake_client)
+    monkeypatch.setattr("mlflow.MlflowClient.set_registered_model_alias", lambda *a, **kw: None)
     mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
 
-    result = train_model(data_path, model_path)
+    result = train_model(data_path)
     model = FakeCatBoost.last_instance
 
     assert model.parameters["iterations"] == 1000
@@ -68,10 +66,9 @@ def test_training_uses_notebook_configuration(tmp_path, monkeypatch):
 
 def test_training_creates_a_mlflow_run(tmp_path):
     data_path = _make_csv(tmp_path)
-    model_path = tmp_path / "artifacts" / "model.cbm"
     mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
 
-    train_model(data_path, model_path)
+    train_model(data_path)
 
     runs = mlflow.search_runs(experiment_names=[MLFLOW_EXPERIMENT])
     assert len(runs) == 1
@@ -79,10 +76,9 @@ def test_training_creates_a_mlflow_run(tmp_path):
 
 def test_training_logs_hyperparameters(tmp_path):
     data_path = _make_csv(tmp_path)
-    model_path = tmp_path / "artifacts" / "model.cbm"
     mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
 
-    train_model(data_path, model_path)
+    train_model(data_path)
 
     runs = mlflow.search_runs(experiment_names=[MLFLOW_EXPERIMENT])
     run = runs.iloc[0]
@@ -94,10 +90,9 @@ def test_training_logs_hyperparameters(tmp_path):
 
 def test_training_logue_la_fenetre_temporelle(tmp_path):
     data_path = _make_csv(tmp_path)
-    model_path = tmp_path / "artifacts" / "model.cbm"
     mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
 
-    train_model(data_path, model_path)
+    train_model(data_path)
 
     runs = mlflow.search_runs(experiment_names=[MLFLOW_EXPERIMENT])
     run = runs.iloc[0]
@@ -107,10 +102,9 @@ def test_training_logue_la_fenetre_temporelle(tmp_path):
 
 def test_training_registre_le_modele_dans_mlflow(tmp_path):
     data_path = _make_csv(tmp_path)
-    model_path = tmp_path / "artifacts" / "model.cbm"
     mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
 
-    result = train_model(data_path, model_path)
+    result = train_model(data_path)
 
     client = mlflow.MlflowClient()
     versions = client.search_model_versions(f"name='{MLFLOW_MODEL_NAME}'")
@@ -120,10 +114,9 @@ def test_training_registre_le_modele_dans_mlflow(tmp_path):
 
 def test_training_pose_lalias_champion(tmp_path):
     data_path = _make_csv(tmp_path)
-    model_path = tmp_path / "artifacts" / "model.cbm"
     mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
 
-    train_model(data_path, model_path)
+    train_model(data_path)
 
     client = mlflow.MlflowClient()
     version = client.get_model_version_by_alias(MLFLOW_MODEL_NAME, "champion")

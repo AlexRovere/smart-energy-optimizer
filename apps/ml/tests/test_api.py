@@ -84,8 +84,8 @@ def test_predictions_endpoint_rejects_more_than_168_requests(monkeypatch):
 def test_training_endpoint_returns_training_summary(monkeypatch):
     monkeypatch.setattr(
         "api.main.train_model",
-        lambda data_path, model_path: TrainingResult(
-            model_path=model_path,
+        lambda data_path: TrainingResult(
+            model_version=1,
             training_rows=100,
             sites=2,
             training_start="2023-01-08T00:00:00",
@@ -99,7 +99,7 @@ def test_training_endpoint_returns_training_summary(monkeypatch):
     assert response.status_code == 200
     assert response.json()["training_rows"] == 100
     assert response.json()["sites"] == 2
-    assert response.json()["model_path"] == "artifacts/catboost_model.cbm"
+    assert response.json()["model_version"] == 1
 
 
 def test_predictions_reload_history_but_reuse_model_and_schedules(monkeypatch):
