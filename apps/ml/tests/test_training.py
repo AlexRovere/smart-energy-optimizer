@@ -1,7 +1,6 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 import pandas as pd
-
 from features import FEATURE_COLUMNS
 from training.train import CATEGORICAL_FEATURES, train_model
 

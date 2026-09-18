@@ -1,4 +1,5 @@
-# appelé par le handler Extract : lit l'historique des mesures par site (GET /api/v1/readings), un point par heure
+# appelé par le handler Extract : lit l'historique des mesures par site (GET /api/v1/readings), un
+# point par heure
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -107,7 +108,9 @@ def fetch_readings(
     pages: list[pd.DataFrame] = []
     for window_start, window_end in windows:
         limit = hourly_reading_limit(window_start, window_end)
-        pages.append(fetch_readings_window(base_url, site_id, window_start, window_end, limit=limit))
+        pages.append(
+            fetch_readings_window(base_url, site_id, window_start, window_end, limit=limit)
+        )
         if on_window is not None:
             on_window()
 

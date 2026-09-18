@@ -4,7 +4,6 @@ from pathlib import Path
 import duckdb
 import pandas as pd
 
-
 # Weather columns are intentionally absent: the notebook showed that they did
 # not improve validation results, so the final CatBoost model does not use them.
 REQUIRED_COLUMNS = [
@@ -87,9 +86,7 @@ def read_recent_history(
 
     history = _prepare_history(data)
     return (
-        history.groupby("site_id", sort=False, group_keys=False)
-        .tail(hours)
-        .reset_index(drop=True)
+        history.groupby("site_id", sort=False, group_keys=False).tail(hours).reset_index(drop=True)
     )
 
 
@@ -100,9 +97,7 @@ def read_history(path: str | Path) -> pd.DataFrame:
 
 def _find_parquet_files(directory: Path) -> list[Path]:
     if not directory.is_dir():
-        raise FileNotFoundError(
-            f"Expected a CSV file or Parquet directory: {directory}"
-        )
+        raise FileNotFoundError(f"Expected a CSV file or Parquet directory: {directory}")
 
     files = sorted(
         file
@@ -118,13 +113,9 @@ def _parquet_source(files: Sequence[Path]) -> str:
     # File paths cannot be SQL parameters inside read_parquet. Escaping quotes
     # keeps paths valid even when a directory name contains an apostrophe.
     quoted_files = ", ".join(
-        "'" + file.resolve().as_posix().replace("'", "''") + "'"
-        for file in files
+        "'" + file.resolve().as_posix().replace("'", "''") + "'" for file in files
     )
-    return (
-        f"read_parquet([{quoted_files}], "
-        "hive_partitioning = true, union_by_name = true)"
-    )
+    return f"read_parquet([{quoted_files}], hive_partitioning = true, union_by_name = true)"
 
 
 def _prepare_history(data: pd.DataFrame) -> pd.DataFrame:
@@ -142,7 +133,7 @@ def _prepare_history(data: pd.DataFrame) -> pd.DataFrame:
     if history.duplicated(["site_id", "timestamp"]).any():
         raise ValueError("A site cannot have two rows for the same timestamp")
 
-    history["consumption_kwh_corrected"] = history.groupby(
-        "site_id", sort=False
-    )["consumption_kwh"].ffill()
+    history["consumption_kwh_corrected"] = history.groupby("site_id", sort=False)[
+        "consumption_kwh"
+    ].ffill()
     return history

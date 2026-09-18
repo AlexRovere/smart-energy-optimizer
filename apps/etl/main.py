@@ -6,7 +6,6 @@ import math
 from datetime import date, datetime, timedelta, timezone
 
 import pandas as pd
-
 from env_loader import load_root_env
 from extract.handler import fetch_readings, fetch_sites
 from extract.readings import plan_fetch_windows, resolve_time_range
@@ -187,7 +186,8 @@ def build_parser() -> argparse.ArgumentParser:
     hour_parser = subparsers.add_parser(
         "hour",
         help="Extract, transform and load the readings history for the last 60 minutes "
-        "up to now (suited for an hourly cron, keeps the datalake current for the predictive model)",
+        "up to now (suited for an hourly cron, keeps the datalake current for the "
+        "predictive model)",
     )
     hour_parser.add_argument(
         "--verbose",
@@ -213,11 +213,15 @@ def main() -> None:
             start_time=args.start_time, end_time=args.end_time, verbose=args.verbose
         )
         if args.verbose:
-            print(f"{len(result['parquet_files'])} Parquet file(s) written for the readings history")
+            print(
+                f"{len(result['parquet_files'])} Parquet file(s) written for the readings history"
+            )
     elif args.command == "hour":
         result = run_hour(verbose=args.verbose)
         if args.verbose:
-            print(f"{len(result['parquet_files'])} Parquet file(s) written for the readings history")
+            print(
+                f"{len(result['parquet_files'])} Parquet file(s) written for the readings history"
+            )
 
 
 if __name__ == "__main__":

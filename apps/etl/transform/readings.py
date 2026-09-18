@@ -1,4 +1,5 @@
-# point d'entrée Transform pour l'historique des mesures : alignement horaire, clone {colonne}_corrected, règles de nettoyage à venir
+# point d'entrée Transform pour l'historique des mesures : alignement horaire, clone
+# {colonne}_corrected, règles de nettoyage à venir
 from __future__ import annotations
 
 import pandas as pd
@@ -48,9 +49,7 @@ def add_consumption_lags(readings: pd.DataFrame) -> pd.DataFrame:
         history = group.set_index("timestamp")["consumption_kwh_corrected"].sort_index()
         for hours in LAG_HOURS:
             lookup_times = pd.DatetimeIndex(group["timestamp"] - pd.Timedelta(hours=hours))
-            lagged = history.reindex(
-                lookup_times, method="nearest", tolerance=LAG_MATCH_TOLERANCE
-            )
+            lagged = history.reindex(lookup_times, method="nearest", tolerance=LAG_MATCH_TOLERANCE)
             readings.loc[group.index, f"consumption_lag_{hours}h"] = lagged.to_numpy()
 
     return readings

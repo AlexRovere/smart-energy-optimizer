@@ -1,4 +1,5 @@
-# appelé par le handler Extract : requête HTTP GET générique vers l'API Mock, avec retry sur les pannes transitoires
+# appelé par le handler Extract : requête HTTP GET générique vers l'API Mock, avec retry sur les
+# pannes transitoires
 from __future__ import annotations
 
 import time

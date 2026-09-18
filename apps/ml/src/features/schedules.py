@@ -1,8 +1,7 @@
-﻿import json
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-
 
 SiteSchedules = dict[str, dict[str, Any]]
 
@@ -33,9 +32,8 @@ def _validate_schedule(site_id: str, schedule: Any) -> None:
     working_days = schedule.get("working_days")
     start_hour = schedule.get("start_hour")
     end_hour = schedule.get("end_hour_inclusive")
-    valid_days = (
-        isinstance(working_days, list)
-        and all(isinstance(day, int) and 0 <= day <= 6 for day in working_days)
+    valid_days = isinstance(working_days, list) and all(
+        isinstance(day, int) and 0 <= day <= 6 for day in working_days
     )
     valid_hours = (
         isinstance(start_hour, int)
@@ -46,9 +44,7 @@ def _validate_schedule(site_id: str, schedule: Any) -> None:
         raise ValueError(f"Invalid working-hours configuration for site: {site_id}")
 
 
-def is_working_hour(
-    site_id: str, timestamp: datetime, schedules: SiteSchedules
-) -> int:
+def is_working_hour(site_id: str, timestamp: datetime, schedules: SiteSchedules) -> int:
     """Return the configured working-hours flag for one future timestamp."""
     schedule = schedules.get(site_id)
     if schedule is None:
@@ -59,7 +55,5 @@ def is_working_hour(
 
     return int(
         timestamp.weekday() in schedule["working_days"]
-        and schedule["start_hour"]
-        <= timestamp.hour
-        <= schedule["end_hour_inclusive"]
+        and schedule["start_hour"] <= timestamp.hour <= schedule["end_hour_inclusive"]
     )

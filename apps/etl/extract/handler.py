@@ -1,4 +1,5 @@
-# point d'entrée Extract : lit le référentiel des sites et l'historique des mesures depuis l'API Mock
+# point d'entrée Extract : lit le référentiel des sites et l'historique des mesures depuis l'API
+# Mock
 from __future__ import annotations
 
 from collections.abc import Callable

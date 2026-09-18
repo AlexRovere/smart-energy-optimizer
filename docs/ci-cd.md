@@ -36,7 +36,8 @@ L'enchaînement est **par domaine** : lint, puis tests, puis construction de l'i
 
 | Ordre | Étape | Où | Ce qu'elle bloque | État |
 |---|---|---|---|---|
-| 1 | Lint | `dashboard` : `eslint` | Une violation de règle | En place pour l'applicatif, vide pour l'ETL et le ML (#90) |
+| 1 | Lint | `eslint` (dashboard), `ruff` (ETL, ML) | Une violation de règle | En place, bloquant partout |
+| 1 bis | Formatage | `ruff format --check` | Un fichier Python non formaté | En place pour le Python. Différé côté TypeScript |
 | 2 | Types | `dashboard` : `vue-tsc` | Une erreur de typage | En place |
 | 3 | Tests | `dashboard` : `vitest` | Un test rouge | En place pour l'applicatif, #51 pour le reste |
 | 4 | Composition | `infra` : `docker compose config` | Un `docker-compose.yml` invalide | En place |
@@ -49,6 +50,48 @@ L'ordre du ticket #50 plaçait la construction des images avant les tests. Elle 
 `nuxt.config.ts` pose `typeCheck: false`, donc ni `nuxt build` ni `eslint` ne regardent les types. L'étape 2 est la seule à le faire ; la retirer ferait une CI qui couvre moins qu'elle n'en a l'air.
 
 Les tests de l'applicatif démarrent eux-mêmes un conteneur `postgres:16-alpine` par Testcontainers. Le démon Docker du runner suffit, aucun service n'est déclaré dans le workflow.
+
+## Les linters et le rapport qualité
+
+Un jeu de règles par langage, versionné, et le pipeline échoue sur une violation.
+
+| Langage | Outil | Configuration | Bloquant |
+|---|---|---|---|
+| Python | `ruff` 0.16.8 | [`ruff.toml`](../ruff.toml), à la racine, commun aux deux applications | Oui |
+| TypeScript, Vue | `eslint` via `@nuxt/eslint` | [`apps/dashboard/eslint.config.ts`](../apps/dashboard/eslint.config.ts) | Oui |
+
+La version de `ruff` est épinglée dans le workflow. Son jeu de règles par défaut change d'une version à l'autre : une CI qui devient rouge parce qu'un outil s'est mis à jour tout seul n'apprend rien à personne, elle apprend à être désactivée.
+
+`--output-format github` annote les lignes fautives directement dans l'onglet « Files changed » de la pull request, plutôt que d'obliger à ouvrir le log pour savoir où regarder.
+
+### Les règles désactivées, et pourquoi
+
+Trois exceptions existent, et trois seulement. Chacune porte son motif dans `ruff.toml`, à l'endroit où elle est posée.
+
+| Règle | Portée | Motif résumé |
+|---|---|---|
+| `DTZ001` | Répertoires de tests | Exige un fuseau sur tout `datetime`. Vise le code qui compare des horodatages réels, où un décalage passe inaperçu jusqu'au changement d'heure. `datetime(2025, 1, 1, 12)` dans un test dit « midi », pas « midi à Paris ». Reste active sur tout le code qui tourne, l'ETL compris |
+| `UP017` | Tout le dépôt | Remplace `datetime.timezone.utc` par `datetime.UTC`. Les deux sont exacts. 64 occurrences à réécrire pour un synonyme, soit la moitié du diff d'une mise en place d'outil. C'est le genre de règle qui fait détester les linters, et un linter détesté finit désactivé en entier |
+| `N812` | Deux lignes, par `noqa` | `psycopg2` expose son type de connexion en minuscules. L'aliaser en `Connection` est la forme conventionnelle pour l'annotation |
+
+Le reste du jeu `UP` est conservé : il attrape de vraies tournures dépassées, pas des synonymes.
+
+Le motif est écrit dans `ruff.toml` à côté de l'exception, pas ici : une règle désactivée se lit là où elle l'est.
+
+### Le formatage
+
+`ruff format` pour le Python, vérifié en CI par `ruff format --check`. Sur un poste, `ruff format apps/ml apps/etl` avant de commiter suffit ; le lint et le formatage ne se discutent pas en revue.
+
+**Côté TypeScript, le formatage n'est pas encore automatisé.** Activer les règles stylistiques de `@nuxt/eslint` reformaterait l'ensemble du dashboard, ce qui entrerait en collision avec les branches en cours sur ce répertoire. À faire dans une pull request dédiée, quand elles auront atterri.
+
+### Le rapport
+
+Chaque job de lint produit deux choses, dont aucune ne demande de relancer le pipeline :
+
+- un **résumé lisible sur la page du run**, écrit dans `$GITHUB_STEP_SUMMARY`, avec le décompte par règle ;
+- un **artefact** `rapport-qualite-<domaine>` contenant la sortie JSON, téléchargeable et exploitable.
+
+Les deux sont produits en `if: always()`, donc surtout quand le lint a échoué, qui est précisément le moment où on a besoin de les lire.
 
 ## Les images sont construites, jamais publiées
 
@@ -173,10 +216,11 @@ Ce qui suit est connu, décidé, et non corrigé. C'est ce qui distingue une doc
 | **Un `HIGH` dans une image ne bloque pas** | Seule une `CRITICAL` bloque, là où le scan de code bloque dès `HIGH`. Les paquets de la base Debian ne se corrigent pas à notre rythme. Ils restent affichés dans le log du job |
 | **Pas de cache de dépendances côté Python** | `actions/setup-python` calcule sa clé sur `requirements.txt`, que le projet n'a pas : l'ETL et le ML sont sous `uv` avec un `uv.lock`. Le cache viendra avec `astral-sh/setup-uv`, quand ces jobs feront autre chose qu'un `echo`. Le cache `pnpm`, lui, est actif |
 | **Pas de seuil de couverture bloquant** | Retiré le 16 septembre 2026 (#51). Sur dix jours, un seuil non tenu est une CI rouge qui empêche de fusionner : un coût sans contrepartie |
-| **Les jobs `etl` et `ml` ne font rien** | L'étape existe pour ne pas avoir à l'insérer après coup, ce qui coûte plus cher que de la prévoir. Les règles arrivent avec #90, les tests avec #51 |
+| **Les jobs `etl` et `ml` ne lancent pas de tests** | Ils lintent et formatent depuis #90, mais leur étape de tests reste un `echo`. Elle arrive avec #51 |
 | **`ansible-lint` est commenté** | `infra/ansible/` ne contient qu'un README. Le playbook arrive avec #47 |
 | **Le scan n'est pas dans le graphe de `ci.yml`** | Il tourne sur tout push, donc plus tôt et plus souvent que s'il attendait une pull request. Le chaîner le rendrait plus tardif, pas plus sûr |
 | **L'applicatif est construit deux fois** | Une fois par `pnpm build`, une fois dans l'image. Environ deux minutes, contre un Dockerfile réellement vérifié |
+| **Le formatage TypeScript n'est pas automatisé** | Les règles stylistiques de `@nuxt/eslint` reformateraient tout le dashboard, en collision avec les branches en cours dessus. Pull request dédiée quand elles auront atterri |
+| **Le notebook d'exploration n'est pas linté** | `apps/ml/notebooks` est exclu. Un notebook garde des cellules dans le désordre et des variables d'essai, qui sont la trace du raisonnement. Le code qui en sort est repris dans `apps/ml/src`, lui bien linté |
 | **Les images ETL et ML mettent à jour leurs paquets à la construction** | Un `apt-get upgrade` applique les correctifs Debian sans attendre la reconstruction du tag amont. Deux images construites à deux jours d'intervalle peuvent donc différer, ce qui affaiblit la reproductibilité. Assumé : un correctif publié doit entrer le jour où il paraît |
 | **L'image du dashboard n'a plus `npm`** | Volontaire. Un conteneur d'exécution n'installe pas de paquets, et le `npm` de la base transportait une CVE critique. Conséquence à connaître : aucun `npm` ni `npx` dans ce conteneur pour diagnostiquer, `node` seul |
-| **Pas de rapport de qualité publié** | #90 le porte, en artefact de CI |

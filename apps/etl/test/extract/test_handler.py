@@ -1,9 +1,9 @@
-# teste le point d'entrée Extract : référentiel des sites et historique des mesures en DataFrame pandas
+# teste le point d'entrée Extract : référentiel des sites et historique des mesures en DataFrame
+# pandas
 from datetime import datetime, timezone
 from unittest.mock import patch
 
 import pandas as pd
-
 from extract.handler import fetch_readings, fetch_sites
 
 SAMPLE_SITES = [
