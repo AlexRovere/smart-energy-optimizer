@@ -1,6 +1,7 @@
 ﻿from datetime import datetime
 
 import pandas as pd
+import pytest
 from fastapi.testclient import TestClient
 
 import api.main as api_main
@@ -35,11 +36,35 @@ def make_history() -> pd.DataFrame:
 
 
 def set_prediction_dependencies(monkeypatch) -> None:
+    monkeypatch.setenv("PARQUET_DIR", "/data")
     app.dependency_overrides[get_prediction_model] = ConstantModel
     app.dependency_overrides[get_site_schedules] = lambda: SCHEDULES
     monkeypatch.setattr(
         api_main, "read_recent_history", lambda path, site_ids: make_history()
     )
+
+
+def test_get_data_path_reads_parquet_dir_env_var(monkeypatch):
+    monkeypatch.setenv("PARQUET_DIR", "/data")
+
+    assert api_main.get_data_path() == "/data"
+
+
+def test_get_data_path_requires_the_env_var(monkeypatch):
+    monkeypatch.delenv("PARQUET_DIR", raising=False)
+
+    with pytest.raises(RuntimeError, match="PARQUET_DIR is not set"):
+        api_main.get_data_path()
+
+
+def test_run_loads_the_root_env_before_starting_uvicorn(monkeypatch):
+    calls = []
+    monkeypatch.setattr(api_main, "load_root_env", lambda: calls.append("env"))
+    monkeypatch.setattr("uvicorn.run", lambda *args, **kwargs: calls.append("uvicorn"))
+
+    api_main.run()
+
+    assert calls == ["env", "uvicorn"]
 
 
 def test_predictions_endpoint_accepts_and_returns_a_list(monkeypatch):
@@ -82,6 +107,7 @@ def test_predictions_endpoint_rejects_more_than_168_requests(monkeypatch):
 
 
 def test_training_endpoint_returns_training_summary(monkeypatch):
+    monkeypatch.setenv("PARQUET_DIR", "/data")
     monkeypatch.setattr(
         "api.main.train_model",
         lambda data_path, model_path: TrainingResult(
@@ -103,6 +129,7 @@ def test_training_endpoint_returns_training_summary(monkeypatch):
 
 
 def test_predictions_reload_history_but_reuse_model_and_schedules(monkeypatch):
+    monkeypatch.setenv("PARQUET_DIR", "/data")
     calls = {"model": 0, "history": 0, "schedules": 0}
 
     def fake_load_model(path):

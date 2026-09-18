@@ -8,18 +8,21 @@ from pydantic import Field
 
 from api.schemas import PredictionRequest, PredictionResponse, TrainingResponse
 from data import read_recent_history
+from env_loader import load_root_env
 from features import SiteSchedules, load_site_schedules
 from models import PredictionService, PredictionTarget, load_model
 from training import train_model
 
 
-DEFAULT_DATA_PATH = "datas/all_sites_combined.csv"
 DEFAULT_MODEL_PATH = "artifacts/catboost_model.cbm"
 DEFAULT_SITE_CONFIG_PATH = "config/sites.json"
 
 
 def get_data_path() -> str:
-    return os.getenv("ML_DATA_PATH", DEFAULT_DATA_PATH)
+    data_path = os.getenv("PARQUET_DIR")
+    if not data_path:
+        raise RuntimeError("PARQUET_DIR is not set")
+    return data_path
 
 
 def get_model_path() -> str:
@@ -113,4 +116,5 @@ def run() -> None:
     """Run the development server through the ``ml-api`` command."""
     import uvicorn
 
+    load_root_env()
     uvicorn.run("api.main:app", host="0.0.0.0", port=8000)
