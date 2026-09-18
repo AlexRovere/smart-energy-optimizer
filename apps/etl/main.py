@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import sys
 from datetime import date, datetime, timedelta, timezone
 
 import pandas as pd
@@ -17,6 +18,7 @@ from load.handler import (
     load_sites_to_db,
 )
 from progress import ProgressReporter
+from run_log import RunLogger
 from transform.handler import dedupe_sites, transform_sites
 from transform.readings import LAG_HOURS, ROLLING_WINDOWS_HOURS, transform_readings
 
@@ -26,13 +28,22 @@ CONTEXT_DAYS = math.ceil(max(LAG_HOURS + ROLLING_WINDOWS_HOURS) / 24)
 
 
 def run_sites(sync_db: bool = False) -> dict[str, object]:
-    raw = fetch_sites()
-    transformed = transform_sites(raw)
-    result: dict[str, object] = {"parquet_file": load_sites(transformed)}
+    with RunLogger("sites") as logger:
+        with logger.phase("extract") as phase:
+            raw = fetch_sites()
+            phase.rows(len(raw))
 
-    if sync_db:
-        deduped = dedupe_sites(transformed)
-        result["db_inserted"] = load_sites_to_db(deduped)
+        with logger.phase("transform") as phase:
+            transformed = transform_sites(raw)
+            phase.rows(len(transformed))
+
+        with logger.phase("load") as phase:
+            result: dict[str, object] = {"parquet_file": load_sites(transformed)}
+            phase.rows(len(transformed))
+
+            if sync_db:
+                deduped = dedupe_sites(transformed)
+                result["db_inserted"] = load_sites_to_db(deduped)
 
     return result
 
@@ -42,55 +53,72 @@ def run_periods(
     end_time: datetime | None = None,
     verbose: bool = False,
     skip_coverage_check: bool = False,
+    command: str = "periods",
 ) -> dict[str, object]:
     reporter = ProgressReporter(enabled=verbose)
     reporter.start()
 
-    sites = fetch_sites()
-    site_ids = sites["site_id"].tolist() if not sites.empty else []
-    # site par site : chaque site peut avoir une couverture differente sur le disque. Avec
-    # skip_coverage_check, la fenetre demandee est toujours refetchee (cas du jour en cours,
-    # deja partiellement couvert par un run horaire precedent)
-    already_covered_days = (
-        {site_id: set() for site_id in site_ids}
-        if skip_coverage_check
-        else {site_id: get_existing_days(site_id) for site_id in site_ids}
-    )
+    with RunLogger(command) as logger:
+        with logger.phase("extract") as phase:
+            sites = fetch_sites()
+            site_ids = sites["site_id"].tolist() if not sites.empty else []
+            # site par site : chaque site peut avoir une couverture differente sur le disque. Avec
+            # skip_coverage_check, la fenetre demandee est toujours refetchee (cas du jour en cours,
+            # deja partiellement couvert par un run horaire precedent)
+            already_covered_days = (
+                {site_id: set() for site_id in site_ids}
+                if skip_coverage_check
+                else {site_id: get_existing_days(site_id) for site_id in site_ids}
+            )
 
-    resolved_start, resolved_end = resolve_time_range(start_time, end_time)
-    fetch_plans = {
-        site_id: plan_fetch_windows(resolved_start, resolved_end, already_covered_days[site_id])
-        for site_id in site_ids
-    }
+            resolved_start, resolved_end = resolve_time_range(start_time, end_time)
+            # declaree avant l'appel reseau : si l'extraction casse, la ligne d'erreur porte
+            # quand meme la fenetre qui etait demandee
+            phase.requested(resolved_start, resolved_end)
+            fetch_plans = {
+                site_id: plan_fetch_windows(
+                    resolved_start, resolved_end, already_covered_days[site_id]
+                )
+                for site_id in site_ids
+            }
 
-    if verbose:
-        total_windows = sum(len(windows) for windows in fetch_plans.values())
-        reporter.set_extract_total(total_windows)
-        # meme estimation pour le load : un fichier par (site, jour) reellement extrait, a
-        # l'exces eventuel pres si les bornes ne tombent pas exactement sur des jours calendaires
-        reporter.set_load_total(total_windows)
+            if verbose:
+                total_windows = sum(len(windows) for windows in fetch_plans.values())
+                reporter.set_extract_total(total_windows)
+                # meme estimation pour le load : un fichier par (site, jour) reellement extrait,
+                # a l'exces eventuel pres si les bornes ne tombent pas exactement sur des jours
+                # calendaires
+                reporter.set_load_total(total_windows)
 
-    reporter.set_step("extract")
-    raw = fetch_readings(
-        start_time=start_time,
-        end_time=end_time,
-        on_window=reporter.tick_extract,
-        already_covered_days=already_covered_days,
-    )
+            reporter.set_step("extract")
+            raw = fetch_readings(
+                start_time=start_time,
+                end_time=end_time,
+                on_window=reporter.tick_extract,
+                already_covered_days=already_covered_days,
+            )
+            phase.measure(raw, site_ids=site_ids)
 
-    reporter.set_step("transform")
-    context = _read_context(fetch_plans)
-    combined = pd.concat([context, raw], ignore_index=True) if not context.empty else raw
-    transformed_all = transform_readings(combined)
-    new_days_by_site = {
-        site_id: {window[0].date() for window in windows}
-        for site_id, windows in fetch_plans.items()
-    }
-    transformed = _keep_newly_fetched_days(transformed_all, new_days_by_site)
-    reporter.finish_transform()
+        reporter.set_step("transform")
+        with logger.phase("transform") as phase:
+            context = _read_context(fetch_plans)
+            combined = pd.concat([context, raw], ignore_index=True) if not context.empty else raw
+            transformed_all = transform_readings(combined)
+            new_days_by_site = {
+                site_id: {window[0].date() for window in windows}
+                for site_id, windows in fetch_plans.items()
+            }
+            transformed = _keep_newly_fetched_days(transformed_all, new_days_by_site)
+            phase.measure(transformed, site_ids=site_ids)
+        reporter.finish_transform()
 
-    reporter.set_step("load")
-    parquet_files = load_readings(transformed, on_file_written=reporter.tick_load)
+        reporter.set_step("load")
+        with logger.phase("load") as phase:
+            parquet_files = load_readings(transformed, on_file_written=reporter.tick_load)
+            # les lignes soumises a l'ecriture, et le nombre de partitions reellement ecrites :
+            # l'ecrivain fusionne avec l'existant, il ne rend pas un decompte de lignes
+            phase.measure(transformed, site_ids=site_ids)
+            phase.files(len(parquet_files))
 
     reporter.finish()
     return {"parquet_files": parquet_files}
@@ -103,6 +131,7 @@ def run_hour(now: datetime | None = None, verbose: bool = False) -> dict[str, ob
         end_time=now,
         verbose=verbose,
         skip_coverage_check=True,
+        command="hour",
     )
 
 
@@ -179,8 +208,8 @@ def build_parser() -> argparse.ArgumentParser:
     periods_parser.add_argument(
         "--verbose",
         action="store_true",
-        help="Show a live progress display (current step, percentage, elapsed/remaining time). "
-        "Without it, the command produces no output at all (suited for cron)",
+        help="Show a live progress display on stderr (current step, percentage, "
+        "elapsed/remaining time). The JSON run journal goes to stdout either way",
     )
 
     hour_parser = subparsers.add_parser(
@@ -192,8 +221,8 @@ def build_parser() -> argparse.ArgumentParser:
     hour_parser.add_argument(
         "--verbose",
         action="store_true",
-        help="Show a live progress display (current step, percentage, elapsed/remaining time). "
-        "Without it, the command produces no output at all (suited for cron)",
+        help="Show a live progress display on stderr (current step, percentage, "
+        "elapsed/remaining time). The JSON run journal goes to stdout either way",
     )
 
     return parser
@@ -203,24 +232,28 @@ def main() -> None:
     load_root_env()
     args = build_parser().parse_args()
 
+    # les phrases pour l'humain sortent sur stderr : stdout ne porte que le journal JSON, sinon
+    # une redirection vers un fichier melange les deux et jq s'arrete a la premiere phrase
     if args.command == "sites":
         result = run_sites(sync_db=args.sync_db)
-        print(f"Sites reference data written to {result['parquet_file']}")
+        print(f"Sites reference data written to {result['parquet_file']}", file=sys.stderr)
         if args.sync_db:
-            print(f"{result['db_inserted']} new site(s) added to PostgreSQL")
+            print(f"{result['db_inserted']} new site(s) added to PostgreSQL", file=sys.stderr)
     elif args.command == "periods":
         result = run_periods(
             start_time=args.start_time, end_time=args.end_time, verbose=args.verbose
         )
         if args.verbose:
             print(
-                f"{len(result['parquet_files'])} Parquet file(s) written for the readings history"
+                f"{len(result['parquet_files'])} Parquet file(s) written for the readings history",
+                file=sys.stderr,
             )
     elif args.command == "hour":
         result = run_hour(verbose=args.verbose)
         if args.verbose:
             print(
-                f"{len(result['parquet_files'])} Parquet file(s) written for the readings history"
+                f"{len(result['parquet_files'])} Parquet file(s) written for the readings history",
+                file=sys.stderr,
             )
 
 
