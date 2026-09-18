@@ -62,6 +62,10 @@ def train_model(data_path: str | Path, model_path: str | Path) -> TrainingResult
         destination = Path(model_path)
         destination.parent.mkdir(parents=True, exist_ok=True)
         model.save_model(str(destination))
+        mlflow.log_params({
+            "training_start": training_data["timestamp"].min().isoFormat(),
+            "training_end": training_data["timestamp"].max().isoFormat(),
+        })
         mlflow.log_metric("training_rows", len(training_data))
         mlflow.log_artifact(str(destination))
 
