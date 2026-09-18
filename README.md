@@ -17,14 +17,73 @@ Monorepo. La structure du dépôt n'est pas l'architecture de déploiement : les
 | `.github/workflows/` | Pipeline build, test, scan, deploy                                       | `domain:cicd`                |
 | `docs/`              | Livrables et documentation technique                                     | `domain:doc`                 |
 | `docker-compose.yml` | La pile complète, à la racine pour un `docker compose up` direct         | `domain:cloud`               |
+| `docker-compose.dev.yml` | Le seul PostgreSQL, pour la boucle de développement locale           | `domain:cloud`               |
 
 ## Démarrage
+
+Deux façons de lancer le projet, qui ne servent pas la même chose et ne partagent
+aucun fichier de valeurs.
+
+### Développer
+
+Un PostgreSQL dans Docker, l'applicatif sur le poste avec rechargement à chaud.
+Prérequis : Docker et Node 22 ou plus. `pnpm` passe par corepack, il n'a pas à
+être installé.
+
+```bash
+corepack pnpm@10.11.0 --dir apps/dashboard install
+corepack pnpm@10.11.0 --dir apps/dashboard dev:db   # base, migrations, amorçage
+corepack pnpm@10.11.0 --dir apps/dashboard dev      # http://localhost:3000
+```
+
+**Rien à copier, rien à renseigner** : les valeurs de la boucle locale vivent
+dans [`.env.dev`](./.env.dev), versionné parce qu'il ne contient aucun secret.
+Depuis `apps/dashboard/`, les mêmes commandes s'écrivent `pnpm install`,
+`pnpm dev:db`, `pnpm dev`.
+
+La connexion se fait avec `admin@enervision.local` et le `SEED_PASSWORD` de
+`.env.dev`. Deux autres comptes existent, `operator@` et `viewer@`.
+
+`pnpm dev:db` est rejouable : un second passage ne casse rien.
+`pnpm dev:db:stop` arrête la base et libère le port, `pnpm dev:db:reset` jette
+en plus le volume et rend une base vide au passage suivant.
+
+La version longue des commandes est dans le [README du
+dashboard](./apps/dashboard/README.md).
+
+### Déployer
+
+La pile complète, qui construit ses images et exige toutes ses variables. Rien
+ne démarre sur une valeur oubliée, c'est voulu.
 
 ```bash
 cp .env.example .env      # renseigner les valeurs
 docker compose up -d      # la pile complète
 docker compose ps
 ```
+
+**La même pile sur son poste, sans écrire un seul secret dans un fichier** :
+`sops exec-env` les fournit, et le `.env` ne garde que la section RÉGLAGES.
+
+```bash
+cp .env.example .env      # ne renseigner que les RÉGLAGES
+sops exec-env secrets.enc.yaml 'docker compose up -d'
+```
+
+L'environnement prime sur le `.env`, donc les valeurs déchiffrées l'emportent
+sur ce que le fichier contiendrait. C'est aussi, mot pour mot, la commande du
+déploiement. Elle demande d'être destinataire des secrets :
+[`docs/secrets.md`](./docs/secrets.md).
+
+Cette pile et celle de développement cohabitent sans se gêner : ni le même port,
+ni le même nom de projet Docker.
+
+Deux choses à savoir avant d'essayer. Si un PostgreSQL est déjà installé en
+service sur le poste, il tient 5432 et le lancement échoue sur `ports are not
+available` : poser `POSTGRES_PORT=15432` dans le `.env` suffit. Et aucun port
+n'est publié devant le dashboard, c'est le rôle du proxy de #39 : lancer la pile
+ici prouve qu'elle se construit et démarre, pas qu'on peut la parcourir au
+navigateur. Pour ça, la boucle de développement plus haut.
 
 Chaque application a son propre README avec ses prérequis.
 
