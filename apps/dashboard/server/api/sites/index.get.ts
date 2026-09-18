@@ -6,7 +6,7 @@ import { querySitesList } from '../../utils/sitesRepository'
 
 export default defineEventHandler(async (event) => {
   const account = await requireAccount(event)
-  const permittedIds = await allowedSites(db, account.id)
+  const permittedIds = await allowedSites(db, account)
 
   try {
     return await querySitesList(db, permittedIds)
