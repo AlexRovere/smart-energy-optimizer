@@ -53,7 +53,7 @@ describe('GET /api/sites', () => {
     const résultat = await handler(mockEvent)
 
     expect(résultat).toEqual([siteFixture])
-    expect(mockAllowedSites).toHaveBeenCalledWith({}, 'user-uuid')
+    expect(mockAllowedSites).toHaveBeenCalledWith({}, compteFixture)
     expect(mockQuerySitesList).toHaveBeenCalledWith({}, ['SITE001'])
   })
 
