@@ -6,9 +6,7 @@ from load.db import get_connection
 
 @patch("load.db.psycopg2.connect")
 @patch("load.db.get_postgres_connection_params")
-def test_get_connection_opens_connection_with_configured_params(
-    mock_get_params, mock_connect
-):
+def test_get_connection_opens_connection_with_configured_params(mock_get_params, mock_connect):
     mock_get_params.return_value = {
         "host": "localhost",
         "port": "5432",

@@ -3,6 +3,7 @@ from functools import lru_cache
 from typing import Annotated
 
 from catboost import CatBoostRegressor
+from data import read_recent_history
 from fastapi import Depends, FastAPI, HTTPException
 from pydantic import Field
 import mlflow
@@ -13,6 +14,7 @@ from features import SiteSchedules, load_site_schedules
 from models import PredictionService, PredictionTarget, load_model
 from training import train_model, MLFLOW_MODEL_NAME
 
+from api.schemas import PredictionRequest, PredictionResponse, TrainingResponse
 
 DEFAULT_DATA_PATH = "datas/all_sites_combined.csv"
 DEFAULT_MODEL_PATH = "artifacts/catboost_model.cbm"
@@ -45,7 +47,6 @@ def get_prediction_model() -> CatBoostRegressor:
 @lru_cache(maxsize=1)
 def get_site_schedules() -> SiteSchedules:
     return load_site_schedules(get_site_config_path())
-
 
 
 # Une requête contient entre 1 et 168 prédictions horaires,

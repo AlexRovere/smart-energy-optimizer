@@ -1,4 +1,5 @@
-# appelé par main au démarrage : charge le .env racine du monorepo (partagé avec les autres conteneurs)
+# appelé par main au démarrage : charge le .env racine du monorepo (partagé avec les autres
+# conteneurs)
 from __future__ import annotations
 
 from pathlib import Path

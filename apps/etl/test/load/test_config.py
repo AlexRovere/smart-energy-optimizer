@@ -1,6 +1,5 @@
 # teste la lecture de la config de sortie Load (répertoire Parquet, connexion PostgreSQL)
 import pytest
-
 from load.config import get_output_dir, get_postgres_connection_params
 
 

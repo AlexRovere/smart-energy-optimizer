@@ -2,14 +2,12 @@ from datetime import datetime
 
 import pandas as pd
 import pytest
-
 from features import (
     add_training_features,
     build_prediction_features,
     is_working_hour,
     load_site_schedules,
 )
-
 
 SCHEDULES = {
     "SITE001": {

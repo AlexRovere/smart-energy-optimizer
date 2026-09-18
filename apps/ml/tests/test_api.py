@@ -1,10 +1,11 @@
-﻿from datetime import datetime
+from datetime import datetime
 from unittest.mock import MagicMock
 
 import pandas as pd
 from fastapi.testclient import TestClient
 
 import api.main as api_main
+import pandas as pd
 from api.main import app, get_prediction_model, get_site_schedules
 from training import TrainingResult, MLFLOW_MODEL_NAME
 
@@ -38,9 +39,7 @@ def make_history() -> pd.DataFrame:
 def set_prediction_dependencies(monkeypatch) -> None:
     app.dependency_overrides[get_prediction_model] = ConstantModel
     app.dependency_overrides[get_site_schedules] = lambda: SCHEDULES
-    monkeypatch.setattr(
-        api_main, "read_recent_history", lambda path, site_ids: make_history()
-    )
+    monkeypatch.setattr(api_main, "read_recent_history", lambda path, site_ids: make_history())
 
 
 def test_predictions_endpoint_accepts_and_returns_a_list(monkeypatch):

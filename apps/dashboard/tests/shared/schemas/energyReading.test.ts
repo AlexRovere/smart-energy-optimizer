@@ -76,9 +76,12 @@ describe('energyReadingSchema', () => {
     expect(result.success).toBe(false)
   })
 
-  it('rejette un objet auquel il manque null_reasons', () => {
+  it('accepte un objet sans null_reasons et normalise vers []', () => {
     const { null_reasons: _, ...without } = VALID_READING
     const result = energyReadingSchema.safeParse(without)
-    expect(result.success).toBe(false)
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.null_reasons).toEqual([])
+    }
   })
 })

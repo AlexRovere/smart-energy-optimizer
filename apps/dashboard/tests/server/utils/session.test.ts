@@ -20,7 +20,7 @@ describe.skipIf(!baseDisponible())('session', () => {
     testDb = await creerBaseDeTest()
     db = drizzle(testDb.sql, { schema })
 
-    await testDb.sql`INSERT INTO roles (name) VALUES ('ADMIN')`
+    await testDb.sql`INSERT INTO roles (name) VALUES ('ADMIN'), ('OPERATOR'), ('VIEWER')`
     const account = ligneAttendue(
       await testDb.sql<{ id: string }[]>`
         INSERT INTO users (role_id, email, password_hash)
@@ -99,19 +99,59 @@ describe.skipIf(!baseDisponible())('session', () => {
     expect(await accountForSession(db, session.id)).toBeNull()
   })
 
-  it('rend le périmètre de sites du account, vide plutôt que tout', async () => {
+  it('rend tous les sites pour un compte ADMIN, même sans user_sites', async () => {
     await testDb.sql`
       INSERT INTO sites (id, name, type, capacity_kw, status)
       VALUES ('SITE001', 'Usine A', 'usine', 500, 'active'),
              ('SITE002', 'Usine B', 'usine', 800, 'active')
+      ON CONFLICT DO NOTHING
     `
+    // Pas de ligne dans user_sites pour l'ADMIN : il doit quand même voir tout
+    // le parc. La liste complète est retournée par la fonction, et le WHERE de
+    // la requête appelante s'applique dessus sans exception (data.md).
+    const adminAccount = { id: userId, email: 'admin@enervision.local', role: 'ADMIN' }
+    const sites = await allowedSites(db, adminAccount)
+    expect(sites).toContain('SITE001')
+    expect(sites).toContain('SITE002')
+  })
+
+  it('rend le périmètre de sites d\'un compte non-ADMIN, vide plutôt que tout', async () => {
+    await testDb.sql`
+      INSERT INTO sites (id, name, type, capacity_kw, status)
+      VALUES ('SITE001', 'Usine A', 'usine', 500, 'active'),
+             ('SITE002', 'Usine B', 'usine', 800, 'active')
+      ON CONFLICT DO NOTHING
+    `
+    const viewer = ligneAttendue(
+      await testDb.sql<{ id: string }[]>`
+        INSERT INTO users (role_id, email, password_hash)
+        SELECT r.id, 'viewer@enervision.local', 'digest'
+          FROM roles r WHERE r.name = 'VIEWER'
+        RETURNING id
+      `,
+      'le compte VIEWER'
+    )
     // Une seule ligne de périmètre : l'autre site ne doit PAS ressortir. Un
     // périmètre oublié donne zéro accès, jamais tous (data.md).
     await testDb.sql`
-      INSERT INTO user_sites (user_id, site_id) VALUES (${userId}, 'SITE001')
+      INSERT INTO user_sites (user_id, site_id) VALUES (${viewer.id}, 'SITE001')
     `
+    const viewerAccount = { id: viewer.id, email: 'viewer@enervision.local', role: 'VIEWER' }
+    expect(await allowedSites(db, viewerAccount)).toEqual(['SITE001'])
+  })
 
-    expect(await allowedSites(db, userId)).toEqual(['SITE001'])
+  it('rend un tableau vide pour un compte non-ADMIN sans aucun user_sites', async () => {
+    const operator = ligneAttendue(
+      await testDb.sql<{ id: string }[]>`
+        INSERT INTO users (role_id, email, password_hash)
+        SELECT r.id, 'operator@enervision.local', 'digest'
+          FROM roles r WHERE r.name = 'OPERATOR'
+        RETURNING id
+      `,
+      'le compte OPERATOR'
+    )
+    const operatorAccount = { id: operator.id, email: 'operator@enervision.local', role: 'OPERATOR' }
+    expect(await allowedSites(db, operatorAccount)).toEqual([])
   })
 
   it('purge les sessions expirées du account sans toucher aux vivantes', async () => {

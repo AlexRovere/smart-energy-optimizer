@@ -1,4 +1,5 @@
-# point d'entrée Load pour l'historique des mesures : schéma déclaré, partition site puis jour, fusion et écriture atomique
+# point d'entrée Load pour l'historique des mesures : schéma déclaré, partition site puis jour,
+# fusion et écriture atomique
 from __future__ import annotations
 
 import os

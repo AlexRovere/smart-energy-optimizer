@@ -3,9 +3,7 @@ from datetime import datetime
 from typing import Protocol
 
 import pandas as pd
-
 from features import MINIMUM_HISTORY_HOURS, SiteSchedules, build_prediction_features
-
 
 MAXIMUM_HORIZON_HOURS = 168
 
@@ -64,9 +62,7 @@ class PredictionService:
     def _predict_site(
         self, site_id: str, targets: list[PredictionTarget]
     ) -> dict[tuple[str, datetime], float]:
-        site_data = self.history[self.history["site_id"] == site_id].sort_values(
-            "timestamp"
-        )
+        site_data = self.history[self.history["site_id"] == site_id].sort_values("timestamp")
         if site_data.empty:
             raise ValueError(f"Unknown site: {site_id}")
 
@@ -81,9 +77,7 @@ class PredictionService:
         last_requested = max(requested_timestamps)
 
         if first_requested <= last_timestamp:
-            raise ValueError(
-                f"Predictions for {site_id} must be after its last known timestamp"
-            )
+            raise ValueError(f"Predictions for {site_id} must be after its last known timestamp")
 
         horizon = (last_requested - last_timestamp) / pd.Timedelta(hours=1)
         if not horizon.is_integer() or horizon > MAXIMUM_HORIZON_HOURS:
@@ -136,9 +130,7 @@ class PredictionService:
 
         # Row-based lags are valid only if the 168 latest rows really represent
         # 168 consecutive hours.
-        expected = pd.date_range(
-            end=last_timestamp, periods=MINIMUM_HISTORY_HOURS, freq="h"
-        )
+        expected = pd.date_range(end=last_timestamp, periods=MINIMUM_HISTORY_HOURS, freq="h")
         actual = pd.DatetimeIndex(recent_history["timestamp"])
         if not actual.equals(expected):
             raise ValueError(f"Site {site_id} history must contain consecutive hours")

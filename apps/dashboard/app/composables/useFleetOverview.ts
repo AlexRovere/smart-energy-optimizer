@@ -1,7 +1,21 @@
 import { ref, computed } from 'vue'
-import type { Alert, AlertSeverity, CurrentReading, Reading, SensorHealth, SensorStatus, Site, SiteId } from '../types/api'
+import type { Alert, AlertSeverity, CurrentReading, Reading, SensorHealth, SensorStatus, Site, SiteId, SiteType, SiteStatus } from '../types/api'
 import { fmtNum, fmtPct } from '../utils/format'
 import { useFleetSummary } from './useFleetSummary'
+import { useSitesList } from './useSitesList'
+import type { SiteApiItem } from '~~/shared/siteSchema'
+
+function siteApiItemToSite(item: SiteApiItem): Site {
+  return {
+    site_id: item.site_id as SiteId,
+    site_name: item.site_name,
+    site_type: item.site_type as SiteType,
+    location: item.location ?? '',
+    capacity_kw: item.capacity_kw,
+    status: item.status as SiteStatus,
+    threshold_kw: item.warning_threshold_kw
+  }
+}
 
 function mockAlerts(): Alert[] {
   const now = Date.now()
@@ -36,17 +50,6 @@ function mockSensors(): SensorStatus[] {
   ]
 }
 
-function mockSites(): Site[] {
-  return [
-    { site_id: 'SITE001', site_name: 'Bureau Paris La Défense',  site_type: 'office',     location: 'Paris, France',    capacity_kw: 300,  status: 'active',      threshold_kw: 240  },
-    { site_id: 'SITE002', site_name: 'Usine Lyon Vénissieux',    site_type: 'factory',    location: 'Lyon, France',     capacity_kw: 1000, status: 'active',      threshold_kw: 720  },
-    { site_id: 'SITE003', site_name: 'Data Center Marseille',    site_type: 'datacenter', location: 'Marseille, France', capacity_kw: 800, status: 'maintenance', threshold_kw: null },
-    { site_id: 'SITE004', site_name: 'Entrepôt Lille Seclin',    site_type: 'warehouse',  location: 'Lille, France',    capacity_kw: 450,  status: 'active',      threshold_kw: 300  },
-    { site_id: 'SITE005', site_name: 'Atelier Nantes Carquefou', site_type: 'factory',    location: 'Nantes, France',   capacity_kw: 600,  status: 'active',      threshold_kw: 480  },
-    { site_id: 'SITE006', site_name: 'Bureau Bordeaux Mérignac', site_type: 'office',     location: 'Bordeaux, France', capacity_kw: 280,  status: 'active',      threshold_kw: null },
-    { site_id: 'SITE007', site_name: 'Laboratoire Grenoble',     site_type: 'lab',        location: 'Grenoble, France', capacity_kw: 700,  status: 'active',      threshold_kw: 560  },
-  ]
-}
 
 function mockCurrentReadings(): CurrentReading[] {
   const ts = '2026-09-15T11:40:00Z'
@@ -77,9 +80,10 @@ function mockReadings(siteId: SiteId): Reading[] {
 
 export function useFleetOverview() {
   const { summary: stats, pending } = useFleetSummary()
+  const { sites: rawSites } = useSitesList()
   const alerts = ref<Alert[]>(mockAlerts())
   const sensors = ref<SensorStatus[]>(mockSensors())
-  const siteDetails = ref<Site[]>(mockSites())
+  const siteDetails = computed<Site[]>(() => rawSites.value.map(siteApiItemToSite))
   const currentReadings = ref<CurrentReading[]>(mockCurrentReadings())
 
   function getReadingsForSite(id: SiteId): Reading[] {
@@ -146,8 +150,10 @@ export function useFleetOverview() {
 
   const siteSummary = computed(() => {
     const sensorMap = new Map(sensors.value.map(s => [s.site_id, s.overall]))
+    const siteTypeMap = new Map(siteDetails.value.map(s => [s.site_id, s.site_type]))
     return (stats.value?.sites ?? []).map(site => ({
       ...site,
+      site_type: siteTypeMap.get(site.site_id),
       health: (sensorMap.get(site.site_id) ?? 'ok') as SensorHealth
     }))
   })

@@ -2,9 +2,7 @@ from datetime import datetime
 
 import pandas as pd
 import pytest
-
 from models import PredictionService, PredictionTarget
-
 
 SCHEDULES = {
     "SITE001": {
@@ -61,9 +59,7 @@ def test_prediction_rejects_horizon_above_168_hours():
     service = PredictionService(IncrementModel(), make_history(), SCHEDULES)
 
     with pytest.raises(ValueError, match="between 1 and 168 hours"):
-        service.predict(
-            [PredictionTarget("SITE001", datetime(2025, 1, 15, 0))]
-        )
+        service.predict([PredictionTarget("SITE001", datetime(2025, 1, 15, 0))])
 
 
 def test_prediction_rejects_incomplete_hourly_history():
@@ -71,18 +67,14 @@ def test_prediction_rejects_incomplete_hourly_history():
     service = PredictionService(IncrementModel(), history, SCHEDULES)
 
     with pytest.raises(ValueError, match="consecutive hours"):
-        service.predict(
-            [PredictionTarget("SITE001", datetime(2025, 1, 8, 1))]
-        )
+        service.predict([PredictionTarget("SITE001", datetime(2025, 1, 8, 1))])
 
 
 def test_prediction_accepts_exactly_168_hour_horizon():
     model = IncrementModel()
     service = PredictionService(model, make_history(), SCHEDULES)
 
-    predictions = service.predict(
-        [PredictionTarget("SITE001", datetime(2025, 1, 14, 23))]
-    )
+    predictions = service.predict([PredictionTarget("SITE001", datetime(2025, 1, 14, 23))])
 
     assert model.calls == 168
     assert predictions[0].consumption_kwh == 335.0
@@ -92,6 +84,4 @@ def test_prediction_rejects_less_than_168_hours_of_initial_history():
     service = PredictionService(IncrementModel(), make_history(20), SCHEDULES)
 
     with pytest.raises(ValueError, match="at least 168 hours of history"):
-        service.predict(
-            [PredictionTarget("SITE001", datetime(2025, 1, 1, 20))]
-        )
+        service.predict([PredictionTarget("SITE001", datetime(2025, 1, 1, 20))])

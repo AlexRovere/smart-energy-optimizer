@@ -2,7 +2,6 @@
 from unittest.mock import MagicMock
 
 import pandas as pd
-
 from load.sites_repository import get_existing_site_ids, insert_sites
 
 SITE_COLUMNS = ["id", "type", "name", "location", "capacity_kw", "status"]

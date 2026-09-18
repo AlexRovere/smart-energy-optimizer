@@ -3,6 +3,22 @@ import { ref } from 'vue'
 import type { StatsSummary, SiteId } from '../../app/types/api'
 import { useSites } from '../../app/composables/useSites'
 
+vi.mock('../../app/composables/useSitesList', () => ({
+  useSitesList: () => ({
+    sites: ref([
+      { site_id: 'SITE001', site_name: 'Bureau Paris La Défense',  site_type: 'office',     location: 'Paris, France',     capacity_kw: 300,  status: 'active',      warning_threshold_kw: 240,  present_in_source: true },
+      { site_id: 'SITE002', site_name: 'Usine Lyon Vénissieux',    site_type: 'factory',    location: 'Lyon, France',      capacity_kw: 1000, status: 'active',      warning_threshold_kw: 720,  present_in_source: true },
+      { site_id: 'SITE003', site_name: 'Data Center Marseille',    site_type: 'datacenter', location: 'Marseille, France', capacity_kw: 800,  status: 'maintenance', warning_threshold_kw: null, present_in_source: true },
+      { site_id: 'SITE004', site_name: 'Entrepôt Lille Seclin',    site_type: 'warehouse',  location: 'Lille, France',     capacity_kw: 450,  status: 'active',      warning_threshold_kw: 300,  present_in_source: true },
+      { site_id: 'SITE005', site_name: 'Atelier Nantes Carquefou', site_type: 'factory',    location: 'Nantes, France',    capacity_kw: 600,  status: 'active',      warning_threshold_kw: 480,  present_in_source: true },
+      { site_id: 'SITE006', site_name: 'Bureau Bordeaux Mérignac', site_type: 'office',     location: 'Bordeaux, France',  capacity_kw: 280,  status: 'active',      warning_threshold_kw: null, present_in_source: true },
+      { site_id: 'SITE007', site_name: 'Laboratoire Grenoble',     site_type: 'lab',        location: 'Grenoble, France',  capacity_kw: 700,  status: 'active',      warning_threshold_kw: 560,  present_in_source: true },
+    ]),
+    pending: ref(false),
+    error: ref(null)
+  })
+}))
+
 vi.mock('../../app/composables/useFleetSummary', () => ({
   useFleetSummary: () => ({
     summary: ref<StatsSummary>({

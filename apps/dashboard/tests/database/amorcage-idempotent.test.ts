@@ -4,7 +4,7 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { baseDisponible, creerBaseDeTest, DOSSIER_MIGRATIONS, ligneAttendue, type BaseDeTest } from './base-de-test'
-import { amorcer, COMPTES_DE_DEMONSTRATION, ROLES } from '../../server/database/seed'
+import { amorcer, COMPTES_DE_DEMONSTRATION, ROLES, SITES_DE_DEMONSTRATION } from '../../server/database/seed'
 
 const OPTIONS = {
   motDePasseDemonstration: 'mot-de-passe-de-test',
@@ -38,10 +38,16 @@ describe.skipIf(!baseDisponible())('amorçage', () => {
     return total
   }
 
-  it('crée les trois rôles et les trois comptes au premier passage', async () => {
+  it('crée les trois rôles, les trois comptes et les sites de démonstration au premier passage', async () => {
     const resultat = await amorcer(base.sql, OPTIONS)
 
-    expect(resultat).toEqual({ rolesCrees: 3, comptesCrees: 3 })
+    const accèsAttendus = COMPTES_DE_DEMONSTRATION.length * SITES_DE_DEMONSTRATION.length
+    expect(resultat).toEqual({
+      rolesCrees: ROLES.length,
+      comptesCrees: COMPTES_DE_DEMONSTRATION.length,
+      sitesCrees: SITES_DE_DEMONSTRATION.length,
+      accèsCrees: accèsAttendus
+    })
     expect(await compter('roles')).toBe(ROLES.length)
     expect(await compter('users')).toBe(COMPTES_DE_DEMONSTRATION.length)
   })
@@ -60,7 +66,7 @@ describe.skipIf(!baseDisponible())('amorçage', () => {
   it('ne duplique rien au second passage', async () => {
     const resultat = await amorcer(base.sql, OPTIONS)
 
-    expect(resultat).toEqual({ rolesCrees: 0, comptesCrees: 0 })
+    expect(resultat).toEqual({ rolesCrees: 0, comptesCrees: 0, sitesCrees: 0, accèsCrees: 0 })
     expect(await compter('roles')).toBe(ROLES.length)
     expect(await compter('users')).toBe(COMPTES_DE_DEMONSTRATION.length)
   })
@@ -83,14 +89,14 @@ describe.skipIf(!baseDisponible())('amorçage', () => {
     expect(ligne.password_hash).toBe(empreinteChangee)
   })
 
-  it("n'amorce aucun site : le référentiel appartient à l'ETL", async () => {
+  it('amorce les sites de démonstration pour permettre de tester sans ETL', async () => {
     const { total } = ligneAttendue(
       await base.sql<{ total: number }[]>`
         SELECT count(*)::int AS total FROM sites
       `,
       'le décompte des lignes de sites'
     )
-    expect(total).toBe(0)
+    expect(total).toBe(SITES_DE_DEMONSTRATION.length)
   })
 
   it('rend le rôle etl capable de se connecter', async () => {
@@ -131,7 +137,7 @@ describe.skipIf(!baseDisponible())('amorçage', () => {
         'le current_user de la session ouverte par le rôle etl'
       )
       expect(ligne.utilisateur).toBe('etl')
-      expect(await etl`SELECT id FROM sites`).toHaveLength(0)
+      expect(await etl`SELECT id FROM sites`).toHaveLength(SITES_DE_DEMONSTRATION.length)
     } finally {
       await etl.end()
     }
