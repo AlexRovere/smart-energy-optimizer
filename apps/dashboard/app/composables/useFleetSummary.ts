@@ -1,5 +1,5 @@
 import { useFetch } from 'nuxt/app'
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import type { ParkSummary } from '~~/shared/parkSummarySchema'
 import type { StatsSummary, SiteId } from '../types/api'
 
@@ -16,8 +16,16 @@ function normaliser(raw: ParkSummary): StatsSummary {
   }
 }
 
+export const POLLING_INTERVAL_MS = 30_000
+
 export function useFleetSummary() {
-  const { data, pending, error } = useFetch<ParkSummary>('/api/stats/summary')
+  const { data, pending, error, refresh } = useFetch<ParkSummary>('/api/stats/summary')
+
+  onMounted(() => {
+    const timer = setInterval(() => refresh(), POLLING_INTERVAL_MS)
+    onUnmounted(() => clearInterval(timer))
+  })
+
   const summary = computed<StatsSummary | null>(() =>
     data.value ? normaliser(data.value) : null
   )
