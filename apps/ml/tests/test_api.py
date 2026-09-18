@@ -1,11 +1,12 @@
 ﻿from datetime import datetime
+from unittest.mock import MagicMock
 
 import pandas as pd
 from fastapi.testclient import TestClient
 
 import api.main as api_main
 from api.main import app, get_prediction_model, get_site_schedules
-from training import TrainingResult
+from training import TrainingResult, MLFLOW_MODEL_NAME
 
 
 SCHEDULES = {
@@ -134,3 +135,30 @@ def test_predictions_reload_history_but_reuse_model_and_schedules(monkeypatch):
 
     api_main.get_prediction_model.cache_clear()
     api_main.get_site_schedules.cache_clear()
+
+
+def test_model_endpoint_retourne_la_version_champion(monkeypatch):
+    fake_version = MagicMock()
+    fake_version.version = "1"
+    fake_client = MagicMock()
+    fake_client.get_model_version_by_alias.return_value = fake_version
+    monkeypatch.setattr(api_main.mlflow, "MlflowClient", lambda: fake_client)
+    client = TestClient(app)
+
+    response = client.get("/model")
+
+    assert response.status_code == 200
+    assert response.json() == {"name": MLFLOW_MODEL_NAME, "version": 1, "alias": "champion"}
+    fake_client.get_model_version_by_alias.assert_called_once_with(MLFLOW_MODEL_NAME, "champion")
+
+
+def test_model_endpoint_retourne_503_si_aucun_champion(monkeypatch):
+    import mlflow.exceptions
+    fake_client = MagicMock()
+    fake_client.get_model_version_by_alias.side_effect = mlflow.exceptions.MlflowException("not found")
+    monkeypatch.setattr(api_main.mlflow, "MlflowClient", lambda: fake_client)
+    client = TestClient(app)
+
+    response = client.get("/model")
+
+    assert response.status_code == 503

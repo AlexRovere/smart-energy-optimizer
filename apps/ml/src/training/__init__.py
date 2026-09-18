@@ -1,3 +1,3 @@
-from training.train import TrainingResult, train_model
+from training.train import MLFLOW_MODEL_NAME, TrainingResult, train_model
 
-__all__ = ["TrainingResult", "train_model"]
+__all__ = ["MLFLOW_MODEL_NAME", "TrainingResult", "train_model"]

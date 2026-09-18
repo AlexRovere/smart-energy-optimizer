@@ -11,7 +11,7 @@ from api.schemas import PredictionRequest, PredictionResponse, TrainingResponse
 from data import read_recent_history
 from features import SiteSchedules, load_site_schedules
 from models import PredictionService, PredictionTarget, load_model
-from training import train_model
+from training import train_model, MLFLOW_MODEL_NAME
 
 
 DEFAULT_DATA_PATH = "datas/all_sites_combined.csv"
@@ -65,6 +65,15 @@ app = FastAPI(
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+@app.get('/model')
+def get_model_info() -> dict[str, object]:
+    client = mlflow.MlflowClient()
+    try:
+        version = client.get_model_version_by_alias(MLFLOW_MODEL_NAME, "champion")
+    except mlflow.exceptions.MlflowException:
+        raise HTTPException(status_code=503, detail="Aucun modèle champion disponible")
+    return {"name": MLFLOW_MODEL_NAME, "version": int(version.version), "alias": "champion"}
 
 
 @app.post("/training", response_model=TrainingResponse)
