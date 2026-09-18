@@ -1,5 +1,6 @@
 import mlflow
 from catboost import CatBoostRegressor
+
 from training.train import MLFLOW_MODEL_NAME
 
 

@@ -5,13 +5,13 @@ from typing import Annotated
 import mlflow
 from catboost import CatBoostRegressor
 from fastapi import Depends, FastAPI, HTTPException
-from features import SiteSchedules, load_site_schedules
-from models import PredictionService, PredictionTarget, load_model
 from pydantic import Field
-from training import MLFLOW_MODEL_NAME, train_model
 
 from api.schemas import PredictionRequest, PredictionResponse, TrainingResponse
 from data import read_recent_history
+from features import SiteSchedules, load_site_schedules
+from models import PredictionService, PredictionTarget, load_model
+from training import MLFLOW_MODEL_NAME, train_model
 
 DEFAULT_DATA_PATH = "datas/all_sites_combined.csv"
 DEFAULT_SITE_CONFIG_PATH = "config/sites.json"

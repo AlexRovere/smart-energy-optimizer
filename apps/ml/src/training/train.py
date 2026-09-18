@@ -3,9 +3,9 @@ from pathlib import Path
 
 import mlflow
 from catboost import CatBoostRegressor
-from features import FEATURE_COLUMNS, add_training_features
 
 from data import read_training_history
+from features import FEATURE_COLUMNS, add_training_features
 
 TARGET_COLUMN = "consumption_kwh_corrected"
 CATEGORICAL_FEATURES = ["site_id", "site_type"]

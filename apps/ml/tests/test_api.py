@@ -1,10 +1,11 @@
 from datetime import datetime
 from unittest.mock import MagicMock
 
-import api.main as api_main
 import pandas as pd
-from api.main import app, get_prediction_model, get_site_schedules
 from fastapi.testclient import TestClient
+
+import api.main as api_main
+from api.main import app, get_prediction_model, get_site_schedules
 from training import MLFLOW_MODEL_NAME, TrainingResult
 
 SCHEDULES = {
