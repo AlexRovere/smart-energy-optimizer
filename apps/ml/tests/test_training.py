@@ -75,12 +75,11 @@ def test_training_creates_a_mlflow_run(tmp_path, monkeypatch):
         }
     ).to_csv(data_path, index=False)
     monkeypatch.setattr("training.train.CatBoostRegressor", FakeCatBoost)
-    mlflow.set_tracking_uri(str(tmp_path / "mlruns"))
-    mlflow.set_experiment("test-enervision")
+    mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
 
     train_model(data_path, model_path)
 
-    runs = mlflow.search_runs(experiment_names=["test-enervision"])
+    runs = mlflow.search_runs(experiment_names=["enervision-training"])
     assert len(runs) == 1
 
 def test_training_logs_hyperparameters(tmp_path, monkeypatch):
@@ -102,12 +101,11 @@ def test_training_logs_hyperparameters(tmp_path, monkeypatch):
         }
     ).to_csv(data_path, index=False)
     monkeypatch.setattr("training.train.CatBoostRegressor", FakeCatBoost)
-    mlflow.set_tracking_uri(str(tmp_path / "mlruns"))
-    mlflow.set_experiment("test-enervision")
+    mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
 
     train_model(data_path, model_path)
 
-    runs = mlflow.search_runs(experiment_names=["test-enervision"])
+    runs = mlflow.search_runs(experiment_names=["enervision-training"])
     run = runs.iloc[0]
     assert run["params.iterations"] == "1000"
     assert run["params.depth"] == "8"
