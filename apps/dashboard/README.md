@@ -6,7 +6,7 @@ Application **Nuxt 4** fullstack : le même conteneur sert l'interface et l'API 
 
 ```
                          ┌──────────┐   ecriture   ┌──────────────────┐
-                    ┌───▶│   ETL    │─────────────▶│  Volume Parquet  │
+                    ┌──▶│   ETL    │────────────▶│  Volume Parquet  │
                     │    │ (Python) │   (montage)  │ expose / entrain.│
 ┌──────────────┐    │    └──────────┘              └──────┬───────────┘
 │   API Mock   │────┤                                     │
@@ -53,14 +53,49 @@ Application **Nuxt 4** fullstack : le même conteneur sert l'interface et l'API 
 | Auth | nuxt-auth-utils, cookie portant un identifiant de session, état en base |
 | BDD | PostgreSQL 16 (comptes, rôles, référentiel des sites et leurs réglages) |
 | Package manager | pnpm |
+| Validation | Zod — schémas dans `shared/` (partagés front/back, `transform` à la frontière pour `camelCase` → `snake_case`) |
 
 ## Sécurité
 
 - Sessions serveur : cookies `httpOnly`, `secure`, `sameSite=strict`, et pas de JWT côté client.
-- Autorisation : trois rôles au schéma, **`ADMIN`, `OPERATOR`, `VIEWER`**, et le périmètre d'un compte est une **liste de sites** portée par la table `user_sites` (cf. [`docs/data.md`](../../docs/data.md)). **Un seul rôle est exploité au MVP**, `ADMIN` : le mécanisme est construit et testé, les profils restreints se montrent à l'oral. Une seule fonction rend la liste des sites autorisés et le filtre est toujours appliqué, jamais une branche qui saute le `WHERE`.
-- Validation entrées : Zod sur chaque route API (schémas partagés front/back).
+- Autorisation : trois rôles au schéma, **`ADMIN`, `OPERATOR`, `VIEWER`**, et le périmètre d'un compte est une **liste de sites** portée par la table `user_sites` (cf. [`docs/data.md`](../../docs/data.md)). Les trois rôles sont présents dans le schéma et dans le garde (`requireRole`). Au MVP, seul `ADMIN` est effectivement exploité : les routes d'administration vérifient ce rôle, les deux autres (`OPERATOR`, `VIEWER`) sont prêts mais aucune route ne les contraint encore. Une seule fonction rend la liste des sites autorisés et le filtre est toujours appliqué, jamais une branche qui saute le `WHERE`.
+- Autorisation par rôle : `requireRole(event, 'ADMIN')` dans `server/utils/guard.ts` appelle `requireAccount` puis compare le rôle relu en base. Déclasser un compte prend effet à la prochaine requête, sans attendre l'expiration de la session (#95).
+- Validation entrées : Zod sur chaque route API. Les schémas des routes admin sont dans `shared/adminSchema.ts` : `createUserSchema` (création) et `updateUserSchema` (patch partiel). Les identifiants de sites y sont contraints au pattern `SITE\d{3}`, et les rôles à l'enum `ADMIN | OPERATOR | VIEWER`.
 - Rate limiting sur `/api/auth/login`.
 - Reverse proxy : TLS, CSP, HSTS, X-Frame-Options.
+
+## Routes API
+
+Toutes les routes authentifiées passent par `requireAccount` (`server/utils/guard.ts`), qui vérifie la session en base à chaque requête. Les routes à rôle restreint passent en plus par `requireRole`.
+
+### Authentification
+
+| Méthode | Route | Rôle requis | Description |
+|---|---|---|---|
+| POST | `/api/auth/login` | — | Ouvre une session, pose le cookie |
+| POST | `/api/auth/logout` | authentifié | Révoque la session (`revoked_at`), efface le cookie |
+| GET | `/api/auth/session` | authentifié | Retourne le compte courant et ses sites autorisés |
+
+### Sites
+
+| Méthode | Route | Rôle requis | Description |
+|---|---|---|---|
+| GET | `/api/sites/:id/current` | authentifié | Données temps réel du site (API Mock) |
+| GET | `/api/sites/:id/history` | authentifié | Historique du site (DuckDB/Parquet) |
+| GET | `/api/stats/summary` | authentifié | Synthèse parc |
+
+### Administration
+
+Réservées au rôle `ADMIN`. Répondent `403 Accès interdit` pour tout autre rôle.
+
+| Méthode | Route | Description | Codes spécifiques |
+|---|---|---|---|
+| GET | `/api/admin/users` | Liste tous les comptes avec leur rôle et leurs sites | — |
+| POST | `/api/admin/users` | Crée un compte (body : `createUserSchema`) | 422 entrée invalide, 409 email déjà utilisé |
+| PUT | `/api/admin/users/:id` | Patch partiel d'un compte | 404 introuvable, 422 entrée invalide |
+| DELETE | `/api/admin/users/:id` | Supprime un compte | 404 introuvable, 422 identifiant invalide |
+
+Tous les endpoints héritent des codes `401 Session invalide` et `403 Accès interdit` depuis `guard.ts`.
 
 ## Création du schéma : tranché
 
@@ -160,5 +195,5 @@ courant.
 - Prédictions et recommandations (dégradation gracieuse si ML absent)
 - Alertes actives
 - Santé des capteurs
-- Gestion des utilisateurs (admin)
+- Gestion des utilisateurs (rôle `ADMIN`) : lister tous les comptes avec leur rôle et leurs sites autorisés, créer un compte, modifier son rôle / ses sites / son statut actif, supprimer un compte
 - Avertissement explicite quand des données sont incomplètes (`data_quality`)
