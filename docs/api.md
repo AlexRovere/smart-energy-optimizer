@@ -275,7 +275,7 @@ Deux nommages coexistent volontairement : `.env` porte des noms neutres, la comp
 
 | `.env` | Conteneur | Nom dans le conteneur |
 | :--- | :--- | :--- |
-| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | applicatif | `NUXT_DATABASE_URL`, composée |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | applicatif | `NUXT_POSTGRES_USER`, `NUXT_POSTGRES_PASSWORD`, `NUXT_POSTGRES_DB`, plus `NUXT_POSTGRES_HOST` et `NUXT_POSTGRES_PORT` posés par la composition |
 | `SESSION_SECRET` | applicatif | `NUXT_SESSION_PASSWORD`, nom lu par `nuxt-auth-utils` |
 | `TRUST_PROXY` | applicatif | `NUXT_TRUST_PROXY`, faux par défaut, vrai seulement derrière le proxy de #39 |
 | `MOCK_API_URL` | applicatif, ETL | `NUXT_MOCK_API_URL` / `MOCK_API_URL` |
@@ -283,6 +283,8 @@ Deux nommages coexistent volontairement : `.env` porte des noms neutres, la comp
 | *(constante `/data`)* | applicatif, ETL, ML | `NUXT_PARQUET_DIR` / `PARQUET_DIR` |
 | `ML_API_URL` | applicatif | `NUXT_ML_SERVICE_URL`, la clé `mlServiceUrl` du `runtimeConfig` |
 | `LOG_LEVEL` | tous | `NUXT_LOG_LEVEL` / `LOG_LEVEL` |
+
+**L'URL de connexion ne se transporte pas, elle s'assemble.** L'applicatif la construit depuis ces morceaux, comme l'ETL, parce que l'hôte et le port ne sont pas des secrets et changent selon d'où l'on appelle. `NUXT_DATABASE_URL` reste une surcharge explicite, pour la boucle locale et les tests, et l'emporte quand elle est posée (#158).
 
 **Hors composition**, personne ne traduit : l'applicatif lit directement les noms `NUXT_`. La boucle de développement les pose donc tels quels dans `.env.dev`, versionné parce qu'il ne contient aucun secret (voir le README et [`secrets.md`](./secrets.md)).
 
