@@ -16,9 +16,7 @@ from training import MLFLOW_MODEL_NAME, train_model
 DEFAULT_DATA_PATH = "datas/all_sites_combined.csv"
 DEFAULT_SITE_CONFIG_PATH = "config/sites.json"
 
-mlflow.set_tracking_uri(
-    os.getenv("MLFLOW_TRACKING_URI", "sqlite:///artifacts/mlflow.db")
-)
+mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "sqlite:///artifacts/mlflow.db"))
 
 
 def get_data_path() -> str:

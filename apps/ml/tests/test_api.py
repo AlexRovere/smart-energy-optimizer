@@ -151,6 +151,7 @@ def test_model_endpoint_retourne_la_version_champion(monkeypatch):
 
 def test_model_endpoint_retourne_503_si_aucun_champion(monkeypatch):
     import mlflow.exceptions
+
     fake_client = MagicMock()
     fake_client.get_model_version_by_alias.side_effect = mlflow.exceptions.MlflowException(
         "not found"

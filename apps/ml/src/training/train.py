@@ -12,6 +12,7 @@ CATEGORICAL_FEATURES = ["site_id", "site_type"]
 MLFLOW_EXPERIMENT = "enervision-training"
 MLFLOW_MODEL_NAME = "enervision-catboost"
 
+
 @dataclass(frozen=True)
 class TrainingResult:
     model_version: int
@@ -50,25 +51,25 @@ def train_model(data_path: str | Path) -> TrainingResult:
 
     mlflow.set_experiment(MLFLOW_EXPERIMENT)
     with mlflow.start_run() as run:
-        mlflow.log_params({k: v for k, v in params.items()
-                           if k not in ("verbose", "allow_writing_files")})
+        mlflow.log_params(
+            {k: v for k, v in params.items() if k not in ("verbose", "allow_writing_files")}
+        )
         model.fit(
             training_data[FEATURE_COLUMNS],
             training_data[TARGET_COLUMN],
             cat_features=CATEGORICAL_FEATURES,
         )
 
-        mlflow.log_params({
-            "training_start": training_data["timestamp"].min().isoformat(),
-            "training_end": training_data["timestamp"].max().isoformat(),
-        })
+        mlflow.log_params(
+            {
+                "training_start": training_data["timestamp"].min().isoformat(),
+                "training_end": training_data["timestamp"].max().isoformat(),
+            }
+        )
         mlflow.log_metric("training_rows", len(training_data))
         mlflow.catboost.log_model(model, artifact_path="catboost-model")
 
-    model_info = mlflow.register_model(
-        f"runs:/{run.info.run_id}/catboost-model",
-        MLFLOW_MODEL_NAME
-    )
+    model_info = mlflow.register_model(f"runs:/{run.info.run_id}/catboost-model", MLFLOW_MODEL_NAME)
     client = mlflow.MlflowClient()
     client.set_registered_model_alias(MLFLOW_MODEL_NAME, "champion", model_info.version)
     return TrainingResult(
