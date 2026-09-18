@@ -22,3 +22,14 @@ export async function requireAccount(event: H3Event): Promise<AuthenticatedAccou
 
   return account
 }
+
+// Vérifie que le compte authentifié possède le rôle requis. Le rôle est relu
+// en base à chaque requête via requireAccount : rétrograder un compte prend
+// effet immédiatement, sans attendre l'expiration de la session (#95).
+export async function requireRole(event: H3Event, role: string): Promise<AuthenticatedAccount> {
+  const account = await requireAccount(event)
+  if (account.role !== role) {
+    throw createError({ statusCode: 403, message: 'Accès interdit' })
+  }
+  return account
+}
