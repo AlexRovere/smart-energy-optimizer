@@ -1,6 +1,6 @@
-# teste la transformation de l'historique des mesures : clone {colonne}_corrected, sans règle de nettoyage pour l'instant
+# teste la transformation de l'historique des mesures : clone {colonne}_corrected, sans règle de
+# nettoyage pour l'instant
 import pandas as pd
-
 from transform.readings import (
     CORRECTABLE_COLUMNS,
     LAG_HOURS,
@@ -115,11 +115,41 @@ def test_transform_readings_clones_each_correctable_column():
 def test_transform_readings_forward_fills_corrected_columns_per_site():
     readings = pd.DataFrame(
         [
-            {**SAMPLE_ROW, "site_id": "SITE001", "timestamp": "2026-09-15T00:00:00Z", "consumption_kw": 10.0, "voltage_v": 400.0},
-            {**SAMPLE_ROW, "site_id": "SITE001", "timestamp": "2026-09-15T01:00:00Z", "consumption_kw": None, "voltage_v": None},
-            {**SAMPLE_ROW, "site_id": "SITE001", "timestamp": "2026-09-15T02:00:00Z", "consumption_kw": None, "voltage_v": None},
-            {**SAMPLE_ROW, "site_id": "SITE001", "timestamp": "2026-09-15T03:00:00Z", "consumption_kw": 30.0, "voltage_v": 402.0},
-            {**SAMPLE_ROW, "site_id": "SITE002", "timestamp": "2026-09-15T00:00:00Z", "consumption_kw": None, "voltage_v": None},
+            {
+                **SAMPLE_ROW,
+                "site_id": "SITE001",
+                "timestamp": "2026-09-15T00:00:00Z",
+                "consumption_kw": 10.0,
+                "voltage_v": 400.0,
+            },
+            {
+                **SAMPLE_ROW,
+                "site_id": "SITE001",
+                "timestamp": "2026-09-15T01:00:00Z",
+                "consumption_kw": None,
+                "voltage_v": None,
+            },
+            {
+                **SAMPLE_ROW,
+                "site_id": "SITE001",
+                "timestamp": "2026-09-15T02:00:00Z",
+                "consumption_kw": None,
+                "voltage_v": None,
+            },
+            {
+                **SAMPLE_ROW,
+                "site_id": "SITE001",
+                "timestamp": "2026-09-15T03:00:00Z",
+                "consumption_kw": 30.0,
+                "voltage_v": 402.0,
+            },
+            {
+                **SAMPLE_ROW,
+                "site_id": "SITE002",
+                "timestamp": "2026-09-15T00:00:00Z",
+                "consumption_kw": None,
+                "voltage_v": None,
+            },
         ]
     )
 
@@ -135,10 +165,22 @@ def test_transform_readings_forward_fills_corrected_columns_per_site():
 def test_transform_readings_sorts_by_actual_time_not_string_lexicographic_order():
     readings = pd.DataFrame(
         [
-            # UTC 2026-09-15T21:20:00, mais la date dans la chaine ("16") la fait paraitre plus tardive
-            {**SAMPLE_ROW, "site_id": "SITE001", "timestamp": "2026-09-16T00:20:00+03:00", "consumption_kw": 1.0},
-            # UTC 2026-09-15T23:40:00, chronologiquement apres, mais la chaine ("15") la fait paraitre plus tot
-            {**SAMPLE_ROW, "site_id": "SITE001", "timestamp": "2026-09-15T23:40:00Z", "consumption_kw": 2.0},
+            # UTC 2026-09-15T21:20:00, mais la date dans la chaîne ("16") la fait paraître plus
+            # tardive
+            {
+                **SAMPLE_ROW,
+                "site_id": "SITE001",
+                "timestamp": "2026-09-16T00:20:00+03:00",
+                "consumption_kw": 1.0,
+            },
+            # UTC 2026-09-15T23:40:00, chronologiquement après, mais la chaîne ("15") la fait
+            # paraître plus tôt
+            {
+                **SAMPLE_ROW,
+                "site_id": "SITE001",
+                "timestamp": "2026-09-15T23:40:00Z",
+                "consumption_kw": 2.0,
+            },
         ]
     )
 

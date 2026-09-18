@@ -1,4 +1,4 @@
-﻿from features.forecast import (
+from features.forecast import (
     CALENDAR_COLUMNS,
     FEATURE_COLUMNS,
     MINIMUM_HISTORY_HOURS,

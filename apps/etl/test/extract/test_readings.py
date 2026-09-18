@@ -3,7 +3,6 @@ from datetime import date, datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pandas as pd
-
 from extract.readings import (
     fetch_all_readings,
     fetch_readings,
@@ -126,15 +125,30 @@ def test_fetch_readings_paginates_by_day_over_the_range(mock_fetch_window):
 
     assert mock_fetch_window.call_args_list == [
         (
-            ("http://mock-api:8000", "SITE001", datetime(2026, 9, 12, tzinfo=timezone.utc), datetime(2026, 9, 13, tzinfo=timezone.utc)),
+            (
+                "http://mock-api:8000",
+                "SITE001",
+                datetime(2026, 9, 12, tzinfo=timezone.utc),
+                datetime(2026, 9, 13, tzinfo=timezone.utc),
+            ),
             {"limit": 24},
         ),
         (
-            ("http://mock-api:8000", "SITE001", datetime(2026, 9, 13, tzinfo=timezone.utc), datetime(2026, 9, 14, tzinfo=timezone.utc)),
+            (
+                "http://mock-api:8000",
+                "SITE001",
+                datetime(2026, 9, 13, tzinfo=timezone.utc),
+                datetime(2026, 9, 14, tzinfo=timezone.utc),
+            ),
             {"limit": 24},
         ),
         (
-            ("http://mock-api:8000", "SITE001", datetime(2026, 9, 14, tzinfo=timezone.utc), datetime(2026, 9, 15, tzinfo=timezone.utc)),
+            (
+                "http://mock-api:8000",
+                "SITE001",
+                datetime(2026, 9, 14, tzinfo=timezone.utc),
+                datetime(2026, 9, 15, tzinfo=timezone.utc),
+            ),
             {"limit": 24},
         ),
     ]
@@ -163,15 +177,30 @@ def test_fetch_readings_skips_already_covered_days_except_the_boundary(mock_fetc
     # 9/12 deja couvert mais a la frontiere du manque (9/13, 9/14) : re-fetche pour la jonction
     assert mock_fetch_window.call_args_list == [
         (
-            ("http://mock-api:8000", "SITE001", datetime(2026, 9, 12, tzinfo=timezone.utc), datetime(2026, 9, 13, tzinfo=timezone.utc)),
+            (
+                "http://mock-api:8000",
+                "SITE001",
+                datetime(2026, 9, 12, tzinfo=timezone.utc),
+                datetime(2026, 9, 13, tzinfo=timezone.utc),
+            ),
             {"limit": 24},
         ),
         (
-            ("http://mock-api:8000", "SITE001", datetime(2026, 9, 13, tzinfo=timezone.utc), datetime(2026, 9, 14, tzinfo=timezone.utc)),
+            (
+                "http://mock-api:8000",
+                "SITE001",
+                datetime(2026, 9, 13, tzinfo=timezone.utc),
+                datetime(2026, 9, 14, tzinfo=timezone.utc),
+            ),
             {"limit": 24},
         ),
         (
-            ("http://mock-api:8000", "SITE001", datetime(2026, 9, 14, tzinfo=timezone.utc), datetime(2026, 9, 15, tzinfo=timezone.utc)),
+            (
+                "http://mock-api:8000",
+                "SITE001",
+                datetime(2026, 9, 14, tzinfo=timezone.utc),
+                datetime(2026, 9, 15, tzinfo=timezone.utc),
+            ),
             {"limit": 24},
         ),
     ]

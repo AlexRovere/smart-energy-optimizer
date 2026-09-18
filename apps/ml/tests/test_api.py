@@ -1,13 +1,11 @@
-﻿from datetime import datetime
-
-import pandas as pd
-import pytest
-from fastapi.testclient import TestClient
+from datetime import datetime
 
 import api.main as api_main
+import pandas as pd
+import pytest
 from api.main import app, get_prediction_model, get_site_schedules
+from fastapi.testclient import TestClient
 from training import TrainingResult
-
 
 SCHEDULES = {
     "SITE001": {
@@ -39,9 +37,7 @@ def set_prediction_dependencies(monkeypatch) -> None:
     monkeypatch.setenv("PARQUET_DIR", "/data")
     app.dependency_overrides[get_prediction_model] = ConstantModel
     app.dependency_overrides[get_site_schedules] = lambda: SCHEDULES
-    monkeypatch.setattr(
-        api_main, "read_recent_history", lambda path, site_ids: make_history()
-    )
+    monkeypatch.setattr(api_main, "read_recent_history", lambda path, site_ids: make_history())
 
 
 def test_get_data_path_reads_parquet_dir_env_var(monkeypatch):

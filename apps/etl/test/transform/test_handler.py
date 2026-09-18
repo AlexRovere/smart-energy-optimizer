@@ -1,6 +1,5 @@
 # teste le nettoyage des noms de colonnes du référentiel des sites, et son dédoublonnage
 import pandas as pd
-
 from transform.handler import clean_site_columns, dedupe_sites, transform_sites
 
 

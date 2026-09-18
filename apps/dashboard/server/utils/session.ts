@@ -82,13 +82,19 @@ export async function accountForSession(
 
 // Le périmètre d'accès, site par site. Une seule fonction le rend, et le filtre
 // SQL est toujours appliqué : jamais de branche qui saute le WHERE pour un
-// administrateur (data.md). Un périmètre oublié donne donc zéro accès, jamais
-// tous, et c'est le sens du choix de la table contre un tableau de sites.
-export async function allowedSites(db: AppDatabase, userId: string): Promise<string[]> {
+// administrateur (data.md). Pour ADMIN, la liste complète des sites est rendue,
+// ce qui fait que le WHERE de la requête appelante s'applique sans exception.
+// Un périmètre oublié donne zéro accès pour les autres rôles, jamais tous.
+export async function allowedSites(db: AppDatabase, account: AuthenticatedAccount): Promise<string[]> {
+  if (account.role === 'ADMIN') {
+    const rows = await db.select({ id: schema.sites.id }).from(schema.sites)
+    return rows.map(row => row.id)
+  }
+
   const rows = await db
     .select({ siteId: schema.userSites.siteId })
     .from(schema.userSites)
-    .where(eq(schema.userSites.userId, userId))
+    .where(eq(schema.userSites.userId, account.id))
 
   return rows.map(row => row.siteId)
 }

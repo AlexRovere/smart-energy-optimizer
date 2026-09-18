@@ -1,9 +1,9 @@
 # teste l'écriture du référentiel des sites et de l'historique des mesures (Parquet), et la base
+import contextlib
 from datetime import date
 from unittest.mock import patch
 
 import pandas as pd
-
 from load.handler import (
     get_context_days,
     get_existing_days,
@@ -53,7 +53,9 @@ def test_get_existing_days_delegates_to_existing_days(mock_get_output_dir, mock_
 
 @patch("load.handler.read_context_days")
 @patch("load.handler.get_output_dir")
-def test_get_context_days_delegates_to_read_context_days(mock_get_output_dir, mock_read_context_days):
+def test_get_context_days_delegates_to_read_context_days(
+    mock_get_output_dir, mock_read_context_days
+):
     mock_get_output_dir.return_value = "/data/output"
     mock_read_context_days.return_value = pd.DataFrame([{"site_id": "SITE001"}])
     days = {date(2026, 9, 15)}
@@ -127,9 +129,7 @@ def test_load_sites_to_db_closes_connection_even_if_insert_fails(
         columns=SITE_COLUMNS,
     )
 
-    try:
+    with contextlib.suppress(RuntimeError):
         load_sites_to_db(sites)
-    except RuntimeError:
-        pass
 
     connection.close.assert_called_once()

@@ -4,7 +4,6 @@ from unittest.mock import ANY, call, patch
 
 import pandas as pd
 import pytest
-
 from main import build_parser, run_hour, run_periods, run_sites
 
 
@@ -14,7 +13,11 @@ from main import build_parser, run_hour, run_periods, run_sites
 @patch("main.transform_sites")
 @patch("main.fetch_sites")
 def test_run_sites_writes_parquet_without_db_sync_by_default(
-    mock_fetch_sites, mock_transform_sites, mock_load_sites, mock_dedupe_sites, mock_load_sites_to_db
+    mock_fetch_sites,
+    mock_transform_sites,
+    mock_load_sites,
+    mock_dedupe_sites,
+    mock_load_sites_to_db,
 ):
     raw = pd.DataFrame([{"site_id": "SITE001"}])
     transformed = pd.DataFrame([{"id": "SITE001", "name": "Bureau Paris"}])
@@ -38,7 +41,11 @@ def test_run_sites_writes_parquet_without_db_sync_by_default(
 @patch("main.transform_sites")
 @patch("main.fetch_sites")
 def test_run_sites_also_syncs_db_when_requested(
-    mock_fetch_sites, mock_transform_sites, mock_load_sites, mock_dedupe_sites, mock_load_sites_to_db
+    mock_fetch_sites,
+    mock_transform_sites,
+    mock_load_sites,
+    mock_dedupe_sites,
+    mock_load_sites_to_db,
 ):
     raw = pd.DataFrame([{"site_id": "SITE001"}])
     transformed = pd.DataFrame([{"id": "SITE001", "name": "Bureau Paris"}])
@@ -174,17 +181,37 @@ def test_run_periods_prepends_context_before_transform_and_strips_it_afterwards(
     mock_fetch_sites.return_value = pd.DataFrame([{"site_id": "SITE001"}])
     mock_get_existing_days.return_value = {date(2026, 9, 1), date(2026, 9, 2)}
     context_row = pd.DataFrame(
-        [{"site_id": "SITE001", "timestamp": pd.Timestamp("2026-08-27", tz="UTC"), "consumption_kw": 1.0}]
+        [
+            {
+                "site_id": "SITE001",
+                "timestamp": pd.Timestamp("2026-08-27", tz="UTC"),
+                "consumption_kw": 1.0,
+            }
+        ]
     )
     mock_get_context_days.return_value = context_row
     raw = pd.DataFrame(
-        [{"site_id": "SITE001", "timestamp": pd.Timestamp("2026-09-03", tz="UTC"), "consumption_kw": 2.0}]
+        [
+            {
+                "site_id": "SITE001",
+                "timestamp": pd.Timestamp("2026-09-03", tz="UTC"),
+                "consumption_kw": 2.0,
+            }
+        ]
     )
     mock_fetch_readings.return_value = raw
     transformed_all = pd.DataFrame(
         [
-            {"site_id": "SITE001", "timestamp": pd.Timestamp("2026-08-27", tz="UTC"), "consumption_kw_corrected": 1.0},
-            {"site_id": "SITE001", "timestamp": pd.Timestamp("2026-09-03", tz="UTC"), "consumption_kw_corrected": 2.0},
+            {
+                "site_id": "SITE001",
+                "timestamp": pd.Timestamp("2026-08-27", tz="UTC"),
+                "consumption_kw_corrected": 1.0,
+            },
+            {
+                "site_id": "SITE001",
+                "timestamp": pd.Timestamp("2026-09-03", tz="UTC"),
+                "consumption_kw_corrected": 2.0,
+            },
         ]
     )
     mock_transform_readings.return_value = transformed_all

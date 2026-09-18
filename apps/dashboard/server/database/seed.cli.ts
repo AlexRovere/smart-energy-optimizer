@@ -39,7 +39,7 @@ try {
     motDePasseEtl: requis('ETL_DB_PASSWORD')
   })
   console.info(
-    `Amorçage terminé : ${resultat.rolesCrees} rôle(s) et ${resultat.comptesCrees} compte(s) créés.`
+    `Amorçage terminé : ${resultat.rolesCrees} rôle(s), ${resultat.comptesCrees} compte(s), ${resultat.sitesCrees} site(s) et ${resultat.accèsCrees} accès créés.`
   )
 } finally {
   await sql.end()

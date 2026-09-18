@@ -1,4 +1,5 @@
-# point d'entrée Load : écrit le référentiel des sites et l'historique des mesures (Parquet), et la base
+# point d'entrée Load : écrit le référentiel des sites et l'historique des mesures (Parquet), et la
+# base
 from __future__ import annotations
 
 from collections.abc import Callable

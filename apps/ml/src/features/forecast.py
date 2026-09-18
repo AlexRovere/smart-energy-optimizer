@@ -5,7 +5,6 @@ import pandas as pd
 
 from features.schedules import SiteSchedules, is_working_hour
 
-
 CALENDAR_COLUMNS = [
     "hour",
     "day_of_week",
@@ -42,9 +41,7 @@ def build_prediction_features(
 ) -> pd.DataFrame:
     """Build one CatBoost row using only values known before ``timestamp``."""
     if len(history) < MINIMUM_HISTORY_HOURS:
-        raise ValueError(
-            f"At least {MINIMUM_HISTORY_HOURS} hours of history are required"
-        )
+        raise ValueError(f"At least {MINIMUM_HISTORY_HOURS} hours of history are required")
 
     # Calendar values are deterministic from the requested future timestamp.
     # Only working hours come from the explicit per-site configuration.

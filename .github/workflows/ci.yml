@@ -68,16 +68,41 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with: { python-version: "3.12" }
-      # Les dépendances sont sous uv et uv.lock, pas requirements.txt : le cache
-      # de setup-python ne s'applique pas, c'est setup-uv qui le porte.
-      # TODO : les règles de lint arrivent avec #90, les tests avec #51.
-      # - uses: astral-sh/setup-uv@v7
-      #   with: { enable-cache: true, cache-dependency-glob: apps/etl/uv.lock }
-      # - run: uv run --directory apps/etl ruff check .
+      - uses: astral-sh/setup-uv@v7
+        with: { enable-cache: true, cache-dependency-glob: apps/etl/uv.lock }
+
+      # Bloquant, comme le service ML. #140 est fusionnée et son code est passé
+      # dans cette même PR par `ruff check --fix`, `ruff format`, puis dix-neuf
+      # corrections à la main. Les 103 tests de l'ETL passent après.
+      #
+      # Voir le job ml pour le motif de l'épinglage de version.
+      - name: Lint (ruff)
+        run: uvx ruff@0.16.8 check apps/etl --output-format github
+
+      - name: Formatage (ruff)
+        run: uvx ruff@0.16.8 format --check apps/etl
+
+      - name: Rapport qualité
+        if: always()
+        run: |
+          mkdir -p rapport-qualite
+          uvx ruff@0.16.8 check apps/etl --output-format json --output-file rapport-qualite/etl-lint.json || true
+          {
+            echo "### ETL, lint Python"
+            echo '```'
+            uvx ruff@0.16.8 check apps/etl --statistics || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: rapport-qualite-etl
+          path: rapport-qualite/
+
+      # TODO : les tests arrivent avec #51.
       # - run: uv run --directory apps/etl pytest
-      - run: echo "TODO ETL - lint et tests unitaires, dont la gestion des null et de data_quality"
+      - run: echo "TODO ETL - tests unitaires, dont la gestion des null et de data_quality"
 
   ml:
     needs: changes
@@ -85,15 +110,48 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with: { python-version: "3.12" }
-      # Même remarque que pour l'ETL : uv.lock, donc setup-uv pour le cache.
-      # TODO : les règles de lint arrivent avec #90, les tests avec #51.
-      # - uses: astral-sh/setup-uv@v7
-      #   with: { enable-cache: true, cache-dependency-glob: apps/ml/uv.lock }
-      # - run: uv run --directory apps/ml ruff check .
+      - uses: astral-sh/setup-uv@v7
+        with: { enable-cache: true, cache-dependency-glob: apps/ml/uv.lock }
+
+      # Bloquant ici, contrairement à l'ETL : rien n'est en vol sur ce
+      # répertoire et son code est passé au vert dans cette même PR.
+      #
+      # ruff est épinglé en 0.16.8. Le jeu de règles par défaut change d'une
+      # version à l'autre : une CI qui rougit parce qu'un outil s'est mis à
+      # jour tout seul n'apprend rien à personne et se fait désactiver.
+      #
+      # --output-format github annote directement les lignes fautives dans
+      # l'onglet « Files changed » de la pull request, au lieu d'obliger à
+      # ouvrir le log pour savoir où regarder.
+      - name: Lint (ruff)
+        run: uvx ruff@0.16.8 check apps/ml --output-format github
+
+      - name: Formatage (ruff)
+        run: uvx ruff@0.16.8 format --check apps/ml
+
+      # if: always() pour que le rapport existe surtout quand le lint a échoué,
+      # qui est le moment où on a besoin de le lire.
+      - name: Rapport qualité
+        if: always()
+        run: |
+          mkdir -p rapport-qualite
+          uvx ruff@0.16.8 check apps/ml --output-format json --output-file rapport-qualite/ml-lint.json || true
+          {
+            echo "### Service ML, lint Python"
+            echo '```'
+            uvx ruff@0.16.8 check apps/ml --statistics || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: rapport-qualite-ml
+          path: rapport-qualite/
+
+      # TODO : les tests arrivent avec #51.
       # - run: uv run --directory apps/ml pytest
-      - run: echo "TODO ML - lint et tests du contrat de l API de prediction"
+      - run: echo "TODO ML - tests du contrat de l API de prediction"
 
   dashboard:
     needs: changes
@@ -116,6 +174,25 @@ jobs:
           cache-dependency-path: apps/dashboard/pnpm-lock.yaml
       - run: pnpm --dir apps/dashboard install --frozen-lockfile
       - run: pnpm --dir apps/dashboard lint
+
+      - name: Rapport qualité
+        if: always()
+        run: |
+          mkdir -p rapport-qualite
+          pnpm --dir apps/dashboard exec eslint . -f json -o "$GITHUB_WORKSPACE/rapport-qualite/dashboard-lint.json" || true
+          {
+            echo "### Dashboard, lint TypeScript et Vue"
+            echo '```'
+            pnpm --dir apps/dashboard exec eslint . -f stylish || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: rapport-qualite-dashboard
+          path: rapport-qualite/
+
       # nuxt.config.ts pose typeCheck: false, donc ni `nuxt build` ni `eslint`
       # ne regardent les types : sans cette étape, vue-tsc ne tournerait nulle
       # part et la CI couvrirait moins qu'elle n'en a l'air.

@@ -1,6 +1,5 @@
-﻿import pandas as pd
+import pandas as pd
 import pytest
-
 from data import read_history, read_recent_history, read_training_history
 
 
@@ -31,12 +30,12 @@ def test_read_history_combines_parquet_files_and_forward_fills(tmp_path):
     directory = tmp_path / "history"
     partition = directory / "site_id=SITE001"
     partition.mkdir(parents=True)
-    make_rows(
-        "SITE001", pd.date_range("2025-01-01", periods=1, freq="h")
-    ).assign(consumption_kwh=10.0).to_parquet(partition / "part-1.parquet")
-    make_rows(
-        "SITE001", pd.date_range("2025-01-01 01:00", periods=1, freq="h")
-    ).assign(consumption_kwh=None).to_parquet(partition / "part-2.parquet")
+    make_rows("SITE001", pd.date_range("2025-01-01", periods=1, freq="h")).assign(
+        consumption_kwh=10.0
+    ).to_parquet(partition / "part-1.parquet")
+    make_rows("SITE001", pd.date_range("2025-01-01 01:00", periods=1, freq="h")).assign(
+        consumption_kwh=None
+    ).to_parquet(partition / "part-2.parquet")
 
     history = read_history(directory)
 
@@ -51,12 +50,8 @@ def test_recent_history_reads_only_requested_site_and_hours(tmp_path):
     partition_two = directory / "site_id=SITE002"
     partition_one.mkdir(parents=True)
     partition_two.mkdir(parents=True)
-    site_one = make_rows(
-        "SITE001", pd.date_range("2025-01-01", periods=200, freq="h")
-    )
-    site_two = make_rows(
-        "SITE002", pd.date_range("2025-01-01", periods=200, freq="h")
-    )
+    site_one = make_rows("SITE001", pd.date_range("2025-01-01", periods=200, freq="h"))
+    site_two = make_rows("SITE002", pd.date_range("2025-01-01", periods=200, freq="h"))
     site_one.iloc[:100].to_parquet(partition_one / "part-1.parquet")
     site_one.iloc[100:].to_parquet(partition_one / "part-2.parquet")
     site_two.to_parquet(partition_two / "part-3.parquet")
@@ -87,12 +82,12 @@ def test_read_history_ignores_files_outside_a_site_partition(tmp_path):
     directory = tmp_path / "history"
     partition = directory / "site_id=SITE001"
     partition.mkdir(parents=True)
-    make_rows(
-        "SITE001", pd.date_range("2025-01-01", periods=1, freq="h")
-    ).to_parquet(partition / "readings.parquet")
-    pd.DataFrame(
-        {"id": ["SITE001"], "name": ["Bureau Paris"], "capacity_kw": [100]}
-    ).to_parquet(directory / "sites.parquet")
+    make_rows("SITE001", pd.date_range("2025-01-01", periods=1, freq="h")).to_parquet(
+        partition / "readings.parquet"
+    )
+    pd.DataFrame({"id": ["SITE001"], "name": ["Bureau Paris"], "capacity_kw": [100]}).to_parquet(
+        directory / "sites.parquet"
+    )
 
     history = read_history(directory)
 
@@ -115,9 +110,7 @@ def test_read_history_drops_the_timezone_from_etl_timestamps(tmp_path):
 
 def test_single_parquet_file_is_rejected(tmp_path):
     path = tmp_path / "history.parquet"
-    make_rows(
-        "SITE001", pd.date_range("2025-01-01", periods=1, freq="h")
-    ).to_parquet(path)
+    make_rows("SITE001", pd.date_range("2025-01-01", periods=1, freq="h")).to_parquet(path)
 
     with pytest.raises(FileNotFoundError, match="Parquet directory"):
         read_history(path)
