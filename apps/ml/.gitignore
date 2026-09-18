@@ -222,3 +222,7 @@ __marimo__/
 /datas/
 /artifacts/
 catboost_info/
+
+# Sorties regenerables du script d'insights (notebooks/insights), pas versionnees
+/notebooks/insights/data.json
+/notebooks/insights/*.html
