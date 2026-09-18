@@ -1,14 +1,9 @@
-from pathlib import Path
+import mlflow
 
 from catboost import CatBoostRegressor
 
 
-def load_model(path: str | Path) -> CatBoostRegressor:
-    """Load the CatBoost artifact produced after model training."""
-    model_path = Path(path)
-    if not model_path.is_file():
-        raise FileNotFoundError(f"CatBoost model not found: {model_path}")
-
-    model = CatBoostRegressor()
-    model.load_model(str(model_path))
-    return model
+def load_model(alias: str = "champion") -> CatBoostRegressor:
+    """Load the CatBoost model from MLflow registry with its alias."""
+    from training.train import MLFLOW_MODEL_NAME
+    return mlflow.catboost.load_model(f"models:/{MLFLOW_MODEL_NAME}@{alias}")

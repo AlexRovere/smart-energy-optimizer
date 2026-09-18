@@ -1,18 +1,30 @@
+import mlflow.catboost as mlflow_catboost
 from models.catboost import load_model
 
 
-class FakeCatBoost:
-    loaded_path: str | None = None
+def test_load_model_charge_depuis_le_registre(monkeypatch):
+    loaded_uri = {}
 
-    def load_model(self, path: str) -> None:
-        self.loaded_path = path
+    def fake_load(uri):
+        loaded_uri["value"] = uri
+        return object()
+
+    monkeypatch.setattr(mlflow_catboost, "load_model", fake_load)
+
+    load_model()
+
+    assert loaded_uri["value"] == "models:/enervision-catboost@champion"
 
 
-def test_load_model_reads_existing_catboost_file(tmp_path, monkeypatch):
-    model_path = tmp_path / "model.cbm"
-    model_path.touch()
-    monkeypatch.setattr("models.catboost.CatBoostRegressor", FakeCatBoost)
+def test_load_model_accepte_un_alias_different(monkeypatch):
+    loaded_uri = {}
 
-    model = load_model(model_path)
+    def fake_load(uri):
+        loaded_uri["value"] = uri
+        return object()
 
-    assert model.loaded_path == str(model_path)
+    monkeypatch.setattr(mlflow_catboost, "load_model", fake_load)
+
+    load_model(alias="challenger")
+
+    assert loaded_uri["value"] == "models:/enervision-catboost@challenger"

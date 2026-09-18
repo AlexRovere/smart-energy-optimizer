@@ -105,7 +105,7 @@ def test_training_endpoint_returns_training_summary(monkeypatch):
 def test_predictions_reload_history_but_reuse_model_and_schedules(monkeypatch):
     calls = {"model": 0, "history": 0, "schedules": 0}
 
-    def fake_load_model(path):
+    def fake_load_model(alias="champion"):
         calls["model"] += 1
         return ConstantModel()
 

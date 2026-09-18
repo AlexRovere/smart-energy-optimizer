@@ -39,7 +39,7 @@ def get_site_config_path() -> str:
 # en mémoire, contrairement à l'historique qui est relu à chaque requête.
 @lru_cache(maxsize=1)
 def get_prediction_model() -> CatBoostRegressor:
-    return load_model(get_model_path())
+    return load_model()
 
 
 @lru_cache(maxsize=1)
