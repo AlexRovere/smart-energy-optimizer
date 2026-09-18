@@ -1,14 +1,11 @@
 from datetime import datetime
 from unittest.mock import MagicMock
 
-import pandas as pd
-from fastapi.testclient import TestClient
-
 import api.main as api_main
 import pandas as pd
 from api.main import app, get_prediction_model, get_site_schedules
-from training import TrainingResult, MLFLOW_MODEL_NAME
-
+from fastapi.testclient import TestClient
+from training import MLFLOW_MODEL_NAME, TrainingResult
 
 SCHEDULES = {
     "SITE001": {
@@ -154,7 +151,9 @@ def test_model_endpoint_retourne_la_version_champion(monkeypatch):
 def test_model_endpoint_retourne_503_si_aucun_champion(monkeypatch):
     import mlflow.exceptions
     fake_client = MagicMock()
-    fake_client.get_model_version_by_alias.side_effect = mlflow.exceptions.MlflowException("not found")
+    fake_client.get_model_version_by_alias.side_effect = mlflow.exceptions.MlflowException(
+        "not found"
+    )
     monkeypatch.setattr(api_main.mlflow, "MlflowClient", lambda: fake_client)
     client = TestClient(app)
 

@@ -1,5 +1,6 @@
 import pandas as pd
 import pytest
+
 from data import read_history, read_recent_history, read_training_history
 
 

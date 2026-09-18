@@ -2,22 +2,18 @@ import os
 from functools import lru_cache
 from typing import Annotated
 
-from catboost import CatBoostRegressor
-from data import read_recent_history
-from fastapi import Depends, FastAPI, HTTPException
-from pydantic import Field
 import mlflow
-
-from api.schemas import PredictionRequest, PredictionResponse, TrainingResponse
-from data import read_recent_history
+from catboost import CatBoostRegressor
+from fastapi import Depends, FastAPI, HTTPException
 from features import SiteSchedules, load_site_schedules
 from models import PredictionService, PredictionTarget, load_model
-from training import train_model, MLFLOW_MODEL_NAME
+from pydantic import Field
+from training import MLFLOW_MODEL_NAME, train_model
 
 from api.schemas import PredictionRequest, PredictionResponse, TrainingResponse
+from data import read_recent_history
 
 DEFAULT_DATA_PATH = "datas/all_sites_combined.csv"
-DEFAULT_MODEL_PATH = "artifacts/catboost_model.cbm"
 DEFAULT_SITE_CONFIG_PATH = "config/sites.json"
 
 mlflow.set_tracking_uri(
@@ -27,10 +23,6 @@ mlflow.set_tracking_uri(
 
 def get_data_path() -> str:
     return os.getenv("ML_DATA_PATH", DEFAULT_DATA_PATH)
-
-
-def get_model_path() -> str:
-    return os.getenv("ML_MODEL_PATH", DEFAULT_MODEL_PATH)
 
 
 def get_site_config_path() -> str:
@@ -67,13 +59,14 @@ app = FastAPI(
 def health() -> dict[str, str]:
     return {"status": "ok"}
 
-@app.get('/model')
+
+@app.get("/model")
 def get_model_info() -> dict[str, object]:
     client = mlflow.MlflowClient()
     try:
         version = client.get_model_version_by_alias(MLFLOW_MODEL_NAME, "champion")
-    except mlflow.exceptions.MlflowException:
-        raise HTTPException(status_code=503, detail="Aucun modèle champion disponible")
+    except mlflow.exceptions.MlflowException as error:
+        raise HTTPException(status_code=503, detail="Aucun modèle champion disponible") from error
     return {"name": MLFLOW_MODEL_NAME, "version": int(version.version), "alias": "champion"}
 
 
