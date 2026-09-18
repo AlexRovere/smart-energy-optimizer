@@ -23,7 +23,7 @@ class PredictionResponse(BaseModel):
 
 
 class TrainingResponse(BaseModel):
-    model_path: str
+    model_version: int
     training_rows: int
     sites: int
     training_start: dt.datetime

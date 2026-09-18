@@ -70,7 +70,7 @@ def health() -> dict[str, str]:
 @app.post("/training", response_model=TrainingResponse)
 def create_training() -> TrainingResponse:
     try:
-        result = train_model(get_data_path(), get_model_path())
+        result = train_model(get_data_path())
     except FileNotFoundError as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
     except ValueError as error:
