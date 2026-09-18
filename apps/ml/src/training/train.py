@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+import mlflow
 from catboost import CatBoostRegressor
 
 from data import read_training_history
@@ -9,6 +10,7 @@ from features import FEATURE_COLUMNS, add_training_features
 
 TARGET_COLUMN = "consumption_kwh_corrected"
 CATEGORICAL_FEATURES = ["site_id", "site_type"]
+MLFLOW_EXPERIMENT = "enervision-training"
 
 
 @dataclass(frozen=True)
@@ -35,7 +37,7 @@ def train_model(data_path: str | Path, model_path: str | Path) -> TrainingResult
     if training_data.empty:
         raise ValueError("Not enough complete history to train the model")
 
-    model = CatBoostRegressor(
+    params = dict(
         iterations=1000,
         depth=8,
         learning_rate=0.10,
@@ -44,15 +46,24 @@ def train_model(data_path: str | Path, model_path: str | Path) -> TrainingResult
         verbose=False,
         allow_writing_files=False,
     )
-    model.fit(
-        training_data[FEATURE_COLUMNS],
-        training_data[TARGET_COLUMN],
-        cat_features=CATEGORICAL_FEATURES,
-    )
 
-    destination = Path(model_path)
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    model.save_model(str(destination))
+    model = CatBoostRegressor(**params)
+
+    mlflow.set_experiment(MLFLOW_EXPERIMENT)
+    with mlflow.start_run():
+        mlflow.log_params({k: v for k, v in params.items()
+                           if k not in ("verbose", "allow_writing_files")})
+        model.fit(
+            training_data[FEATURE_COLUMNS],
+            training_data[TARGET_COLUMN],
+            cat_features=CATEGORICAL_FEATURES,
+        )
+
+        destination = Path(model_path)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        model.save_model(str(destination))
+        mlflow.log_metric("training_rows", len(training_data))
+        mlflow.log_artifact(str(destination))
 
     return TrainingResult(
         model_path=str(destination),
