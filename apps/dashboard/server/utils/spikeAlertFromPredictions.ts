@@ -1,27 +1,27 @@
-// Alerte conso évaluée sur l'horizon de prédiction ML (jusqu'à 168h), même détection que l'historique, contexte réel pour les premières heures (#175).
+// Alerte pic évaluée sur l'horizon de prédiction ML (jusqu'à 168h), même détection que l'historique, contexte réel pour les premières heures (#176).
 import { querySiteHistory } from './parquetReader'
 import { getAlertThreshold } from './alertThresholdsRepository'
-import { detectConsumptionAlert } from './consumptionAlertDetection'
+import { detectSpikeAlert } from './spikeAlertDetection'
 import { fetchPredictions } from './mlClient'
 import { hoursInHorizon } from './predictionHorizon'
 import type { AppDatabase } from './session'
 import type { TimestampedValue } from './rollingAverage'
 
-const DÉFAUTS_CONSO = { duration: 5, threshold: 200 }
+const DÉFAUTS_PIC = { duration: 5, threshold: 1.5 }
 const LIMITE_LECTURE = 1000
 
-export interface HourlyConsumptionAlert {
+export interface HourlySpikeAlert {
   timestamp: string
   alert: boolean
 }
 
-export async function detectConsumptionAlertsFromPredictions(
+export async function detectSpikeAlertsFromPredictions(
   db: AppDatabase,
   siteId: string,
   reference: Date,
   horizonHeures: number
-): Promise<HourlyConsumptionAlert[]> {
-  const réglage = await getAlertThreshold(db, siteId, 'conso', DÉFAUTS_CONSO)
+): Promise<HourlySpikeAlert[]> {
+  const réglage = await getAlertThreshold(db, siteId, 'pic', DÉFAUTS_PIC)
   const heures = hoursInHorizon(reference, horizonHeures)
 
   const début = new Date(reference.getTime() - réglage.duration * 3_600_000)
@@ -43,10 +43,12 @@ export async function detectConsumptionAlertsFromPredictions(
     timestamp: heure.toISOString(),
     value: prédictions[index]!.consumption_kwh
   }))
-  const valeurs = [...valeursContexte, ...valeursPrédites]
 
-  return heures.map(heure => ({
-    timestamp: heure.toISOString(),
-    alert: detectConsumptionAlert(valeurs, heure, réglage)
-  }))
+  return heures.map((heure, index) => {
+    const précédentes = [...valeursContexte, ...valeursPrédites.slice(0, index)]
+    return {
+      timestamp: heure.toISOString(),
+      alert: detectSpikeAlert(précédentes, heure, valeursPrédites[index]!.value, réglage)
+    }
+  })
 }
