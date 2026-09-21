@@ -29,7 +29,7 @@ services:
     # Lié à la boucle locale : pratique pour un client SQL sur son poste,
     # injoignable depuis le réseau. Aucun service interne n'est exposé.
     ports:
-      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-${POSTGRES_PORT:-5432}}:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
