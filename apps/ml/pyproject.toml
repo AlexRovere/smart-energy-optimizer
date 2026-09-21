@@ -17,6 +17,7 @@ dependencies = [
     "plotly>=7.0.0",
     "prophet>=1.4.0",
     "pyarrow>=25.0.1",
+    "python-dotenv>=1.2.3",
     "requests>=2.34.2",
     "scikit-learn>=1.9.1",
     "statsmodels>=0.15.0",
@@ -38,7 +39,7 @@ requires = ["uv_build>=0.12.13,<0.13.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
-module-name = ["api", "data", "features", "models", "training"]
+module-name = ["api", "data", "env_loader", "features", "models", "training"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

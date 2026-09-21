@@ -1,26 +1,23 @@
 # Service ML EnerVision
 
 Ce service entraine un modele CatBoost puis expose des predictions horaires
-avec FastAPI. Le CSV est temporaire : le lecteur accepte deja le futur Parquet.
+avec FastAPI.
 
 ## Configuration
 
 Trois variables d'environnement permettent d'indiquer les fichiers a charger :
 
 ```text
-ML_DATA_PATH=datas/all_sites_combined.csv
+PARQUET_DIR=datas/parquets
 ML_MODEL_PATH=artifacts/catboost_model.cbm
 ML_SITE_CONFIG_PATH=config/sites.json
 ```
 
-`ML_DATA_PATH` accepte deux formes :
+`PARQUET_DIR` pointe un dossier contenant un ou plusieurs fichiers `.parquet`
+ou `.pq`, produits par l'ETL (partition `site_id=...`). Ils sont lus ensemble
+avec DuckDB, y compris dans les sous-dossiers.
 
-- un fichier CSV unique, par exemple `datas/all_sites_combined.csv` ;
-- un dossier contenant un ou plusieurs fichiers `.parquet` ou `.pq`, par
-  exemple `datas/parquets`.
-
-Les Parquet sont lus ensemble avec DuckDB, y compris dans les sous-dossiers.
-Le CSV et les Parquet doivent fournir `site_id`, `site_type`, `timestamp`,
+Les colonnes attendues sont `site_id`, `site_type`, `timestamp`,
 `consumption_kwh`, `hour`, `day_of_week`, `month`, `is_weekend` et
 `is_working_hours`. Chaque site doit posseder au moins 168 heures consecutives.
 Pour une prediction future, les quatre premieres valeurs calendaires sont
@@ -60,8 +57,8 @@ Construire l'image depuis `apps/ml` :
 docker build -t enervision-ml .
 ```
 
-Le CSV n'est pas inclus dans l'image. Le dossier `artifacts` est monte en
-ecriture pour recevoir le modele entraine :
+Le dossier Parquet n'est pas inclus dans l'image. Il est monte en lecture
+seule, et le dossier `artifacts` en ecriture pour recevoir le modele entraine :
 
 ```powershell
 docker rm -f enervision-ml
@@ -70,13 +67,11 @@ New-Item -ItemType Directory -Force artifacts
 docker run -d `
   --name enervision-ml `
   -p 8000:8000 `
-  --mount "type=bind,source=$((Resolve-Path '.\datas').Path),target=/app/datas,readonly" `
+  -e PARQUET_DIR=/data `
+  --mount "type=bind,source=$((Resolve-Path '.\datas\parquets').Path),target=/data,readonly" `
   --mount "type=bind,source=$((Resolve-Path '.\artifacts').Path),target=/app/artifacts" `
   enervision-ml
 ```
-
-Pour utiliser un dossier Parquet monte dans `/app/datas/parquets`, ajouter
-`-e ML_DATA_PATH=/app/datas/parquets` a la commande `docker run`.
 
 Ouvrir ensuite `http://localhost:8000/docs`, appeler `POST /training`, puis
 utiliser `POST /predictions`. L'entrainement peut durer plusieurs minutes.
@@ -168,8 +163,7 @@ flowchart TB
 
         subgraph DATA["Acces aux donnees"]
             READER["Lecteur d'historique<br/>data/history.py"]
-            CSV["CSV actuel"]
-            PARQUET["Dossier de Parquet"]
+            PARQUET["Dossier de Parquet<br/>PARQUET_DIR"]
             DUCKDB["Lecture et filtres DuckDB"]
         end
 
@@ -196,7 +190,6 @@ flowchart TB
     USER -->|"HTTP / Swagger"| API
     API <--> SCHEMAS
 
-    CSV --> READER
     PARQUET --> DUCKDB
     DUCKDB -. "alimente le lecteur" .-> READER
 
@@ -229,7 +222,7 @@ flowchart TB
 
     class USER user
     class API,SCHEMAS api
-    class READER,CSV,PARQUET,DUCKDB data
+    class READER,PARQUET,DUCKDB data
     class CALENDAR,SCHEDULE,HISTORY feature
     class TRAIN,CATBOOST_TRAIN train
     class SERVICE,RECURSIVE,MODEL_LOADER prediction
@@ -253,7 +246,7 @@ flowchart TD
 
     START --> CHOICE
 
-    CHOICE -->|"POST /training"| T1["1. Lecture du CSV"]
+    CHOICE -->|"POST /training"| T1["1. Lecture du Parquet"]
     T1 --> T2["2. Tri chronologique<br/>par site"]
     T2 --> T3["3. Correction des consommations<br/>manquantes"]
     T3 --> T4["4. Construction des features"]

@@ -26,6 +26,14 @@ class FakeCatBoost:
 
 def _make_csv(tmp_path: Path) -> Path:
     data_path = tmp_path / "history.csv"
+
+
+def test_training_uses_notebook_configuration_and_saves_model(tmp_path, monkeypatch):
+    directory = tmp_path / "history"
+    partition = directory / "site_id=SITE001"
+    partition.mkdir(parents=True)
+    data_path = directory
+    model_path = tmp_path / "artifacts" / "model.cbm"
     hours = 400
     timestamps = pd.date_range("2025-01-01", periods=hours, freq="h")
     pd.DataFrame(
@@ -40,12 +48,7 @@ def _make_csv(tmp_path: Path) -> Path:
             "is_weekend": (timestamps.dayofweek >= 5).astype(int),
             "is_working_hours": [1] * hours,
         }
-    ).to_csv(data_path, index=False)
-    return data_path
-
-
-def test_training_uses_notebook_configuration(tmp_path, monkeypatch):
-    data_path = _make_csv(tmp_path)
+    ).to_parquet(partition / "part-1.parquet")
     monkeypatch.setattr("training.train.CatBoostRegressor", FakeCatBoost)
     monkeypatch.setattr("mlflow.catboost.log_model", lambda *a, **kw: None)
     monkeypatch.setattr("mlflow.register_model", lambda *a, **kw: type("R", (), {"version": "1"})())

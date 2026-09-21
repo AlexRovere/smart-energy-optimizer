@@ -43,14 +43,13 @@ WORKDIR /app
 COPY --from=build --chown=app:app /app /app
 
 ENV PATH="/app/.venv/bin:$PATH" \
-    ML_DATA_PATH=/app/datas/all_sites_combined.csv \
     ML_MODEL_PATH=/app/artifacts/catboost_model.cbm \
     ML_SITE_CONFIG_PATH=/app/config/sites.json
 
-# Le CSV sera monté en lecture seule.
+# Le répertoire Parquet (PARQUET_DIR) est monté en lecture seule.
 # Le dossier artifacts doit rester accessible en écriture pour l'entraînement.
-RUN mkdir -p /app/datas /app/artifacts \
-    && chown -R app:app /app/datas /app/artifacts
+RUN mkdir -p /data /app/artifacts \
+    && chown -R app:app /data /app/artifacts
 
 USER app
 

@@ -4,6 +4,8 @@ from typing import Annotated
 
 import mlflow
 from catboost import CatBoostRegressor
+from data import read_recent_history
+from env_loader import load_root_env
 from fastapi import Depends, FastAPI, HTTPException
 from pydantic import Field
 
@@ -14,13 +16,17 @@ from models import PredictionService, PredictionTarget, load_model
 from training import MLFLOW_MODEL_NAME, train_model
 
 DEFAULT_DATA_PATH = "datas/all_sites_combined.csv"
+DEFAULT_MODEL_PATH = "artifacts/catboost_model.cbm"
 DEFAULT_SITE_CONFIG_PATH = "config/sites.json"
 
 mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "sqlite:///artifacts/mlflow.db"))
 
 
 def get_data_path() -> str:
-    return os.getenv("ML_DATA_PATH", DEFAULT_DATA_PATH)
+    data_path = os.getenv("PARQUET_DIR")
+    if not data_path:
+        raise RuntimeError("PARQUET_DIR is not set")
+    return data_path
 
 
 def get_site_config_path() -> str:
@@ -119,4 +125,5 @@ def run() -> None:
     """Run the development server through the ``ml-api`` command."""
     import uvicorn
 
+    load_root_env()
     uvicorn.run("api.main:app", host="0.0.0.0", port=8000)
