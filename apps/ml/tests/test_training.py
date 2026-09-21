@@ -25,7 +25,25 @@ class FakeCatBoost:
 
 
 def _make_csv(tmp_path: Path) -> Path:
-    data_path = tmp_path / "history.csv"
+    directory = tmp_path / "history"
+    partition = directory / "site_id=SITE001"
+    partition.mkdir(parents=True)
+    hours = 400
+    timestamps = pd.date_range("2025-01-01", periods=hours, freq="h")
+    pd.DataFrame(
+        {
+            "site_id": ["SITE001"] * hours,
+            "site_type": ["office"] * hours,
+            "timestamp": timestamps,
+            "consumption_kwh": range(hours),
+            "hour": timestamps.hour,
+            "day_of_week": timestamps.dayofweek,
+            "month": timestamps.month,
+            "is_weekend": (timestamps.dayofweek >= 5).astype(int),
+            "is_working_hours": [1] * hours,
+        }
+    ).to_parquet(partition / "part-1.parquet")
+    return directory
 
 
 def test_training_uses_notebook_configuration_and_saves_model(tmp_path, monkeypatch):
@@ -33,7 +51,6 @@ def test_training_uses_notebook_configuration_and_saves_model(tmp_path, monkeypa
     partition = directory / "site_id=SITE001"
     partition.mkdir(parents=True)
     data_path = directory
-    model_path = tmp_path / "artifacts" / "model.cbm"
     hours = 400
     timestamps = pd.date_range("2025-01-01", periods=hours, freq="h")
     pd.DataFrame(

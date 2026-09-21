@@ -4,13 +4,12 @@ from typing import Annotated
 
 import mlflow
 from catboost import CatBoostRegressor
-from data import read_recent_history
-from env_loader import load_root_env
 from fastapi import Depends, FastAPI, HTTPException
 from pydantic import Field
 
 from api.schemas import PredictionRequest, PredictionResponse, TrainingResponse
 from data import read_recent_history
+from env_loader import load_root_env
 from features import SiteSchedules, load_site_schedules
 from models import PredictionService, PredictionTarget, load_model
 from training import MLFLOW_MODEL_NAME, train_model
