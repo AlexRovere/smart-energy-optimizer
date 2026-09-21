@@ -51,7 +51,7 @@ La colonne « Rôle » décrit le mécanisme complet. **Un seul rôle est exploi
 | GET | `/api/stats/summary` | | `ParkSummary` | 401, 503 | tous |
 | GET | `/api/alerts` | `?site_id=&severity=` | `Alert[]` | 401, 422, 503 | tous |
 | GET | `/api/sensors/status` | | `SensorStatus` | 401, 503 | tous |
-| POST | `/api/sites/{id}/prediction` | `{ horizon_hours }`, 1 à 48, défaut 24 | `Prediction` | 401, 403, 422 | tous |
+| POST | `/api/sites/{id}/prediction` | `{ horizon_hours }`, 1 à 168, défaut 24 | `Prediction` | 401, 403, 422 | tous |
 | GET | `/api/recommendations` | `?site_id=` | `Recommendation[]` | 401, 422 | tous |
 
 Trois règles que le tableau ne dit pas :
