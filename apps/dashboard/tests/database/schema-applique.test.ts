@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { baseDisponible, creerBaseDeTest, ligneAttendue, type BaseDeTest } from './base-de-test'
 
-const TABLES = ['roles', 'users', 'sessions', 'sites', 'user_sites']
+const TABLES = ['roles', 'users', 'sessions', 'sites', 'user_sites', 'alert_thresholds']
 
 describe.skipIf(!baseDisponible())('schéma appliqué', () => {
   let base: BaseDeTest
@@ -14,7 +14,7 @@ describe.skipIf(!baseDisponible())('schéma appliqué', () => {
     await base?.fermer()
   })
 
-  it('crée les cinq tables', async () => {
+  it('crée les six tables', async () => {
     const lignes = await base.sql<{ table_name: string }[]>`
       SELECT table_name
         FROM information_schema.tables
@@ -34,6 +34,33 @@ describe.skipIf(!baseDisponible())('schéma appliqué', () => {
        ORDER BY kcu.column_name
     `
     expect(lignes.map(l => l.column_name)).toEqual(['site_id', 'user_id'])
+  })
+
+  it('donne à alert_thresholds une clé primaire composite, une règle par type et par site', async () => {
+    const lignes = await base.sql<{ column_name: string }[]>`
+      SELECT kcu.column_name
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+          ON kcu.constraint_name = tc.constraint_name
+       WHERE tc.table_name = 'alert_thresholds' AND tc.constraint_type = 'PRIMARY KEY'
+       ORDER BY kcu.column_name
+    `
+    expect(lignes.map(l => l.column_name)).toEqual(['site_id', 'type'])
+  })
+
+  it('refuse une seconde règle du même type pour le même site', async () => {
+    await base.sql`
+      INSERT INTO sites (id, name, type, capacity_kw, status)
+      VALUES ('SITE996', 'Essai', 'office', 200, 'active')
+    `
+    await base.sql`
+      INSERT INTO alert_thresholds (site_id, type, threshold)
+      VALUES ('SITE996', 'conso', 230)
+    `
+    await expect(base.sql`
+      INSERT INTO alert_thresholds (site_id, type, threshold)
+      VALUES ('SITE996', 'conso', 250)
+    `).rejects.toMatchObject({ code: '23505' })
   })
 
   // Les index sont vérifiés par schema-conforme-au-document.test.ts, qui les
