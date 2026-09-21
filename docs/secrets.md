@@ -189,10 +189,14 @@ Aucun de ces trois éditeurs n'est dans le `PATH` d'un Windows ordinaire ; `sops
 
 `MOCK_API_URL` **manque volontairement** : l'URL de l'API Mock n'est pas encore connue. Le jour où elle arrive : `sops set secrets.enc.yaml '["MOCK_API_URL"]' '"https://exemple"'`, puis `git add secrets.enc.yaml` et un commit qui dit quelle clé a bougé et pourquoi.
 
-**Injecter au lancement**, sans jamais écrire les valeurs sur le disque :
+**Injecter au déploiement**, sans jamais écrire les valeurs sur le disque :
 
 ```bash
-sops exec-env secrets.enc.yaml 'docker compose up -d'
+sops exec-env secrets.enc.yaml 'docker compose build etl ml dashboard migrate'
+sops exec-env secrets.enc.yaml 'docker compose up -d --wait postgres'
+sops exec-env secrets.enc.yaml 'docker compose run --rm migrate'
+sops exec-env secrets.enc.yaml 'docker compose run --rm seed'
+sops exec-env secrets.enc.yaml 'docker compose up -d --wait'
 ```
 
 C'est la commande du déploiement, et elle sert aussi **sur un poste** : les variables qu'elle pose priment sur le `.env`, donc il suffit d'y laisser la section RÉGLAGES de `.env.example` et aucun secret. C'est la façon la plus proche de la machine de lancer la pile chez soi, et elle ne laisse rien en clair sur le disque. Elle s'exécute **sur** la machine sur site, lancée par le runner auto-hébergé, avec la clé de la CI que GitHub lui passe le temps du job. Sous Windows, la commande passée est confiée à `cmd`, pas à un interpréteur POSIX : `sops exec-env secrets.enc.yaml 'echo $POSTGRES_PASSWORD'` affiche la chaîne littérale, pas la valeur, sans que l'environnement soit vide pour autant. Un test de ce genre se fait sous Git Bash ou WSL.
@@ -276,7 +280,7 @@ Le dernier surprend : un secret commité puis retiré au commit suivant fait qua
 
 **Sortie de secours d'un faux positif** (gitleaks se trompe déjà : une clé publique age classée `generic-api-key`, vérifié sur ce projet) : un commentaire `gitleaks:allow` sur la ligne (préféré pour une valeur documentée à l'avance), ou une entrée dans `.gitleaksignore` à la racine (à créer le jour du premier cas, format `<commit>:<chemin>:<règle>:<ligne>` tel que gitleaks le rend). Légitime pour un faux positif vérifié un par un, jamais pour faire taire un vrai secret : la différence se voit en revue, pas dans la syntaxe.
 
-**Sortie de secours du déploiement** : depuis que la machine est destinataire, elle se recrée sur place, `sops exec-env secrets.enc.yaml 'docker compose up -d'`, sans dépendre de GitHub ni recopier une valeur à la main. C'est aussi ce qui a motivé la clé. Un `workflow_dispatch` sur le workflow de déploiement reste le chemin propre quand le runner répond, sans pousser de commit et en laissant une trace.
+**Sortie de secours du déploiement** : depuis que la machine est destinataire, elle se recrée sur place avec la séquence `sops exec-env` documentée plus haut, sans dépendre de GitHub ni recopier une valeur à la main. C'est aussi ce qui a motivé la clé. Un `workflow_dispatch` sur le workflow de déploiement reste le chemin propre quand le runner répond, sans pousser de commit et en laissant une trace.
 
 ### Le détail du hook `pre-push`
 
