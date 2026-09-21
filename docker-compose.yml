@@ -83,6 +83,13 @@ services:
     volumes:
       - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prom_data:/prometheus
+    # Le playbook lance la pile avec `--wait` : sans sonde, il n'attend que
+    # l'état « démarré », qui ne dit pas que le service répond.
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
 
   # Mesure l'hôte et non son propre conteneur, d'où `pid: host` et la racine
@@ -110,6 +117,11 @@ services:
       # démarrage du conteneur n'apparaît qu'au prochain remplacement de
       # celui-ci. Les points de montage de la machine sont posés au démarrage.
       - /:/host/root:ro
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9100/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
 
   # Lit l'état des conteneurs par le moteur Docker. Le mode privilégié lui est
@@ -154,6 +166,11 @@ services:
       - grafana_data:/var/lib/grafana
       - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     depends_on:
       - prometheus
     restart: unless-stopped
