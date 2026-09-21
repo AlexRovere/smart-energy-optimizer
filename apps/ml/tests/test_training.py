@@ -23,7 +23,10 @@ class FakeCatBoost:
 
 
 def test_training_uses_notebook_configuration_and_saves_model(tmp_path, monkeypatch):
-    data_path = tmp_path / "history.csv"
+    directory = tmp_path / "history"
+    partition = directory / "site_id=SITE001"
+    partition.mkdir(parents=True)
+    data_path = directory
     model_path = tmp_path / "artifacts" / "model.cbm"
     hours = 400
     timestamps = pd.date_range("2025-01-01", periods=hours, freq="h")
@@ -39,7 +42,7 @@ def test_training_uses_notebook_configuration_and_saves_model(tmp_path, monkeypa
             "is_weekend": (timestamps.dayofweek >= 5).astype(int),
             "is_working_hours": [1] * hours,
         }
-    ).to_csv(data_path, index=False)
+    ).to_parquet(partition / "part-1.parquet")
     monkeypatch.setattr("training.train.CatBoostRegressor", FakeCatBoost)
 
     result = train_model(data_path, model_path)
