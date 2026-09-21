@@ -47,8 +47,8 @@ Rien. Aucune donnée d'exploitation ne quitte le site, l'hybride ayant été éc
 la VM déjà préparée :
 
 - vérification de Docker, Docker Compose, SOPS et age ;
-- création de `/home/apprenant/Projet`, `/data/output` et
-  `/var/log/enervision` avec les droits attendus ;
+- vérification de `/home/apprenant/Projet`, `/data/output` et
+  `/var/log/enervision` avec les droits préparés sur la VM ;
 - clonage ou mise à jour de `main` dans
   `/home/apprenant/Projet/enerVision` ;
 - vérification de la clé age propre à la VM ;
@@ -79,8 +79,7 @@ cd /mnt/d/enerVision
 Sous Linux, remplacer `/mnt/d/enerVision` par le chemin local du dépôt.
 `sshpass` est nécessaire tant que la VM utilise une authentification SSH par
 mot de passe. Le mot de passe n'est jamais écrit dans l'inventaire : Ansible le
-demande avec `--ask-pass` et demande séparément celui de `sudo` avec
-`--ask-become-pass`.
+demande avec `--ask-pass`.
 
 Avant le premier passage, accepter explicitement l'empreinte SSH de la VM :
 
@@ -92,6 +91,21 @@ exit
 ### Prérequis de la VM
 
 La VM doit disposer de Docker, du plugin Compose, de Git, de SOPS et de age.
+Une seule préparation est réalisée par `root`, avant le premier déploiement :
+
+```bash
+install -d -o apprenant -g apprenant -m 0755 /data/output
+install -d -o apprenant -g apprenant -m 0750 /var/log/enervision
+install -d -o apprenant -g apprenant -m 0700 /home/apprenant/.config/sops/age
+install -o apprenant -g apprenant -m 0600 \
+  /root/.config/sops/age/keys.txt \
+  /home/apprenant/.config/sops/age/keys.txt
+```
+
+Le playbook n'utilise ensuite plus `sudo`. Il vérifie et conserve ces droits ;
+il échoue si cette préparation manque, plutôt que de demander un privilège au
+runner de déploiement.
+
 Sa clé privée age doit avoir été générée sur place et rester dans :
 
 ```text
@@ -108,8 +122,7 @@ playbook refuse de continuer si la clé privée manque et force ses permissions 
 ansible-playbook \
   -i infra/ansible/inventory.ini \
   infra/ansible/playbook.yml \
-  --ask-pass \
-  --ask-become-pass
+  --ask-pass
 ```
 
 La même commande sert au premier passage et aux suivants. Le module Git clone
@@ -125,7 +138,6 @@ ansible-playbook \
   -i infra/ansible/inventory.ini \
   infra/ansible/playbook.yml \
   --ask-pass \
-  --ask-become-pass \
   -e run_database_seed=false
 ```
 
@@ -133,8 +145,8 @@ ansible-playbook \
 
 Chaque commande Compose est exécutée par `sops exec-env secrets.enc.yaml`. Les
 valeurs sont déchiffrées en mémoire et l'environnement du processus les fournit
-à Compose. Le playbook supprime un éventuel ancien `.env` de production laissé
-sur la VM : aucun secret applicatif déchiffré n'est écrit par Ansible.
+à Compose. Aucun `.env` de production n'est copié ou créé : aucun secret
+applicatif déchiffré n'est écrit par Ansible.
 
 Docker conserve ensuite l'environnement des conteneurs sous `root`, limite
 documentée dans [`../../docs/secrets.md`](../../docs/secrets.md).
