@@ -1,4 +1,4 @@
-// Lit docs/data.md et en extrait les cinq tableaux de colonnes, pour que le
+// Lit docs/data.md et en extrait les six tableaux de colonnes, pour que le
 // document devienne vérifiable au lieu d'être seulement lu.
 //
 // Un parseur de Markdown est fragile par nature : celui-ci échoue bruyamment
@@ -13,7 +13,14 @@ export const CHEMIN_DATA_MD = resolve(
   '../../../../docs/data.md'
 )
 
-const TABLES_ATTENDUES = ['roles', 'users', 'sessions', 'sites', 'user_sites'] as const
+const TABLES_ATTENDUES = [
+  'roles',
+  'users',
+  'sessions',
+  'sites',
+  'user_sites',
+  'alert_thresholds'
+] as const
 
 export interface ColonneDocumentee {
   nom: string
@@ -100,9 +107,9 @@ export function lireTablesDocumentees(): Map<string, TableDocumentee> {
     tables.set(nom, lireTable(lignes, nom))
   }
   // Pas de contrôle du nombre de tables ici : la boucle ci-dessus parcourt une
-  // constante de cinq entrées distinctes et lireTable lève avant de rendre, si
+  // constante de six entrées distinctes et lireTable lève avant de rendre, si
   // bien qu'un tel contrôle ne pourrait jamais être vrai. C'est data-md.test.ts
-  // qui vérifie que les cinq tables sont bien celles attendues.
+  // qui vérifie que les six tables sont bien celles attendues.
   return tables
 }
 
@@ -126,6 +133,8 @@ export function typePostgres(
       return { dataType: 'boolean', longueur: null }
     case 'INET':
       return { dataType: 'inet', longueur: null }
+    case 'REAL':
+      return { dataType: 'real', longueur: null }
     case 'TIMESTAMPTZ':
       return { dataType: 'timestamp with time zone', longueur: null }
     default:
