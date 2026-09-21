@@ -46,7 +46,7 @@ Rien. Aucune donnée d'exploitation ne quitte le site, l'hybride ayant été éc
 [`playbook.yml`](./playbook.yml) automatise les opérations de déploiement sur
 la VM déjà préparée :
 
-- vérification de Docker, Docker Compose, Git, SOPS et age ;
+- vérification de Docker, Docker Compose, SOPS et age ;
 - création de `/home/apprenant/Projet`, `/data/output` et
   `/var/log/enervision` avec les droits attendus ;
 - clonage ou mise à jour de `main` dans

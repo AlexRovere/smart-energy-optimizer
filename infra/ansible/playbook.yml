@@ -38,10 +38,6 @@
       ansible.builtin.command: age --version
       changed_when: false
 
-    - name: Vérifier Git
-      ansible.builtin.command: git --version
-      changed_when: false
-
   tasks:
     - name: Créer les répertoires applicatifs
       become: true
