@@ -1,5 +1,21 @@
 # Pile on-premise.
 services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data # Stockage certificats (persistance entre reboots)
+      - caddy_config:/config
+    environment:
+      DOMAIN: ${DOMAIN}
+    networks:
+      - frontend
+    depends_on:
+      - dashboard
+
   # PostgreSQL nu, sans TimescaleDB : la base ne porte plus les mesures, qui
   # vivent en fichiers Parquet sur le volume partagé. Il ne lui reste que le
   # référentiel des sites, les comptes, les rôles et les périmètres d'accès.
@@ -22,6 +38,8 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    networks:
+      - data
 
   # Prometheus sert aussi à la dérive du modèle (C24), donc il reste prévu.
   # Commenté plutôt que retiré : le temps de l'activer sur le serveur n'est
@@ -64,6 +82,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - data
 
   ml:
     build: ./apps/ml
@@ -72,6 +92,8 @@ services:
     volumes:
       - ${PARQUET_DIR_HOST:?}:/data:ro
     restart: unless-stopped
+    networks:
+      - data
 
   dashboard:
     build: ./apps/dashboard
@@ -81,7 +103,7 @@ services:
       # sans caractère spécial, l'assemblage l'encodant (#158).
       NUXT_POSTGRES_HOST: postgres
       NUXT_POSTGRES_PORT: 5432
-      NUXT_POSTGRES_DB: ${POSTGRES_DB:-enervision}
+      NUXT_POSTGRES_DATABASE: ${POSTGRES_DB:-enervision}
       NUXT_POSTGRES_USER: ${POSTGRES_USER:-enervision}
       NUXT_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       NUXT_PARQUET_DIR: /data
@@ -101,8 +123,16 @@ services:
       ml:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - frontend
+      - data
 
+networks:
+  frontend: # proxy <-> dashboard
+  data: # dashboard <-> postgres / ml / etl
 
 volumes:
   db_data:
   # prom_data: décommenter avec le service prometheus ci-dessus.
+  caddy_data:
+  caddy_config:
