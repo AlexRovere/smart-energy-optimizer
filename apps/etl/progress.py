@@ -1,7 +1,9 @@
 # affiche la progression de 'main.py periods --verbose' sur une seule ligne : étape, %, temps
-# écoulé/restant
+# écoulé/restant. Sur stderr, parce que c'est un commentaire adressé à un humain : stdout est
+# réservé au journal JSON, que la progression rendrait illisible à coups de retours chariot
 from __future__ import annotations
 
+import sys
 import time
 
 
@@ -65,7 +67,7 @@ class ProgressReporter:
     def finish(self) -> None:
         if not self.enabled:
             return
-        print()
+        print(file=sys.stderr)
 
     def _overall_fraction(self) -> float:
         extract_fraction = self.extract_done / self.extract_total if self.extract_total else 0.0
@@ -99,4 +101,4 @@ class ProgressReporter:
             f"[{self.step:<9}]{sub_progress} {overall:5.1%} au total "
             f"- ecoule {_format_duration(elapsed)} / restant {remaining_text}"
         )
-        print(f"\r{line}".ljust(100), end="", flush=True)
+        print(f"\r{line}".ljust(100), end="", flush=True, file=sys.stderr)
