@@ -1,7 +1,6 @@
 ---
 - name: Déployer EnerVision
   hosts: enervision
-  become: true
   gather_facts: false
   environment:
     SOPS_AGE_KEY_FILE: "{{ age_key_file }}"
@@ -28,27 +27,24 @@
       changed_when: false
 
     - name: Vérifier l'accès de l'utilisateur au moteur Docker
-      become_user: "{{ application_user }}"
       ansible.builtin.command: docker info
       changed_when: false
 
     - name: Vérifier SOPS
-      become_user: "{{ application_user }}"
       ansible.builtin.command: sops --version
       changed_when: false
 
     - name: Vérifier age
-      become_user: "{{ application_user }}"
       ansible.builtin.command: age --version
       changed_when: false
 
     - name: Vérifier Git
-      become_user: "{{ application_user }}"
       ansible.builtin.command: git --version
       changed_when: false
 
   tasks:
     - name: Créer les répertoires applicatifs
+      become: true
       ansible.builtin.file:
         path: "{{ item.path }}"
         state: directory
@@ -64,7 +60,6 @@
           mode: "0750"
 
     - name: Récupérer la version attendue du dépôt
-      become_user: "{{ application_user }}"
       ansible.builtin.git:
         repo: "{{ repository_url }}"
         dest: "{{ project_dir }}"
@@ -94,7 +89,6 @@
         mode: "0600"
 
     - name: Valider la composition avec les secrets déchiffrés en mémoire
-      become_user: "{{ application_user }}"
       ansible.builtin.command:
         argv:
           - sops
@@ -106,7 +100,6 @@
       changed_when: false
 
     - name: Construire les images
-      become_user: "{{ application_user }}"
       ansible.builtin.command:
         argv:
           - sops
@@ -118,7 +111,6 @@
       changed_when: false
 
     - name: Démarrer PostgreSQL
-      become_user: "{{ application_user }}"
       ansible.builtin.command:
         argv:
           - sops
@@ -130,7 +122,6 @@
       changed_when: false
 
     - name: Appliquer les migrations PostgreSQL
-      become_user: "{{ application_user }}"
       ansible.builtin.command:
         argv:
           - sops
@@ -142,7 +133,6 @@
       changed_when: false
 
     - name: Amorcer les comptes et activer le rôle ETL
-      become_user: "{{ application_user }}"
       ansible.builtin.command:
         argv:
           - sops
@@ -155,7 +145,6 @@
       when: run_database_seed | bool
 
     - name: Démarrer la pile applicative
-      become_user: "{{ application_user }}"
       ansible.builtin.command:
         argv:
           - sops
@@ -167,7 +156,6 @@
       changed_when: false
 
     - name: Afficher l'état de la pile
-      become_user: "{{ application_user }}"
       ansible.builtin.command:
         argv:
           - sops
