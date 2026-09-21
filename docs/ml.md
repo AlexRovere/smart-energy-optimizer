@@ -2,74 +2,64 @@
 
 Ce document est celui annoncé dans [`README.md`](./README.md) pour EC06. Il ne couvre pour l'instant que **l'impact métier du modèle** (#94). Le choix du modèle vit dans `apps/ml/notebooks/model_selection.ipynb`, le versionnement dans #37 et la surveillance de la dérive dans #40 : chaque section arrive avec son ticket.
 
-## Ce qui est mesuré, et ce qui ne l'est pas
+## Ce qui est mesuré
 
-Deux KPI métier, calculés sur le bloc de test que l'entraînement exclut : **1er juin au 18 septembre 2026, 18 396 heures, les sept sites du parc**. La prévision est rejouée toutes les six heures sur vingt-quatre heures, soit 72 912 prévisions issues de 434 origines.
+Deux indicateurs, calculés sur le bloc de test que l'entraînement exclut : **1er juin au 18 septembre 2026, 18 396 heures, les sept sites du parc**. La prévision est rejouée toutes les six heures sur vingt-quatre heures, soit 72 912 prévisions issues de 434 origines.
 
-Aucune charge n'a réellement été déplacée. L'effet d'une recommandation suivie est une hypothèse paramétrée : **15 % de la charge de l'heure signalée est déplaçable**, vers les heures voisines à plus ou moins trois heures, dans la même journée, à énergie totale conservée. Les chiffres mesurent donc le couple modèle plus hypothèse. Le carnet `apps/ml/notebooks/impact_kpi.ipynb` balaie cette hypothèse de 5 % à 30 % : le gain reste positif sur toute la plage, seule son ampleur bouge.
+**Aucune hypothèse.** Les deux indicateurs se lisent directement sur les prévisions rejouées : rien ne suppose qu'une recommandation ait été suivie, ni qu'elle ait produit un effet. La comparaison est faite avec la règle de seuil sans modèle (#43), qui ne voit un dépassement qu'une fois la mesure tombée, et n'offre donc ni annonce ni préavis.
 
 La règle de recommandation simulée n'existe pas encore en code : elle appartient à l'applicatif (#43, #44), pas au service ML. Le seuil appliqué est le défaut écrit dans [`data.md`](./data.md), 80 % de la capacité souscrite ; `warning_threshold_kw` réglé à l'écran n'est pas connu de la simulation.
 
-**Trois bras** sont comparés, parce que « avec et sans recommandation » mesure la boucle et non le modèle : A, rien ; B, seuil réactif, qui agit une fois le dépassement constaté ; C, anticipation par la prévision. **C moins B est l'apport du modèle.**
+> **Écart avec le ticket.** Le critère 2 de #94 demandait des KPI calculés « avec et sans recommandation issue de la prévision », ce qui imposait de simuler l'effet d'une recommandation suivie, donc de poser une part de charge déplaçable, un taux d'acceptation et une fenêtre de report. Le critère a été ramené à ce que demande la grille d'épreuve, « des KPI mesurent l'impact du modèle sur les processus métiers simulés » : deux indicateurs entièrement mesurés valent mieux qu'un troisième qui ne se défend qu'en disant « à supposer que ».
 
-## KPI 1 : pics anticipés
+## Les deux indicateurs
 
-Part des dépassements réels annoncés à l'avance, et son inséparable taux de fausses alertes. Les sites sont triés par fréquence de dépassement.
+| Site | Dépassements | Annoncés | Fausses alertes | Alertes / semaine | Préavis médian |
+|---|---:|---:|---:|---:|---:|
+| SITE006 bureau | 139 | **17,3 %** | 40,0 % | 2,6 | 22 h |
+| SITE005 hôpital | 641 | 46,2 % | 46,7 % | 35,5 | 21 h |
+| SITE001 bureau | 281 | 63,7 % | 40,7 % | 19,3 | 22 h |
+| SITE004 commerce | 306 | 69,6 % | 44,8 % | 24,7 | 21 h |
+| SITE007 usine | 783 | 88,3 % | 17,2 % | 53,4 | 21 h |
+| SITE002 usine | 823 | 93,2 % | 17,9 % | 59,7 | 21 h |
+| SITE003 datacenter | 2553 | 100,0 % | 2,6 % | 167,7 | 21 h |
 
-| Site | Heures en dépassement | Annoncés | Fausses alertes |
+**Pics anticipés.** Le modèle annonce bien ce qui arrive souvent et rate ce qui arrive rarement : sur le petit bureau, qui dépasse une heure sur vingt, il manque cinq dépassements sur six. Le taux de fausses alertes suit la même logique inversée.
+
+**Temps d'action gagné.** Quand le modèle annonce un dépassement, il le fait tôt : **94 à 99 % des annonces arrivent au moins 18 heures avant l'échéance**, selon le site. La règle de seuil seule n'en offre aucune, par construction. C'est le gain net de la prévision, et il ne dépend d'aucune hypothèse.
+
+## Premier ajustement : le seuil des sites saturés
+
+**Ce qui est changé.** Pour les sites dont le seuil par défaut est dépassé plus d'une heure sur deux à l'entraînement, le déclencheur passe de 80 % de la capacité souscrite au 90e percentile de l'historique du site. Un seul site est concerné, le datacenter, à 98 % de saturation : 640 devient 780 kW.
+
+**Pourquoi.** Un site dont la charge de base vaut 90 % de sa capacité est en alerte permanente, et une alerte permanente n'est pas une alerte : 167 par semaine sur ce seul site.
+
+**Le résultat, et il est mauvais.** Le seuil relevé laisse 176 vrais dépassements, et le modèle **n'en annonce aucun**. Les fausses alertes tombent à zéro parce qu'il n'y a plus d'alerte du tout.
+
+**Ce que cela coûte par ailleurs.** Le seuil ajusté décrit le comportement du site et non plus son contrat d'abonnement : il ne dit donc plus rien du risque de pénalité.
+
+## Second ajustement : le coefficient de déclenchement
+
+**Ce qui est changé.** La recommandation part quand la prévision atteint une fraction du seuil, au lieu de le franchir.
+
+**Pourquoi.** Le premier ajustement suggérait que le modèle est aveugle aux pointes rares. La mesure dit autre chose.
+
+| Déclenchement | Annoncés, petit bureau | Fausses alertes | Alertes / semaine |
 |---|---:|---:|---:|
-| SITE006 bureau | 5,4 % | **17,3 %** | 40,0 % |
-| SITE001 bureau | 10,7 % | 63,7 % | 40,7 % |
-| SITE004 commerce | 11,7 % | 69,6 % | 44,8 % |
-| SITE005 hôpital | 24,6 % | 46,2 % | 46,7 % |
-| SITE007 usine | 29,9 % | 88,3 % | 17,2 % |
-| SITE002 usine | 31,5 % | 93,2 % | 17,9 % |
-| SITE003 datacenter | 97,4 % | 100,0 % | 2,6 % |
+| 100 % du seuil | 17,3 % | 40,0 % | 2,6 |
+| 95 % | 87,8 % | 70,7 % | 26,7 |
+| 90 % | 100,0 % | 78,7 % | 41,7 |
+| 85 % | 100,0 % | 80,4 % | 45,4 |
 
-**Le modèle annonce bien ce qui arrive souvent, et rate ce qui arrive rarement.** Sur le petit bureau, il manque cinq dépassements sur six. Sur le datacenter, qui dépasse en permanence, il les voit tous, ce qui ne prouve pas grand-chose. Le préavis médian est de 21 à 22 heures sur tous les sites : largement actionnable.
+**Le modèle voyait ces pics, il les sous-estimait de quelques pour cent.** Déclencher à 95 % du seuil fait passer le rappel de 17 % à 88 % sur le site le plus difficile, et à 90 % le rappel dépasse 99 % sur les sept sites. Ce n'est donc pas un défaut de détection mais un biais d'amplitude, et il se corrige par un réglage, pas par un réentraînement.
 
-## KPI 2 : énergie de dépassement évitée
+**Ce que cela coûte, et c'est mesuré.** Les fausses alertes passent de 40 % à 71 %, et la charge d'alertes est multipliée par dix, de 2,6 à 26,7 par semaine. L'arbitrage appartient à l'exploitant, pas au modèle.
 
-Les kWh consommés au-dessus du seuil, avant et après la manoeuvre, sur la période.
-
-| Site | B, seuil réactif | C, prévision | Apport du modèle |
-|---|---:|---:|---:|
-| SITE001 | 1 221 | 1 422 | +201 |
-| SITE002 | 24 997 | 32 325 | +7 329 |
-| SITE003 | 866 | 866 | 0 |
-| SITE004 | 2 302 | 3 234 | +932 |
-| SITE005 | 3 535 | 3 790 | +255 |
-| SITE006 | 261 | 134 | **-127** |
-| SITE007 | 21 835 | 28 918 | +7 083 |
-| **Total** | **55 016** | **70 689** | **+15 672** |
-
-Anticiper fait **28 % mieux** que réagir, et les deux usines font 92 % de ce gain. Deux écarts défavorables, et ils se tiennent : sur le petit bureau, le modèle fait **moins bien** que le seuil réactif, parce qu'il ne voit pas venir un dépassement sur six ; sur le datacenter, il ne fait ni mieux ni moins bien, parce qu'un site en alerte permanente n'a rien à anticiper.
-
-## Le coût, et il est défavorable
-
-Le gain se paie en énergie déplacée. Le rapport entre les deux est **toujours inférieur à 1**.
-
-| Part déplaçable | kWh évités | kWh évités par kWh déplacé |
-|---|---:|---:|
-| 5 % | 38 245 | 0,58 |
-| 15 % | 70 689 | 0,35 |
-| 30 % | 88 206 | 0,21 |
-
-À l'hypothèse de référence, **on déplace 2,9 kWh pour en effacer 1 au-dessus du seuil**. Et l'efficacité se dégrade quand on déplace davantage : multiplier par six la part déplaçable ne multiplie le gain que par 2,3, et divise le rendement par 2,8. Conclusion opérationnelle contre-intuitive : **mieux vaut déplacer peu et bien que beaucoup**.
-
-## L'ajustement documenté
-
-**Ce qui a été changé.** Sur les sites dont le seuil par défaut est dépassé plus d'une heure sur deux à l'entraînement, le déclencheur passe de 80 % de la capacité souscrite au 90e percentile de l'historique du site. Un seul site est concerné, le datacenter : 640 devient 780 kW.
-
-**Pourquoi.** Il passe 97 % de ses heures au-dessus de son seuil par défaut, sa charge de base valant environ 90 % de sa capacité. Une alerte permanente n'est pas une alerte.
-
-**Le résultat, et il est mauvais.** Le seuil relevé laisse 176 vrais dépassements sur la période, et le modèle **n'en annonce aucun**. Il suit bien le régime normal d'un site, il n'annonce pas ses extrêmes rares. C'est la limite la plus nette de ce modèle, cohérente avec le KPI 1 où le rappel s'effondre dès que l'événement devient rare, et elle n'apparaît que parce que l'ajustement a été fait.
-
-**Ce que ça dit pour #44.** Le seuil de déclenchement ne peut pas être une constante globale : à 80 % de la capacité il sature les sites à charge plate, relevé il dépasse la capacité de détection du modèle. Il doit être réglable par site, ce que `warning_threshold_kw` permet déjà, et son réglage doit être mesuré, pas choisi.
+**Ce que ça dit pour #44.** Le déclencheur a besoin de deux réglages par site, pas d'un : le seuil de vigilance, que `warning_threshold_kw` porte déjà, et le coefficient de déclenchement, qui n'existe nulle part. Les deux doivent être mesurés site par site, un réglage global donnant 2,6 alertes par semaine ici et 168 là.
 
 ## Limites
 
-- L'effet d'une recommandation est une hypothèse, jamais une observation.
 - Les seuils réglés à la main en base ne sont pas simulés, seul le défaut l'est.
-- Le KPI 2 compte l'énergie au-dessus du **seuil de vigilance**, qui ne se facture pas. Le dépassement de la capacité souscrite, lui, reste rare sur la période, donc il ne fournit pas de signal exploitable.
+- L'horizon est fixé à 24 heures. Les préavis mesurés sont donc plafonnés à cette valeur, et le contrat autorise 48.
 - L'erreur de prévision ne croît pas avec l'horizon sur cette fenêtre : de 4 à 17 % selon le site, stable de H+6 à H+24. L'horizon de 24 heures n'est donc pas une contrainte du modèle.
+- Rien ici ne mesure d'euros ni de kWh économisés. Les deux indicateurs disent ce que le modèle **permet** de faire, pas ce qu'une action produirait.
