@@ -75,8 +75,8 @@ dessus rendrait la chaîne rouge pendant des jours, et une chaîne rouge en perm
 
 Sorties réelles : `gh run list --workflow=security.yml`, puis `gh run view <id> --log`.
 
-**Limite.** Le relevé d'indicateurs affiche les vulnérabilités critiques en « mesure indisponible »
-alors que la chaîne les mesure. Ce n'est pas la mesure qui manque, c'est la collecte.
+**Résultat du 21 septembre 2026**, relevé automatiquement depuis le journal du job `security` de la
+dernière exécution terminée sur `main` : **0 critique, 0 haute**.
 
 ## 4. Authentification
 
@@ -170,7 +170,6 @@ La révocation est le geste d'hygiène, pas la réponse à l'incident.
 | Le fichier chiffré révèle sa structure | **Voulu** : c'est ce qui permet le contrôle sans clé |
 | Protection de branche indisponible | **Écart d'offre**, compensé par `CODEOWNERS` et la revue |
 | Pas de playbook Ansible, `infra/ansible/` n'a qu'un README | **Trou reconnu**, signalé jusque dans un `TODO` de la CI. La configuration de la machine **n'est pas rejouable** |
-| Vulnérabilités critiques non collectées dans les indicateurs | **À corriger**, c'est de la plomberie |
 | Aucun test d'intrusion, aucun scan dynamique | **Hors périmètre** d'un projet de dix jours |
 | Pas de politique de mise à jour des dépendances | **Hors périmètre** |
 | Pas de rotation de routine des secrets | **Accepté**, la pile ne vit que le temps du projet |
@@ -192,4 +191,5 @@ acte de pilotage ; un risque passé sous silence est une négligence.
 | Composition de production avec `sops exec-env` | **se résout**, sans fichier en clair |
 | Composition de développement sans variable | **se résout** |
 | Ports publiés | **un seul**, `postgres` sur la boucle locale |
+| Vulnérabilités Trivy sur `main` (relevé du 21 septembre) | **0 critique, 0 haute** |
 | Scans Trivy d'image | dans la CI, non rejouables sans démon Docker |
