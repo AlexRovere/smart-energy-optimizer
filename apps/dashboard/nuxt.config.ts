@@ -67,5 +67,10 @@ export default defineNuxtConfig({
     typeCheck: false,
     includeWorkspace: true
   },
-  css: ['~/assets/css/main.css']
+  css: ['~/assets/css/main.css'],
+  nitro: {
+    externals: {
+      external: ['@duckdb/node-api']
+    }
+  }
 })
