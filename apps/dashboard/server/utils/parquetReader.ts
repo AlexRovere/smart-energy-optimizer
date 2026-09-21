@@ -32,7 +32,7 @@ export async function querySiteHistory(
       voltage_v, current_a, power_factor,
       temperature_celsius, humidity_percent,
       null_reasons, data_quality
-    FROM read_parquet('${dir}/**/*.parquet', hive_partitioning = true)
+    FROM read_parquet('${dir}/site_id=*/**/*.parquet', hive_partitioning = true)
     WHERE site_id = '${siteId}'
       AND timestamp >= TIMESTAMPTZ '${from}'
       AND timestamp < TIMESTAMPTZ '${to}'
