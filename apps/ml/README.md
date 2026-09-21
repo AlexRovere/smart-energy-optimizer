@@ -49,6 +49,19 @@ uv run jupyter lab
 Jupyter affiche son URL dans le terminal et permet ensuite d'ouvrir
 `notebooks/model_selection.ipynb` depuis le navigateur.
 
+## Insights
+
+Apercu de la qualite et de l'evolution des mesures, depuis `apps/ml` (necessite
+`PARQUET_DIR` dans `.env`) :
+
+```powershell
+uv sync --dev
+uv run python notebooks/insights/prepare_data.py
+uv run python notebooks/insights/build_html.py
+```
+
+Ouvrir ensuite `notebooks/insights/apercu_sites_001_003.html` dans un navigateur.
+
 ## Docker
 
 Construire l'image depuis `apps/ml` :
