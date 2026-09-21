@@ -113,7 +113,7 @@ services:
       NUXT_POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
       # Port interne au réseau Docker : toujours 5432, indépendamment du port
       # exposé sur l'hôte par POSTGRES_PORT (qui sert uniquement à l'accès local).
-      NUXT_POSTGRES_PORT: 5432
+      NUXT_POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       NUXT_POSTGRES_DATABASE: ${POSTGRES_DB:-enervision}
       NUXT_POSTGRES_USER: ${POSTGRES_USER:-enervision}
       NUXT_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
