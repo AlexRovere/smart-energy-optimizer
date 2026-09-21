@@ -1,7 +1,7 @@
 // Alerte pic évaluée sur l'horizon de prédiction ML (jusqu'à 168h), même détection que l'historique, contexte réel pour les premières heures (#176).
 import { querySiteHistory } from './parquetReader'
 import { getAlertThreshold } from './alertThresholdsRepository'
-import { detectSpikeAlert } from './spikeAlertDetection'
+import { detectSpikeAlert, type SpikeAlertEvaluation } from './spikeAlertDetection'
 import { fetchPredictions } from './mlClient'
 import { hoursInHorizon } from './predictionHorizon'
 import type { AppDatabase } from './session'
@@ -10,9 +10,8 @@ import type { TimestampedValue } from './rollingAverage'
 const DÉFAUTS_PIC = { duration: 5, threshold: 1.5 }
 const LIMITE_LECTURE = 1000
 
-export interface HourlySpikeAlert {
+export interface HourlySpikeAlert extends SpikeAlertEvaluation {
   timestamp: string
-  alert: boolean
 }
 
 export async function detectSpikeAlertsFromPredictions(
@@ -48,7 +47,7 @@ export async function detectSpikeAlertsFromPredictions(
     const précédentes = [...valeursContexte, ...valeursPrédites.slice(0, index)]
     return {
       timestamp: heure.toISOString(),
-      alert: detectSpikeAlert(précédentes, heure, valeursPrédites[index]!.value, réglage)
+      ...detectSpikeAlert(précédentes, heure, valeursPrédites[index]!.value, réglage)
     }
   })
 }

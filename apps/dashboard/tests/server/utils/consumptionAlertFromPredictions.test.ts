@@ -54,9 +54,9 @@ describe('detectConsumptionAlertsFromPredictions', () => {
     const résultat = await detectConsumptionAlertsFromPredictions(DB, 'SITE001', RÉFÉRENCE, 3)
 
     expect(résultat).toEqual([
-      { timestamp: '2026-09-18T11:00:00.000Z', alert: false },
-      { timestamp: '2026-09-18T12:00:00.000Z', alert: false },
-      { timestamp: '2026-09-18T13:00:00.000Z', alert: true }
+      { timestamp: '2026-09-18T11:00:00.000Z', alert: false, average: 100, thresholdKwh: 200 },
+      { timestamp: '2026-09-18T12:00:00.000Z', alert: false, average: 100, thresholdKwh: 200 },
+      { timestamp: '2026-09-18T13:00:00.000Z', alert: true, average: 700 / 3, thresholdKwh: 200 }
     ])
   })
 
@@ -72,7 +72,9 @@ describe('detectConsumptionAlertsFromPredictions', () => {
     const résultat = await detectConsumptionAlertsFromPredictions(DB, 'SITE001', RÉFÉRENCE, 1)
 
     // Moyenne des 3 dernières heures (duration = 3) au moment de 11h : 300, 300, 300 → dépasse.
-    expect(résultat).toEqual([{ timestamp: '2026-09-18T11:00:00.000Z', alert: true }])
+    expect(résultat).toEqual([
+      { timestamp: '2026-09-18T11:00:00.000Z', alert: true, average: 300, thresholdKwh: 200 }
+    ])
   })
 
   it('ignore le fuseau absent du datetime rendu par le ML, et se fie à l\'heure demandée', async () => {
@@ -85,6 +87,8 @@ describe('detectConsumptionAlertsFromPredictions', () => {
 
     const résultat = await detectConsumptionAlertsFromPredictions(DB, 'SITE001', RÉFÉRENCE, 1)
 
-    expect(résultat).toEqual([{ timestamp: '2026-09-18T11:00:00.000Z', alert: true }])
+    expect(résultat).toEqual([
+      { timestamp: '2026-09-18T11:00:00.000Z', alert: true, average: 260, thresholdKwh: 200 }
+    ])
   })
 })

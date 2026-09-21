@@ -1,7 +1,7 @@
 // Alerte conso évaluée sur l'historique Parquet réel, seuils lus en base (#175).
 import { querySiteHistory } from './parquetReader'
 import { getAlertThreshold } from './alertThresholdsRepository'
-import { detectConsumptionAlert } from './consumptionAlertDetection'
+import { detectConsumptionAlert, type ConsumptionAlertEvaluation } from './consumptionAlertDetection'
 import type { AppDatabase } from './session'
 import type { TimestampedValue } from './rollingAverage'
 
@@ -12,7 +12,7 @@ export async function detectConsumptionAlertFromHistory(
   db: AppDatabase,
   siteId: string,
   reference: Date
-): Promise<boolean> {
+): Promise<ConsumptionAlertEvaluation> {
   const réglage = await getAlertThreshold(db, siteId, 'conso', DÉFAUTS_CONSO)
 
   const début = new Date(reference.getTime() - réglage.duration * 3_600_000)

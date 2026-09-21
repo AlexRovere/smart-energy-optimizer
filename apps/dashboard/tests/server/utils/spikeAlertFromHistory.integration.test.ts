@@ -83,10 +83,20 @@ describe.skipIf(!baseDisponible())('detectSpikeAlertFromHistory — Parquet rée
   })
 
   it('déclenche sur un pic réel au-delà de la moyenne × seuil, règle réglée en base', async () => {
-    expect(await detectSpikeAlertFromHistory(db, 'SITE001', RÉFÉRENCE)).toBe(true)
+    expect(await detectSpikeAlertFromHistory(db, 'SITE001', RÉFÉRENCE)).toEqual({
+      alert: true,
+      currentValue: 200,
+      average: 100,
+      thresholdKw: 150
+    })
   })
 
   it('ne déclenche pas quand la valeur courante reste sous la moyenne × seuil par défaut', async () => {
-    expect(await detectSpikeAlertFromHistory(db, 'SITE002', RÉFÉRENCE)).toBe(false)
+    expect(await detectSpikeAlertFromHistory(db, 'SITE002', RÉFÉRENCE)).toEqual({
+      alert: false,
+      currentValue: 120,
+      average: 100,
+      thresholdKw: 150
+    })
   })
 })

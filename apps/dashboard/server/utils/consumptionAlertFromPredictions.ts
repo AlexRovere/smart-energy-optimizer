@@ -1,7 +1,7 @@
 // Alerte conso évaluée sur l'horizon de prédiction ML (jusqu'à 168h), même détection que l'historique, contexte réel pour les premières heures (#175).
 import { querySiteHistory } from './parquetReader'
 import { getAlertThreshold } from './alertThresholdsRepository'
-import { detectConsumptionAlert } from './consumptionAlertDetection'
+import { detectConsumptionAlert, type ConsumptionAlertEvaluation } from './consumptionAlertDetection'
 import { fetchPredictions } from './mlClient'
 import { hoursInHorizon } from './predictionHorizon'
 import type { AppDatabase } from './session'
@@ -10,9 +10,8 @@ import type { TimestampedValue } from './rollingAverage'
 const DÉFAUTS_CONSO = { duration: 5, threshold: 200 }
 const LIMITE_LECTURE = 1000
 
-export interface HourlyConsumptionAlert {
+export interface HourlyConsumptionAlert extends ConsumptionAlertEvaluation {
   timestamp: string
-  alert: boolean
 }
 
 export async function detectConsumptionAlertsFromPredictions(
@@ -47,6 +46,6 @@ export async function detectConsumptionAlertsFromPredictions(
 
   return heures.map(heure => ({
     timestamp: heure.toISOString(),
-    alert: detectConsumptionAlert(valeurs, heure, réglage)
+    ...detectConsumptionAlert(valeurs, heure, réglage)
   }))
 }
