@@ -14,7 +14,7 @@ python main.py periods                                                    # 7 de
 python main.py periods --start-time 2026-09-01T00:00:00                   # ISO 8601 ; UTC si aucun décalage indiqué ; --end-time non donné = --start-time + 7 jours
 python main.py periods --end-time 2026-09-08T00:00:00+02:00               # idem, --start-time non donné = --end-time - 7 jours ; décalage explicite conservé tel quel
 python main.py periods --start-time 2026-09-01T00:00:00 --end-time 2026-09-08T00:00:00
-python main.py periods --verbose                 # barre de progression (extract/transform/load) ; sans l'option : silencieux (adapté au cron)
+python main.py periods --verbose                 # barre de progression (extract/transform/load) sur stderr ; le journal JSON sort sur stdout dans les deux cas
 
 # Historique des mesures, dernière heure glissante (adapté à un cron horaire)
 python main.py hour                              # équivalent à periods --start-time {maintenant - 60mn} --end-time {maintenant}, toujours refetché
@@ -37,6 +37,45 @@ python main.py hour --verbose
 
 - `sites` : écrit toujours `sites.parquet`. Avec `--sync-db`, compare aux sites déjà en base et n'insère que ceux qui manquent — jamais de mise à jour ni de suppression. La table `sites` doit déjà exister (créée par ailleurs, hors périmètre ETL) : l'ETL n'y touche jamais.
 - `periods` / `hour` : une partition Parquet par site et par jour (`site_id=.../year=.../month=.../day=.../readings.parquet`). Chaque écriture **fusionne** avec le contenu déjà présent sur cette partition (dédoublonné sur `timestamp`, la valeur la plus récente l'emporte) plutôt que de l'écraser, pour que `hour` accumule les heures d'une même journée sans effacer les précédentes.
+
+## Journal d'exécution
+
+Chaque exécution émet **une ligne JSON par phase sur la sortie standard**, `--verbose` ou pas. L'ETL n'écrit aucun fichier de journal : la redirection et la rotation appartiennent à la ligne de cron du playbook (#47).
+
+```bash
+python main.py hour > /var/log/enervision/etl.jsonl
+```
+
+```json
+{"run": "2026-09-18T13:38:51Z", "command": "periods", "phase": "extract", "status": "ok", "ts": "2026-09-18T13:38:56Z", "duration_s": 5.046, "rows": 336, "rows_by_site": {"SITE001": 48}, "period": ["2026-09-14T00:00:00Z", "2026-09-15T23:00:00Z"], "period_requested": ["2026-09-14T00:00:00Z", "2026-09-16T00:00:00Z"]}
+{"run": "2026-09-18T13:38:51Z", "command": "periods", "phase": "load", "status": "ok", "ts": "2026-09-18T13:38:57Z", "duration_s": 0.062, "rows": 336, "rows_by_site": {"SITE001": 48}, "files": 14}
+{"run": "2026-09-18T13:38:51Z", "command": "periods", "phase": "run", "status": "ok", "ts": "2026-09-18T13:38:57Z", "duration_s": 5.171, "rows": 336}
+```
+
+| Champ | Contenu |
+|---|---|
+| `run` | horodatage de démarrage, identique sur toutes les lignes d'une même exécution |
+| `command` | `sites`, `periods` ou `hour` |
+| `phase` | `extract`, `transform`, `load`, puis `run` pour la synthèse |
+| `status` | `ok` ou `error` |
+| `ts` / `duration_s` | fin de la phase, et sa durée en secondes |
+| `rows` / `rows_by_site` | lignes traitées, détaillées par site. Un site sans donnée apparaît à `0` plutôt que de disparaître |
+| `period` | période **réellement** couverte par les lignes obtenues, à côté de `period_requested` : l'écart entre les deux est un trou de collecte |
+| `files` | partitions Parquet écrites (phase `load`) |
+| `error` | type et message de l'exception (`status: "error"`) |
+
+Une phase qui casse est journalisée, la ligne `run` reprend l'échec, et le processus **sort en code 1** : le code de sortie déclenche l'alerte, le journal explique pourquoi. Le traceback complet part sur stderr, avec la barre de progression et les phrases de fin, pour que stdout ne porte que du JSON exploitable.
+
+```bash
+# combien de lignes chargées aujourd'hui
+jq -s '[.[] | select(.phase == "load" and (.run | startswith("2026-09-18"))) | .rows] | add' etl.jsonl
+
+# quelles exécutions ont échoué
+jq -r 'select(.phase == "run" and .status == "error") | [.run, .command, .error.type] | @tsv' etl.jsonl
+
+# quels sites sont restés muets
+jq -r 'select(.phase == "extract") | .rows_by_site | to_entries[] | select(.value == 0) | .key' etl.jsonl
+```
 
 ## Variables d'environnement
 

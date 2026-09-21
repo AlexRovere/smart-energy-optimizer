@@ -67,18 +67,18 @@ services:
     profiles: ["cron"]
     environment:
       MOCK_API_URL: ${MOCK_API_URL:?renseigner MOCK_API_URL dans .env}
-      PARQUET_DIR: /data
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
+      PARQUET_DIR: ${PARQUET_DIR:-/data}
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       POSTGRES_DB: ${POSTGRES_DB:-enervision}
       # Le rôle etl, et surtout pas le propriétaire de la base : SELECT et
       # INSERT sur la seule table sites, UPDATE sur sept de ses colonnes. Il
       # ne peut lire ni les comptes, ni les sessions, ni les périmètres, et
       # ne peut pas écrire warning_threshold_kw (docs/data.md).
-      POSTGRES_USER: etl
+      POSTGRES_USER: ${ETL_DB_USER:?renseigner ETL_DB_USER dans .env}
       POSTGRES_PASSWORD: ${ETL_DB_PASSWORD:?renseigner ETL_DB_PASSWORD dans .env}
     volumes:
-      - ${PARQUET_DIR_HOST:?}:/data
+      - ${PARQUET_DIR_HOST:?}:${PARQUET_DIR:-/data}
     depends_on:
       postgres:
         condition: service_healthy
@@ -88,9 +88,18 @@ services:
   ml:
     build: ./apps/ml
     environment:
-      PARQUET_DIR: /data
+      PARQUET_DIR: ${PARQUET_DIR:-/data}
+      ML_MODEL_PATH: /app/artifacts/catboost_model.cbm
+      ML_SITE_CONFIG_PATH: /app/config/sites.json
+    # Provisoire : le reverse proxy (architecture.md, "un seul port public")
+    # n'existe pas encore. Sans lui, rien n'est joignable depuis l'hôte,
+    # dashboard compris. À retirer quand le proxy prend le relais.
+    ports:
+      - "127.0.0.1:8000:8000"
     volumes:
-      - ${PARQUET_DIR_HOST:?}:/data:ro
+      - ${PARQUET_DIR_HOST:?}:${PARQUET_DIR:-/data}:ro
+      - ml_artifacts:/app/artifacts
+
     restart: unless-stopped
     networks:
       - data
@@ -101,12 +110,12 @@ services:
       # Les morceaux, comme pour l'ETL : c'est l'applicatif qui assemble son URL.
       # La composition n'a plus à le faire, et le mot de passe n'a plus à être
       # sans caractère spécial, l'assemblage l'encodant (#158).
-      NUXT_POSTGRES_HOST: postgres
-      NUXT_POSTGRES_PORT: 5432
+      NUXT_POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      NUXT_POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       NUXT_POSTGRES_DATABASE: ${POSTGRES_DB:-enervision}
       NUXT_POSTGRES_USER: ${POSTGRES_USER:-enervision}
       NUXT_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      NUXT_PARQUET_DIR: /data
+      NUXT_PARQUET_DIR: ${PARQUET_DIR:-/data}
       NUXT_ML_SERVICE_URL: ${ML_API_URL:-http://ml:8000}
       NUXT_MOCK_API_URL: ${MOCK_API_URL:?renseigner MOCK_API_URL dans .env}
       # Nom neutre en entrée, nom attendu par nuxt-auth-utils en sortie. C'est
@@ -115,8 +124,12 @@ services:
       NUXT_SESSION_PASSWORD: ${SESSION_SECRET:?renseigner SESSION_SECRET dans .env ou par sops}
       NUXT_TRUST_PROXY: ${TRUST_PROXY:-false}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+    # Provisoire, même motif que ml ci-dessus : à retirer une fois le
+    # reverse proxy en place, seul point d'entrée public prévu.
+    ports:
+      - "127.0.0.1:3000:3000"
     volumes:
-      - ${PARQUET_DIR_HOST:?}:/data:ro       # lecture seule, et rien d'autre que l'exposé
+      - ${PARQUET_DIR_HOST:?}:${PARQUET_DIR:-/data}:ro       # lecture seule, et rien d'autre que l'exposé
     depends_on:
       postgres:
         condition: service_healthy
@@ -133,6 +146,7 @@ networks:
 
 volumes:
   db_data:
+  ml_artifacts:
   # prom_data: décommenter avec le service prometheus ci-dessus.
   caddy_data:
   caddy_config:

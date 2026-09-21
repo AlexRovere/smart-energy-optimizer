@@ -1,10 +1,12 @@
 # teste l'orchestration extract -> transform -> load et le CLI exposé par main
+import json
+import sys
 from datetime import date, datetime, timedelta, timezone
 from unittest.mock import ANY, call, patch
 
 import pandas as pd
 import pytest
-from main import build_parser, run_hour, run_periods, run_sites
+from main import build_parser, main, run_hour, run_periods, run_sites
 
 
 @patch("main.load_sites_to_db")
@@ -324,6 +326,7 @@ def test_run_hour_covers_the_60_minutes_up_to_now(mock_run_periods):
         end_time=now,
         verbose=False,
         skip_coverage_check=True,
+        command="hour",
     )
     assert result == {"parquet_files": []}
 
@@ -440,3 +443,202 @@ def test_cli_hour_verbose_flag_can_be_enabled():
     args = parser.parse_args(["hour", "--verbose"])
 
     assert args.verbose is True
+
+
+def journal(captured_out: str) -> list[dict]:
+    return [json.loads(line) for line in captured_out.splitlines()]
+
+
+def line_of(lines: list[dict], phase: str) -> dict:
+    return next(line for line in lines if line["phase"] == phase)
+
+
+@patch("main.get_context_days")
+@patch("main.get_existing_days")
+@patch("main.fetch_sites")
+@patch("main.load_readings")
+@patch("main.transform_readings")
+@patch("main.fetch_readings")
+def test_run_periods_logs_one_line_per_phase_on_stdout(
+    mock_fetch_readings,
+    mock_transform_readings,
+    mock_load_readings,
+    mock_fetch_sites,
+    mock_get_existing_days,
+    mock_get_context_days,
+    capsys,
+):
+    mock_fetch_sites.return_value = pd.DataFrame([{"site_id": "SITE001"}])
+    mock_get_existing_days.return_value = set()
+    mock_get_context_days.return_value = pd.DataFrame()
+    raw = pd.DataFrame([{"site_id": "SITE001", "timestamp": pd.Timestamp("2026-09-16", tz="UTC")}])
+    mock_fetch_readings.return_value = raw
+    mock_transform_readings.return_value = raw.copy()
+    mock_load_readings.return_value = ["/data/parquet/site_id=SITE001/readings.parquet"]
+
+    run_periods(
+        start_time=datetime(2026, 9, 16, tzinfo=timezone.utc),
+        end_time=datetime(2026, 9, 17, tzinfo=timezone.utc),
+    )
+
+    lines = journal(capsys.readouterr().out)
+    assert [line["phase"] for line in lines] == ["extract", "transform", "load", "run"]
+    assert {line["command"] for line in lines} == {"periods"}
+
+
+@patch("main.get_context_days")
+@patch("main.get_existing_days")
+@patch("main.fetch_sites")
+@patch("main.load_readings")
+@patch("main.transform_readings")
+@patch("main.fetch_readings")
+def test_run_periods_logs_a_mute_site_at_zero_rows(
+    mock_fetch_readings,
+    mock_transform_readings,
+    mock_load_readings,
+    mock_fetch_sites,
+    mock_get_existing_days,
+    mock_get_context_days,
+    capsys,
+):
+    mock_fetch_sites.return_value = pd.DataFrame([{"site_id": "SITE001"}, {"site_id": "SITE002"}])
+    mock_get_existing_days.return_value = set()
+    mock_get_context_days.return_value = pd.DataFrame()
+    raw = pd.DataFrame([{"site_id": "SITE001", "timestamp": pd.Timestamp("2026-09-16", tz="UTC")}])
+    mock_fetch_readings.return_value = raw
+    mock_transform_readings.return_value = raw.copy()
+    mock_load_readings.return_value = ["/data/parquet/site_id=SITE001/readings.parquet"]
+
+    run_periods(
+        start_time=datetime(2026, 9, 16, tzinfo=timezone.utc),
+        end_time=datetime(2026, 9, 17, tzinfo=timezone.utc),
+    )
+
+    extract = line_of(journal(capsys.readouterr().out), "extract")
+    assert extract["rows"] == 1
+    assert extract["rows_by_site"] == {"SITE001": 1, "SITE002": 0}
+
+
+@patch("main.get_context_days")
+@patch("main.get_existing_days")
+@patch("main.fetch_sites")
+@patch("main.load_readings")
+@patch("main.transform_readings")
+@patch("main.fetch_readings")
+def test_run_periods_logs_the_requested_window_and_the_files_written(
+    mock_fetch_readings,
+    mock_transform_readings,
+    mock_load_readings,
+    mock_fetch_sites,
+    mock_get_existing_days,
+    mock_get_context_days,
+    capsys,
+):
+    mock_fetch_sites.return_value = pd.DataFrame([{"site_id": "SITE001"}])
+    mock_get_existing_days.return_value = set()
+    mock_get_context_days.return_value = pd.DataFrame()
+    raw = pd.DataFrame([{"site_id": "SITE001", "timestamp": pd.Timestamp("2026-09-16", tz="UTC")}])
+    mock_fetch_readings.return_value = raw
+    mock_transform_readings.return_value = raw.copy()
+    mock_load_readings.return_value = ["a.parquet", "b.parquet"]
+
+    run_periods(
+        start_time=datetime(2026, 9, 16, tzinfo=timezone.utc),
+        end_time=datetime(2026, 9, 17, tzinfo=timezone.utc),
+    )
+
+    lines = journal(capsys.readouterr().out)
+    assert line_of(lines, "extract")["period_requested"] == [
+        "2026-09-16T00:00:00Z",
+        "2026-09-17T00:00:00Z",
+    ]
+    assert line_of(lines, "load")["files"] == 2
+
+
+@patch("main.get_context_days")
+@patch("main.get_existing_days")
+@patch("main.fetch_sites")
+@patch("main.load_readings")
+@patch("main.transform_readings")
+@patch("main.fetch_readings")
+def test_run_periods_keeps_the_progress_display_out_of_stdout(
+    mock_fetch_readings,
+    mock_transform_readings,
+    mock_load_readings,
+    mock_fetch_sites,
+    mock_get_existing_days,
+    mock_get_context_days,
+    capsys,
+):
+    mock_fetch_sites.return_value = pd.DataFrame([{"site_id": "SITE001"}])
+    mock_get_existing_days.return_value = set()
+    mock_get_context_days.return_value = pd.DataFrame()
+    raw = pd.DataFrame([{"site_id": "SITE001", "timestamp": pd.Timestamp("2026-09-16", tz="UTC")}])
+    mock_fetch_readings.return_value = raw
+    mock_transform_readings.return_value = raw.copy()
+    mock_load_readings.return_value = ["a.parquet"]
+
+    run_periods(
+        start_time=datetime(2026, 9, 16, tzinfo=timezone.utc),
+        end_time=datetime(2026, 9, 17, tzinfo=timezone.utc),
+        verbose=True,
+    )
+
+    captured = capsys.readouterr()
+    # chaque ligne de stdout doit rester du JSON : sinon jq s'arrete a la premiere
+    assert [line["phase"] for line in journal(captured.out)] == [
+        "extract",
+        "transform",
+        "load",
+        "run",
+    ]
+    assert "au total" in captured.err
+
+
+@patch("main.load_sites_to_db")
+@patch("main.dedupe_sites")
+@patch("main.load_sites")
+@patch("main.transform_sites")
+@patch("main.fetch_sites")
+def test_run_sites_logs_one_line_per_phase_on_stdout(
+    mock_fetch_sites,
+    mock_transform_sites,
+    mock_load_sites,
+    mock_dedupe_sites,
+    mock_load_sites_to_db,
+    capsys,
+):
+    mock_fetch_sites.return_value = pd.DataFrame([{"site_id": "SITE001"}, {"site_id": "SITE002"}])
+    mock_transform_sites.return_value = pd.DataFrame([{"id": "SITE001"}, {"id": "SITE002"}])
+    mock_load_sites.return_value = "/data/parquet/sites.parquet"
+
+    run_sites()
+
+    lines = journal(capsys.readouterr().out)
+    assert [line["phase"] for line in lines] == ["extract", "transform", "load", "run"]
+    assert {line["command"] for line in lines} == {"sites"}
+    assert line_of(lines, "load")["rows"] == 2
+
+
+@patch("main.run_periods")
+def test_run_hour_tells_the_journal_which_command_it_is(mock_run_periods):
+    mock_run_periods.return_value = {"parquet_files": []}
+
+    run_hour(now=datetime(2026, 9, 16, 14, 30, tzinfo=timezone.utc))
+
+    assert mock_run_periods.call_args.kwargs["command"] == "hour"
+
+
+@patch("main.load_root_env")
+@patch("main.run_sites")
+def test_cli_keeps_the_human_summary_out_of_stdout(
+    mock_run_sites, _mock_load_root_env, capsys, monkeypatch
+):
+    mock_run_sites.return_value = {"parquet_file": "/data/parquet/sites.parquet"}
+    monkeypatch.setattr(sys, "argv", ["main.py", "sites"])
+
+    main()
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "sites.parquet" in captured.err
