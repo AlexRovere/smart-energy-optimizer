@@ -5,7 +5,7 @@ Deux stockages, deux rôles, une seule règle de partage : **rien n'est écrit d
 | Stockage | Contenu | Qui écrit | Qui lit |
 |---|---|---|---|
 | PostgreSQL | Référentiel des sites, comptes, rôles, périmètres d'accès | L'applicatif, et l'ETL sur la seule table `sites` | L'applicatif, seul |
-| Répertoire Parquet | Les mesures, transformées | L'ETL, seul | L'applicatif et le service ML, en lecture seule, via DuckDB |
+| Répertoire Parquet | Les mesures transformées, et une copie du référentiel des sites | L'ETL, seul | L'applicatif et le service ML, en lecture seule, via DuckDB |
 
 Le pivot entre les deux est `sites.id` : c'est la même chaîne dans PostgreSQL et dans le chemin de partition Parquet. Aucune jointure entre les deux moteurs, seulement une clé partagée.
 
@@ -240,6 +240,12 @@ table = pa.Table.from_pandas(lignes, schema=SCHEMA, preserve_index=False)   # le
 Côté lecture, chaque consommateur vérifie ce qu'il reçoit avant de s'en servir. Trois lignes, et une erreur obscure devient un message clair.
 
 La bibliothèque de lecture, elle, appartient à chaque service. Le service ML lit avec `pandas.read_parquet(chemin, columns=..., filters=...)`, qui rend le tableau de données attendu par l'entraînement et ne lit que les colonnes et les partitions demandées ; l'applicatif lit avec DuckDB, parce qu'il a des agrégats à calculer. Les deux lisent les mêmes fichiers.
+
+### `sites.parquet`, le référentiel à côté des mesures
+
+**Écart relevé le 21 septembre 2026**, le contrat ne déclarait que les mesures. La commande `sites` de l'ETL écrit aussi `sites.parquet` à la racine du répertoire, hors partition (`apps/etl/load/handler.py`) : `id`, `type`, `name`, `location`, `capacity_kw`, `status`. C'est ce qui rend `capacity_kw` lisible sans passer par PostgreSQL.
+
+Deux conséquences. **La règle de lecture est le chemin, pas l'extension** : un `.parquet` hors partition `site_id=` n'est pas une mesure, et le service ML filtre déjà là-dessus (`apps/ml/src/data/history.py`). Et **`warning_threshold_kw` n'y est pas** : le seuil réglé à l'écran vit en base seulement, l'ETL n'ayant pas le droit de l'écrire.
 
 ### L'écriture est atomique, la partition du jour en cours est fusionnée
 

@@ -1,3 +1,3 @@
-from training.train import TrainingResult, train_model
+from training.train import VALIDATION_QUANTILE, TrainingResult, train_model
 
-__all__ = ["TrainingResult", "train_model"]
+__all__ = ["VALIDATION_QUANTILE", "TrainingResult", "train_model"]

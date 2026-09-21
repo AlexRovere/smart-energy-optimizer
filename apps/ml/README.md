@@ -46,8 +46,15 @@ uv sync --dev
 uv run jupyter lab
 ```
 
-Jupyter affiche son URL dans le terminal et permet ensuite d'ouvrir
-`notebooks/model_selection.ipynb` depuis le navigateur.
+Jupyter affiche son URL dans le terminal. Deux carnets, deux questions :
+
+| Carnet | Question | Produit |
+|---|---|---|
+| `model_selection.ipynb` | quel algorithme, quelles variables | la configuration reproduite par `training/train.py` |
+| `impact_kpi.ipynb` | ce que le modèle fait gagner à l'exploitant | deux KPI métier, repris dans [`docs/ml.md`](../../docs/ml.md) |
+
+`impact_kpi.ipynb` rejoue la prévision sur le bloc de test : il lui faut un modèle déjà entraîné.
+Ses trois chemins d'entrée sont groupés dans la première cellule de code.
 
 ## Docker
 
