@@ -76,6 +76,19 @@
         update: true
         force: false
 
+    # Sans lui, un `docker compose up` lancé à la main sur la machine prendrait
+    # le défaut de la composition, qui vise un poste, et écrirait les mesures
+    # dans le dépôt. Aucun secret ici : ceux-là restent dans secrets.enc.yaml.
+    - name: Poser les réglages de la machine
+      ansible.builtin.copy:
+        dest: "{{ project_dir }}/.env"
+        owner: "{{ application_user }}"
+        group: "{{ application_group }}"
+        mode: "0644"
+        content: |
+          # Écrit par infra/ansible/playbook.yml, ne pas modifier à la main.
+          PARQUET_DIR_HOST={{ parquet_dir }}
+
     - name: Vérifier la présence de la clé age de la VM
       ansible.builtin.stat:
         path: "{{ age_key_file }}"
