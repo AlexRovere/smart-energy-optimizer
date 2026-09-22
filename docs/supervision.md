@@ -16,9 +16,11 @@ Rôle porteur : Cloud / DevOps. Épreuve : EC04. Issue : #55.
 
 **Aucune des deux sources ne voit ce que voit l'autre.** Une machine saine peut héberger un
 conteneur qui redémarre en boucle ; des conteneurs sobres ne disent rien d'un disque que
-remplissent les journaux. Les cibles applicatives s'ajouteront quand un service exposera
-`/metrics` (#40) : leurs entrées attendent, commentées, dans
-[`../infra/prometheus.yml`](../infra/prometheus.yml).
+remplissent les journaux. Une troisième s'y ajoute avec #40 : le service ML expose
+`/metrics`, avec l'erreur de prévision relative par site. Le détail du calcul et du seuil vit
+dans [`ml.md`](./ml.md), pas ici, cette page ne couvre que la collecte. La cible `dashboard`
+reste commentée dans [`../infra/prometheus.yml`](../infra/prometheus.yml), en attente d'un
+`/metrics` côté applicatif.
 
 ## Les indicateurs, et la question de chacun
 
@@ -77,15 +79,17 @@ docker compose exec grafana grafana cli admin reset-admin-password '<nouvelle-va
 
 ## Limites connues
 
-- **Rétention de quinze jours**, celle de Prometheus par défaut. La supervision ne conserve pas
-  d'historique long, ce n'est pas son rôle : les mesures métier vivent dans les Parquet.
+- **Rétention de six mois** (`--storage.tsdb.retention.time=180d` sur le conteneur
+  `prometheus`), au-delà du défaut de quinze jours. Portée à cette valeur pour #40 : l'erreur
+  de prévision se lit sur la durée, une fenêtre de quinze jours l'aurait effacée trop tôt.
 - **cAdvisor tourne en mode privilégié**, il lui faut `/dev/kmsg`. Tous ses montages sont en
   lecture seule, mais c'est le conteneur le plus exposé de la pile : à relever dans l'audit #58.
 - **Grafana est en clair sur la boucle locale**, sans TLS. Acceptable tant que l'accès distant
   passe par SSH, qui chiffre ; plus le jour où on le mettrait derrière le proxy.
-- **Aucun service applicatif n'est mesuré.** Le tableau dit que le dashboard tourne et ce qu'il
-  consomme, pas s'il répond correctement. Il y faut un `/metrics` par service, et ça commence
-  avec #40.
+- **Un seul service applicatif est mesuré, et sans tableau de bord.** Le service ML expose
+  `/metrics` depuis #40, mais aucun panneau Grafana ne le restitue encore, c'est laissé à une
+  itération suivante avec l'alerte. Le dashboard, lui, n'expose toujours rien : le tableau dit
+  qu'il tourne et ce qu'il consomme, pas s'il répond correctement.
 
 ## À vérifier sur la machine
 

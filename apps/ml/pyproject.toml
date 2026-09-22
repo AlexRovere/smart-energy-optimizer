@@ -15,6 +15,7 @@ dependencies = [
     "mlflow>=2.22.0",
     "pandas>=3.0.5",
     "plotly>=7.0.0",
+    "prometheus-client>=0.26.0",
     "prophet>=1.4.0",
     "pyarrow>=25.0.1",
     "python-dotenv>=1.2.3",
@@ -39,7 +40,7 @@ requires = ["uv_build>=0.12.13,<0.13.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
-module-name = ["api", "data", "env_loader", "features", "models", "training"]
+module-name = ["api", "data", "env_loader", "features", "models", "monitoring", "training"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

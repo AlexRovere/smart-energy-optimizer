@@ -21,12 +21,15 @@ scrape_configs:
       - targets: ["cadvisor:8080"]
 
   # Les cibles applicatives s'ajoutent ici au fur et à mesure que les services
-  # exposent /metrics. Aucun ne le fait aujourd'hui ; la dérive du modèle est
-  # la première attendue (#40). Elles complètent les deux sources ci-dessus,
-  # elles ne les remplacent pas.
-  # - job_name: ml
-  #   static_configs:
-  #     - targets: ["ml:8000"]
+  # exposent /metrics. Elles complètent les deux sources ci-dessus, elles ne
+  # les remplacent pas.
+
+  # Erreur de prévision relative par site (#40), rejouée sur les 7 derniers
+  # jours. Voir docs/ml.md pour le calcul et le seuil.
+  - job_name: ml
+    static_configs:
+      - targets: ["ml:8000"]
+
   # - job_name: dashboard
   #   static_configs:
   #     - targets: ["dashboard:3000"]

@@ -83,6 +83,16 @@ services:
     volumes:
       - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prom_data:/prometheus
+    # Reprend les arguments par défaut de l'image (perdus dès qu'on fixe
+    # `command`) et ajoute la rétention. Le défaut de quinze jours suffisait
+    # tant que rien n'exposait de métrique métier ; l'erreur de prévision de
+    # #40 se lit sur la durée, six mois plutôt qu'une fenêtre qui l'efface.
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+      - "--storage.tsdb.retention.time=180d"
     # Le playbook lance la pile avec `--wait` : sans sonde, il n'attend que
     # l'état « démarré », qui ne dit pas que le service répond.
     healthcheck:

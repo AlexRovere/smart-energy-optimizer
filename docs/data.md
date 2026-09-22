@@ -197,32 +197,36 @@ C'est le point le plus facile à rater. `pa.Table.from_pylist(lignes)` **devine*
 Le schéma est donc **écrit une fois, dans un module unique** (`load/readings.py`), et l'écriture caste dessus :
 
 ```python
-SCHEMA = pa.schema([
-    ("site_id",                      pa.string()),
-    ("timestamp",                    pa.timestamp("us", tz="UTC")),
-    ("site_type",                    pa.string()),
-    ("consumption_kw",               pa.float64()),   # telle que renvoyee, nullable
-    ("consumption_kw_corrected",     pa.float64()),   # imputee (forward-fill)
-    ("consumption_kwh",              pa.float64()),
-    ("consumption_kwh_corrected",    pa.float64()),
-    ("voltage_v",                    pa.float64()),
-    ("voltage_v_corrected",          pa.float64()),
-    ("current_a",                    pa.float64()),
-    ("current_a_corrected",          pa.float64()),
-    ("power_factor",                 pa.float64()),
-    ("power_factor_corrected",       pa.float64()),
-    ("temperature_celsius",          pa.float64()),
-    ("temperature_celsius_corrected", pa.float64()),
-    ("humidity_percent",             pa.float64()),
-    ("humidity_percent_corrected",   pa.float64()),
-    ("data_quality",                 pa.string()),
-    ("null_reasons",                 pa.list_(pa.string())),
-    ("consumption_lag_1h",           pa.float64()),   # + lag_2h, lag_24h, lag_48h, lag_168h
-    ("rolling_mean_24h",             pa.float64()),   # + rolling_mean_168h
-    ("hour",                         pa.int32()),      # + day_of_week, month, is_weekend, is_working_hours
-])
+SCHEMA = pa.schema(
+    [
+        ("site_id", pa.string()),
+        ("timestamp", pa.timestamp("us", tz="UTC")),
+        ("site_type", pa.string()),
+        ("consumption_kw", pa.float64()),  # telle que renvoyee, nullable
+        ("consumption_kw_corrected", pa.float64()),  # imputee (forward-fill)
+        ("consumption_kwh", pa.float64()),
+        ("consumption_kwh_corrected", pa.float64()),
+        ("voltage_v", pa.float64()),
+        ("voltage_v_corrected", pa.float64()),
+        ("current_a", pa.float64()),
+        ("current_a_corrected", pa.float64()),
+        ("power_factor", pa.float64()),
+        ("power_factor_corrected", pa.float64()),
+        ("temperature_celsius", pa.float64()),
+        ("temperature_celsius_corrected", pa.float64()),
+        ("humidity_percent", pa.float64()),
+        ("humidity_percent_corrected", pa.float64()),
+        ("data_quality", pa.string()),
+        ("null_reasons", pa.list_(pa.string())),
+        ("consumption_lag_1h", pa.float64()),  # + lag_2h, lag_24h, lag_48h, lag_168h
+        ("rolling_mean_24h", pa.float64()),  # + rolling_mean_168h
+        ("hour", pa.int32()),  # + day_of_week, month, is_weekend, is_working_hours
+    ]
+)
 
-table = pa.Table.from_pandas(lignes, schema=SCHEMA, preserve_index=False)   # leve si un type ne colle pas
+table = pa.Table.from_pandas(
+    lignes, schema=SCHEMA, preserve_index=False
+)  # leve si un type ne colle pas
 ```
 
 **Les noms sont ceux de la source**, donc ceux de `EnergyReading` dans [`api.md`](./api.md). Une première version portait des noms français, ce qui imposait une table de correspondance entre le fichier et la réponse HTTP : elle n'était écrite nulle part, et c'est le genre d'écart qui ne se découvre qu'à l'intégration. La règle de qualité ci-dessous dit « stockées telles que l'API les renvoie » ; les stocker sous des noms traduits, c'est déjà ne plus les stocker telles quelles.
