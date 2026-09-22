@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from unittest.mock import patch
 
 import pandas as pd
+
 from extract.handler import fetch_readings, fetch_sites
 
 SAMPLE_SITES = [
