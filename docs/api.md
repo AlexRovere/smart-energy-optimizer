@@ -51,7 +51,7 @@ La colonne « Rôle » décrit le mécanisme complet. **Un seul rôle est exploi
 | GET | `/api/stats/summary` | | `ParkSummary` | 401, 503 | tous |
 | GET | `/api/alerts` | `?site_id=&severity=` | `Alert[]` | 401, 422, 503 | tous |
 | GET | `/api/sensors/status` | | `SensorStatus` | 401, 503 | tous |
-| POST | `/api/sites/{id}/prediction` | `{ horizon_hours }`, 1 à 48, défaut 24 | `Prediction` | 401, 403, 422 | tous |
+| POST | `/api/sites/{id}/prediction` | `{ horizon_hours }`, 1 à 168, défaut 24 | `Prediction` | 401, 403, 422 | tous |
 | GET | `/api/recommendations` | `?site_id=` | `Recommendation[]` | 401, 422 | tous |
 
 Trois règles que le tableau ne dit pas :
@@ -102,10 +102,10 @@ Réseau interne, pas d'authentification, non exposé par le proxy. Base : `ML_AP
 
 | Méthode | Route | Entrée | Sortie |
 | :--- | :--- | :--- | :--- |
-| POST | `/predictions` | `{ site_id, horizon_hours }`, 1 à 48, défaut 24 | `Prediction` |
+| POST | `/predictions` | `{ site_id, horizon_hours }`, 1 à 168, défaut 24 | `Prediction` |
 | GET | `/health` | | `{ status, model_version }` |
 
-**Au-delà de 48 heures, `422`.** La prédiction est autorégressive : le modèle prévoit une heure puis réinjecte sa propre valeur, donc le coût croît avec la distance et les biais s'accumulent. Refuser vaut mieux que rendre une valeur à laquelle personne ne devrait croire.
+**Au-delà de 168 heures (7 jours), `422`.** La prédiction est autorégressive : le modèle prévoit une heure puis réinjecte sa propre valeur, donc le coût croît avec la distance et les biais s'accumulent. Cet horizon a été vérifié en conditions réelles ; refuser au-delà vaut mieux que rendre une valeur à laquelle personne ne devrait croire.
 
 Le service ML n'a **aucune notion d'utilisateur** : l'autorisation est résolue avant l'appel.
 

@@ -1,4 +1,5 @@
 from datetime import datetime
+from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
@@ -6,7 +7,7 @@ from fastapi.testclient import TestClient
 
 import api.main as api_main
 from api.main import app, get_prediction_model, get_site_schedules
-from training import TrainingResult
+from training import MLFLOW_MODEL_NAME, TrainingResult
 
 SCHEDULES = {
     "SITE001": {
@@ -107,8 +108,8 @@ def test_training_endpoint_returns_training_summary(monkeypatch):
     monkeypatch.setenv("PARQUET_DIR", "/data")
     monkeypatch.setattr(
         "api.main.train_model",
-        lambda data_path, model_path: TrainingResult(
-            model_path=model_path,
+        lambda data_path: TrainingResult(
+            model_version=1,
             training_rows=100,
             sites=2,
             training_start="2023-01-08T00:00:00",
@@ -122,14 +123,14 @@ def test_training_endpoint_returns_training_summary(monkeypatch):
     assert response.status_code == 200
     assert response.json()["training_rows"] == 100
     assert response.json()["sites"] == 2
-    assert response.json()["model_path"] == "artifacts/catboost_model.cbm"
+    assert response.json()["model_version"] == 1
 
 
 def test_predictions_reload_history_but_reuse_model_and_schedules(monkeypatch):
     monkeypatch.setenv("PARQUET_DIR", "/data")
     calls = {"model": 0, "history": 0, "schedules": 0}
 
-    def fake_load_model(path):
+    def fake_load_model(alias="champion"):
         calls["model"] += 1
         return ConstantModel()
 
@@ -158,3 +159,33 @@ def test_predictions_reload_history_but_reuse_model_and_schedules(monkeypatch):
 
     api_main.get_prediction_model.cache_clear()
     api_main.get_site_schedules.cache_clear()
+
+
+def test_model_endpoint_retourne_la_version_champion(monkeypatch):
+    fake_version = MagicMock()
+    fake_version.version = "1"
+    fake_client = MagicMock()
+    fake_client.get_model_version_by_alias.return_value = fake_version
+    monkeypatch.setattr(api_main.mlflow, "MlflowClient", lambda: fake_client)
+    client = TestClient(app)
+
+    response = client.get("/model")
+
+    assert response.status_code == 200
+    assert response.json() == {"name": MLFLOW_MODEL_NAME, "version": 1, "alias": "champion"}
+    fake_client.get_model_version_by_alias.assert_called_once_with(MLFLOW_MODEL_NAME, "champion")
+
+
+def test_model_endpoint_retourne_503_si_aucun_champion(monkeypatch):
+    import mlflow.exceptions
+
+    fake_client = MagicMock()
+    fake_client.get_model_version_by_alias.side_effect = mlflow.exceptions.MlflowException(
+        "not found"
+    )
+    monkeypatch.setattr(api_main.mlflow, "MlflowClient", lambda: fake_client)
+    client = TestClient(app)
+
+    response = client.get("/model")
+
+    assert response.status_code == 503
