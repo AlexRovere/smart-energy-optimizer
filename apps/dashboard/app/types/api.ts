@@ -161,28 +161,12 @@ export interface Prediction {
   predictions: PredictionPoint[]
 }
 
-export type RecommendationSource = 'threshold' | 'forecast'
-export type RecommendationType = 'scheduling' | 'load_balancing' | 'maintenance' | 'efficiency'
-export type RecommendationPriority = 'low' | 'medium' | 'high'
-
-export interface Recommendation {
-  recommendation_id: string
-  site_id: SiteId
-  source: RecommendationSource
-  type: RecommendationType
-  priority: RecommendationPriority
-  title: string
-  description: string
-  trigger: {
-    timestamp: string
-    value_kw: number
-    threshold_kw: number
-  }
-  estimated_saving_kwh: number
-  gain_kw: number // delta de puissance attendu
-  confidence: number // 0-1
-  window: string // ex: "14:30 -> 15:30"
-}
+export type {
+  Recommendation,
+  RecommendationPriority,
+  RecommendationSource,
+  RecommendationType
+} from '../../shared/recommendationSchema'
 
 export type UserRole = 'admin' | 'operator' | 'viewer'
 export type ThresholdState = 'enregistré' | 'modifié'

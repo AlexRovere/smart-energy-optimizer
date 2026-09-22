@@ -219,7 +219,7 @@ Et les fichiers vivent dans un répertoire de la machine, pas dans un volume Doc
 
 L'écart mesuré a tranché : environ **40 kW d'erreur avec Prophet contre 11 kW avec CatBoost**, sur des consommations de l'ordre de 100 kW.
 
-La prédiction est **autorégressive** : le modèle prévoit une heure, réinjecte sa prévision, recommence. C'est ce qui borne l'horizon à 48 heures, le coût croissant avec la distance et les biais s'accumulant à chaque réinjection.
+La prédiction est **autorégressive** : le modèle prévoit une heure, réinjecte sa prévision, recommence, le coût croissant avec la distance et les biais s'accumulant à chaque réinjection. Vérifié en conditions réelles, cela borne l'horizon à 168 heures (7 jours).
 
 **Un seul client, cloisonnement par site.** Tranché le mardi 15 septembre 2026, au daily. Le MVP sert un client pilote : il n'y a pas de table entreprise, et la dimension de cloisonnement est le site. Les fichiers Parquet sont partitionnés par site, et le périmètre d'un compte est une liste de sites.
 
