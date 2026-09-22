@@ -168,6 +168,23 @@ sortant, récupère `main`, puis lance localement :
 ansible-playbook -i infra/ansible/inventory.ini --connection local infra/ansible/playbook.yml
 ```
 
+Le job lui passe son propre jeton dans `GH_REPOSITORY_TOKEN`, avec la seule
+permission `contents: read`, parce que le dépôt est privé et que la machine ne
+porte aucun identifiant git. Le playbook s'en sert pour la seule tâche de
+récupération du code, par un en-tête HTTP posé le temps de celle-ci : rien
+n'est écrit sur la machine, ni dans `.git/config` ni dans la configuration de
+l'utilisateur. Un déploiement manuel exporte le sien, et le playbook refuse de
+démarrer sans jeton plutôt que de laisser git réclamer un identifiant dix
+tâches plus loin.
+
+Deux limites, écrites parce qu'elles se redécouvriraient autrement. Ansible
+préfixe l'environnement d'une tâche à la commande qu'il lance : l'en-tête est
+donc visible dans la ligne de commande du processus le temps de la tâche, sur
+une machine dont le compte est déjà partagé par les cinq, et le jeton du job
+est révoqué dès qu'il se termine. Et GitHub ne masque que le jeton lui-même,
+pas l'en-tête qui en dérive : le job le masque explicitement, et la commande
+Ansible ne doit pas recevoir de `-vvv`, seule verbosité qui l'imprimerait.
+
 Ansible met à jour la copie dans `/home/apprenant/Projet/enerVision`, injecte
 les secrets avec SOPS, construit les images sur place, applique les migrations
 et redémarre la composition. Le groupe de concurrence `production` sérialise

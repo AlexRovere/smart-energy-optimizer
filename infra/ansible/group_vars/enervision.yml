@@ -12,6 +12,17 @@ age_key_file: /home/apprenant/.config/sops/age/keys.txt
 repository_url: https://github.com/EADL-2026/enerVision.git
 repository_version: main
 
+# Le dépôt est privé et la machine ne porte aucun identifiant git : le jeton
+# arrive par l'environnement, le workflow passant celui du job et un
+# déploiement manuel le sien. Il n'est écrit nulle part sur la machine, ni
+# dans .git/config ni dans la configuration de l'utilisateur.
+repository_token: "{{ lookup('env', 'GH_REPOSITORY_TOKEN') | trim }}"
+repository_credential_env:
+  GIT_TERMINAL_PROMPT: "0"
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: "http.https://github.com/.extraheader"
+  GIT_CONFIG_VALUE_0: "AUTHORIZATION: basic {{ ('x-access-token:' ~ repository_token) | b64encode }}"
+
 # Se désactive au besoin sans toucher au dépôt : `-e run_database_seed=false`
 # l'emporte sur cette valeur.
 run_database_seed: true

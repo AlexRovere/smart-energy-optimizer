@@ -152,13 +152,13 @@ jeu de règles est prêt si le dépôt passe en public.
 
 **Machine** : le compte est **partagé par les cinq**, et depuis le **17 septembre 2026** une clé de
 déchiffrement y est posée. C'est un renversement explicite de la décision de la veille, motivé dans
-[`secrets.md`](./secrets.md) : l'exécuteur auto-hébergé ne tient pas ses promesses, le déploiement
-se fait à la main depuis la machine, et l'alternative était de recopier les valeurs dans un `.env`
-temporaire. Entre une clé assumée et des secrets recopiés à la main, la clé est le moindre mal.
+[`secrets.md`](./secrets.md) : l'exécuteur auto-hébergé ne reçoit pas la clé de la CI, le
+déchiffrement a donc lieu sur la machine, et l'alternative était de recopier les valeurs dans un
+`.env` temporaire. Entre une clé assumée et des secrets recopiés à la main, la clé est le moindre mal.
 
 Le prix, et il n'a pas disparu : la clé est lisible par les cinq, et elle ouvre les **versions
 passées** du fichier chiffré. D'où deux règles : elle est générée **sur** la machine et n'en sort
-jamais, et le jour où le déploiement automatisé fonctionnera, la retirer ne suffira pas, il faudra
+jamais, et le jour où elle pourra être retirée, cela ne suffira pas, il faudra
 **changer les valeurs**.
 
 Plus généralement, sur un incident réel : changer les valeurs, redéployer, **puis** retirer la clé.

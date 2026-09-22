@@ -28,6 +28,32 @@
       ansible.builtin.command: age --version
       changed_when: false
 
+    - name: Relever la version de Git  # noqa: command-instead-of-module
+      ansible.builtin.command: git --version
+      changed_when: false
+      register: git_version
+
+    # Les variables GIT_CONFIG_* qui portent le jeton datent de Git 2.31. Plus
+    # ancien, git les ignore sans rien dire et redemande un identifiant.
+    - name: Refuser un Git trop ancien pour l'identifiant du dépôt
+      ansible.builtin.assert:
+        that:
+          - git_version.stdout.split()[2] is version('2.31', '>=')
+        fail_msg: >-
+          Git 2.31 au moins est nécessaire pour l'identifiant du dépôt privé,
+          version trouvée : {{ git_version.stdout }}.
+      when: git_version is not skipped
+
+    # Sans jeton, git repartirait demander un identifiant que la machine n'a
+    # pas, et l'erreur arriverait dix tâches plus loin sans dire laquelle.
+    - name: Refuser un déploiement sans jeton de dépôt
+      ansible.builtin.assert:
+        that:
+          - repository_token | length > 0
+        fail_msg: >-
+          Le dépôt est privé et la machine ne porte aucun identifiant git.
+          Exporter GH_REPOSITORY_TOKEN avant de lancer le playbook.
+
     # Reprend le garde-fou que la composition portait par un `:?` : un chemin
     # relatif créerait le répertoire des mesures dans le dépôt, sans rien dire.
     - name: Refuser un chemin de mesures relatif
@@ -79,6 +105,7 @@
         version: "{{ repository_version }}"
         update: true
         force: false
+      environment: "{{ repository_credential_env }}"
 
     # Sans lui, un `docker compose up` lancé à la main sur la machine prendrait
     # le défaut de la composition, qui vise un poste, et écrirait les mesures

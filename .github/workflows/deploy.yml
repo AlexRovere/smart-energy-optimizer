@@ -44,7 +44,15 @@ jobs:
           age --version
 
       - name: Déployer avec Ansible
+        # Le dépôt est privé : sans jeton, le clone de la VM demanderait un
+        # identifiant et s'arrêterait là. Celui du job est limité à la lecture
+        # du contenu et meurt avec lui.
+        env:
+          GH_REPOSITORY_TOKEN: ${{ github.token }}
         run: |
+          # GitHub masque le jeton, pas l'en-tête qui en dérive : un journal
+          # en mode bavard le montrerait en clair.
+          echo "::add-mask::$(printf 'x-access-token:%s' "$GH_REPOSITORY_TOKEN" | base64 -w0)"
           ansible-playbook \
             -i infra/ansible/inventory.ini \
             --connection local \

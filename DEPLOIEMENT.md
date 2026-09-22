@@ -53,7 +53,7 @@ La VM doit disposer de :
 
 - Docker Engine ;
 - le plugin Docker Compose ;
-- Git ;
+- Git 2.31 ou plus récent ;
 - Ansible ;
 - SOPS ;
 - age ;
@@ -135,24 +135,16 @@ Le résultat attendu appartient à `apprenant:apprenant` avec le mode `600`.
 
 ## Première récupération du dépôt
 
-Cette étape permet le premier test manuel. Elle est exécutée comme
-`apprenant`, pas comme `root` :
+Il n'y a rien à cloner à la main : le playbook s'en charge. Le dépôt est privé
+et la machine ne porte aucun identifiant git, donc un `git clone` lancé ici
+s'arrêterait sur une demande de mot de passe. Le jeton se fournit au moment du
+déploiement, par `GH_REPOSITORY_TOKEN`.
 
-```bash
-git clone \
-  https://github.com/EADL-2026/enerVision.git \
-  /home/apprenant/Projet/enerVision
+Il n'y a pas de contrôle d'accès à faire à part : le playbook refuse de
+démarrer sans jeton, et sa tâche de récupération dit clairement si GitHub le
+refuse.
 
-cd /home/apprenant/Projet/enerVision
-```
-
-Le dépôt étant privé, vérifier que la mise à jour fonctionne sans interaction :
-
-```bash
-git ls-remote origin HEAD
-```
-
-Le playbook utilise ensuite `ansible.builtin.git` pour cloner le dépôt s'il est
+Le playbook utilise `ansible.builtin.git` pour cloner le dépôt s'il est
 absent ou récupérer les nouveaux commits de `main`. Avec `force: false`, une
 modification locale d'un fichier suivi bloque le déploiement au lieu d'être
 écrasée.
@@ -219,10 +211,16 @@ dépôt porte l'adresse de la machine, et `--connection local` évite SSH et sud
 Ne pas lui substituer un inventaire en ligne : c'est `ansible_host` qui devient
 le `DOMAIN` servi par Caddy, et le playbook refuse de démarrer sans lui.
 
+Le dépôt est privé et la machine ne porte aucun identifiant git : le playbook
+lit `GH_REPOSITORY_TOKEN` pour récupérer la version attendue. En automatique, le
+workflow y met le jeton du job. En manuel, l'opérateur fournit le sien, qui ne
+vit que le temps du shell.
+
 Depuis la racine du dépôt :
 
 ```bash
 cd /home/apprenant/Projet/enerVision
+export GH_REPOSITORY_TOKEN=$(gh auth token)
 
 ansible-playbook \
   -i infra/ansible/inventory.ini \
@@ -396,7 +394,10 @@ ansible-playbook \
 ```
 
 Le workflow n'a besoin ni de clé SSH de déploiement, ni de mot de passe sudo,
-ni de secret applicatif GitHub. Il utilise la clé age qui reste sur la VM.
+ni de secret déclaré dans GitHub. Il utilise la clé age qui reste sur la VM, et
+le jeton du job, limité à la lecture du contenu, pour que le playbook puisse
+récupérer un dépôt privé. Ce jeton meurt avec le job : rien n'est écrit sur la
+machine.
 
 Le groupe de concurrence `production` garantit qu'un second déploiement attend
 la fin du premier au lieu de l'interrompre pendant une migration.
