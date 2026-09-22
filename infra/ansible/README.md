@@ -150,3 +150,22 @@ applicatif déchiffré n'est écrit par Ansible.
 
 Docker conserve ensuite l'environnement des conteneurs sous `root`, limite
 documentée dans [`../../docs/secrets.md`](../../docs/secrets.md).
+
+## Déploiement automatique
+
+Le workflow [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml)
+exécute ce playbook après une CI réussie sur `main`, ou sur demande avec
+`workflow_dispatch`. Il cible un runner GitHub auto-hébergé installé sur la VM
+avec les labels `self-hosted`, `linux`, `x64` et `enervision`.
+
+Le runner doit être installé comme service sous l'utilisateur `apprenant`. Il
+utilise une connexion Ansible locale, sans SSH et sans sudo :
+
+```bash
+ansible-playbook -i 'enervision,' --connection local infra/ansible/playbook.yml
+```
+
+Docker, Compose, Git, Ansible, SOPS et age doivent être visibles dans le `PATH`
+du service. La clé age et les répertoires préparés plus haut doivent appartenir
+à `apprenant`. Si le job reste en attente dans GitHub, vérifier que le runner
+est en ligne et porte bien le label `enervision`.
