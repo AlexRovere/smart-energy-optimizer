@@ -21,3 +21,38 @@ export async function getAlertThreshold(
 
   return ligne ?? defauts
 }
+
+export interface AlertThresholdEntry extends AlertThreshold {
+  siteId: string
+  type: 'conso' | 'pic'
+}
+
+const DÉFAUTS: Record<'conso' | 'pic', AlertThreshold> = {
+  conso: { duration: 5, threshold: 200 },
+  pic: { duration: 5, threshold: 1.5 }
+}
+
+export async function listAlertThresholds(db: AppDatabase, siteIds: string[]): Promise<AlertThresholdEntry[]> {
+  const entrées: AlertThresholdEntry[] = []
+  for (const siteId of siteIds) {
+    for (const type of ['conso', 'pic'] as const) {
+      entrées.push({ siteId, type, ...await getAlertThreshold(db, siteId, type, DÉFAUTS[type]) })
+    }
+  }
+  return entrées
+}
+
+export async function upsertAlertThreshold(
+  db: AppDatabase,
+  siteId: string,
+  type: 'conso' | 'pic',
+  valeurs: AlertThreshold
+): Promise<void> {
+  await db
+    .insert(alertThresholds)
+    .values({ siteId, type, duration: valeurs.duration, threshold: valeurs.threshold })
+    .onConflictDoUpdate({
+      target: [alertThresholds.siteId, alertThresholds.type],
+      set: { duration: valeurs.duration, threshold: valeurs.threshold }
+    })
+}
