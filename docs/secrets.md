@@ -181,13 +181,23 @@ Aucun de ces trois éditeurs n'est dans le `PATH` d'un Windows ordinaire ; `sops
 
 | Clé | Usage |
 |---|---|
-| `POSTGRES_PASSWORD` | mot de passe du compte PostgreSQL de la pile |
 | `SESSION_SECRET` | secret de session de l'applicatif, celui qui protège le cookie |
+| `MOCK_API_URL` | URL de l'API Mock |
 | `GRAFANA_PASSWORD` | mot de passe de l'administrateur Grafana |
-
-`ETL_DB_PASSWORD` manque aussi, mais **pas volontairement** : `docker-compose.yml` l'exige par un `:?`, donc `sops exec-env` échouera dessus au premier déploiement tant qu'elle n'est pas posée. Repéré en travaillant #153, à traiter avec #107.
-
-`MOCK_API_URL` **manque volontairement** : l'URL de l'API Mock n'est pas encore connue. Le jour où elle arrive : `sops set secrets.enc.yaml '["MOCK_API_URL"]' '"https://exemple"'`, puis `git add secrets.enc.yaml` et un commit qui dit quelle clé a bougé et pourquoi.
+| `SEED_PASSWORD` | password de l'utilisateur admin@enervision.local ajouté à la DB par seed.ts |
+| `PARQUET_DIR_HOST` | chemin du répertoire Parquet sur l'hôte, monté en volume dans les conteneurs ETL et ML |
+| `PARQUET_DIR` | chemin du répertoire Parquet à l'intérieur des conteneurs, lu par l'applicatif via DuckDB et par le service ML |
+| `ML_API_URL` | URL du service ML interne |
+| `POSTGRES_DB` | nom de la base de données PostgreSQL |
+| `POSTGRES_USER` | nom du compte PostgreSQL principal de l'applicatif |
+| `POSTGRES_PASSWORD` | mot de passe du compte PostgreSQL |
+| `POSTGRES_PORT` | port PostgreSQL sur le réseau Docker interne |
+| `POSTGRES_HOST_PORT` | Pour éviter les conflits de port avec postgres (dev local) |
+| `ETL_DB_PASSWORD` | mot de passe du compte ETL en base |
+| `ETL_DB_USER` | nom du compte ETL en base |
+| `LOG_LEVEL` | niveau de journalisation de l'applicatif (`debug`, `info`, `warn`, `error`) |
+| `TRUST_PROXY` | active la confiance aux en-têtes `X-Forwarded-*` , nécessaire derrière Caddy |
+| `DOMAIN` | domaine public servi par Caddy, utilisé pour l'émission du certificat TLS |
 
 **Injecter au lancement**, sans jamais écrire les valeurs sur le disque :
 
