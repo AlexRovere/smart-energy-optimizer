@@ -18,13 +18,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ status: 422, statusText: 'Identifiant de site invalide' })
   }
 
-  const { mockApiUrl } = useRuntimeConfig()
-
   try {
-    const raw = await fetchMockApi<unknown>(
-      `/api/v1/sites/${parsed.data}/current`,
-      mockApiUrl,
-    )
+    const raw = await fetchMockApi<unknown>(`/api/v1/sites/${parsed.data}/current`)
     return energyReadingSchema.parse(raw)
   }
   catch (err) {

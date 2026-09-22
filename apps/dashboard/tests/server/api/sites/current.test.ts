@@ -27,8 +27,6 @@ vi.mock('../../../../server/utils/logger', () => ({
   logger: { error: mockLoggerError, warn: vi.fn(), info: vi.fn(), debug: vi.fn() }
 }))
 
-vi.stubGlobal('useRuntimeConfig', () => ({ mockApiUrl: 'http://mock-api' }))
-
 const mockEvent = {} as H3Event
 
 const lectureValide = {
