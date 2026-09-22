@@ -4,6 +4,8 @@
   gather_facts: false
   environment:
     SOPS_AGE_KEY_FILE: "{{ age_key_file }}"
+    # Chemin des mesures sur la machine : la composition n'a qu'un défaut de poste.
+    PARQUET_DIR_HOST: "{{ parquet_dir }}"
 
   vars:
     application_user: apprenant
@@ -37,6 +39,18 @@
     - name: Vérifier age
       ansible.builtin.command: age --version
       changed_when: false
+
+    # Reprend le garde-fou que la composition portait par un `:?` : un chemin
+    # relatif créerait le répertoire des mesures dans le dépôt, sans rien dire.
+    - name: Refuser un chemin de mesures relatif
+      ansible.builtin.assert:
+        that:
+          - parquet_dir is defined
+          - parquet_dir is string
+          - parquet_dir.startswith('/')
+        fail_msg: >-
+          parquet_dir doit être un chemin absolu de la machine, valeur reçue :
+          {{ parquet_dir | default('(non définie)') }}.
 
   tasks:
     - name: Vérifier les répertoires applicatifs
