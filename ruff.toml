@@ -55,6 +55,11 @@ ignore = [
 
 [lint.per-file-ignores]
 
+# Ces générateurs embarquent du HTML, du CSS et du JavaScript dans une chaîne
+# multilignes. E501 mesurerait la source embarquée plutôt que la lisibilité du
+# Python ; les autres règles restent actives sur ces fichiers.
+"apps/etl/insights/build*_html.py" = ["E501"]
+
 # DTZ001 exige un fuseau sur tout `datetime`. La règle vise le code qui écrit ou
 # compare des horodatages réels : un décalage y passe inaperçu jusqu'au
 # changement d'heure. Un jeu d'essai est autre chose. `datetime(2025, 1, 1, 12)`
