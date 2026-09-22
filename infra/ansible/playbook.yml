@@ -39,8 +39,7 @@
       changed_when: false
 
   tasks:
-    - name: Créer les répertoires applicatifs
-      become: true
+    - name: Vérifier les répertoires applicatifs
       ansible.builtin.file:
         path: "{{ item.path }}"
         state: directory

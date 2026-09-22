@@ -1,0 +1,13 @@
+# Source de données unique, déclarée au démarrage. `editable: false` : elle se
+# corrige dans ce fichier et dans Git, pas dans l'interface, sinon la
+# correction disparaît au prochain remplacement du conteneur.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

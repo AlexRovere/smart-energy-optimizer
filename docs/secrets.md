@@ -177,17 +177,9 @@ not set defaults to any of vim, nano, vi, but none of them could be found
 
 Aucun de ces trois éditeurs n'est dans le `PATH` d'un Windows ordinaire ; `sops set` n'a aucun de ces modes de panne, c'est pourquoi il est préféré ici.
 
-**L'état actuel du fichier**, trois clés :
+**L'état actuel du fichier.** Les clés se lisent en clair, seules les valeurs sont chiffrées : `grep -n '^[A-Za-z_]*:' secrets.enc.yaml` rend l'inventaire à jour, et c'est cette commande qui fait foi plutôt qu'une liste recopiée ici. Au 21 septembre 2026, quinze clés, qui couvrent les secrets **et** les réglages de la composition : `SESSION_SECRET`, `SEED_PASSWORD`, `POSTGRES_PASSWORD`, `ETL_DB_PASSWORD`, `ETL_DB_USER`, `MOCK_API_URL`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PORT`, `PARQUET_DIR`, `PARQUET_DIR_HOST`, `ML_API_URL`, `LOG_LEVEL`, `TRUST_PROXY` et `GRAFANA_ADMIN_PASSWORD`.
 
-| Clé | Usage |
-|---|---|
-| `POSTGRES_PASSWORD` | mot de passe du compte PostgreSQL de la pile |
-| `SESSION_SECRET` | secret de session de l'applicatif, celui qui protège le cookie |
-| `GRAFANA_PASSWORD` | mot de passe de l'administrateur Grafana |
-
-`ETL_DB_PASSWORD` manque aussi, mais **pas volontairement** : `docker-compose.yml` l'exige par un `:?`, donc `sops exec-env` échouera dessus au premier déploiement tant qu'elle n'est pas posée. Repéré en travaillant #153, à traiter avec #107.
-
-`MOCK_API_URL` **manque volontairement** : l'URL de l'API Mock n'est pas encore connue. Le jour où elle arrive : `sops set secrets.enc.yaml '["MOCK_API_URL"]' '"https://exemple"'`, puis `git add secrets.enc.yaml` et un commit qui dit quelle clé a bougé et pourquoi.
+La dernière est arrivée avec #55 : `docker-compose.yml` l'exige par un `:?`, donc `sops exec-env` échouerait dessus si elle manquait. Attention, **Grafana ne la relit pas** après son premier démarrage : la rotation se joue dans le conteneur, la commande est dans [`supervision.md`](./supervision.md).
 
 **Injecter au déploiement**, sans jamais écrire les valeurs sur le disque :
 

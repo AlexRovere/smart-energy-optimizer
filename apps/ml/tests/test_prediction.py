@@ -2,6 +2,7 @@ from datetime import datetime
 
 import pandas as pd
 import pytest
+
 from models import PredictionService, PredictionTarget
 
 SCHEDULES = {
