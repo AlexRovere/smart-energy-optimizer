@@ -120,25 +120,28 @@ grep -n ":/data:ro" docker-compose.yml
 
 ## 6. Réseau
 
-La machine peut sortir vers internet, **rien ne peut la joindre depuis l'extérieur**. C'est la règle
-de l'infrastructure fournie, et elle a dicté la conception du déploiement : aucun port à ouvrir,
-aucune clé d'accès à distribuer.
+Relevé du 21 septembre 2026, **rendu faux par #39**, qui met un reverse proxy devant la pile. La
+phrase d'alors disait « rien ne peut joindre la machine depuis l'extérieur » et le tableau ne
+comptait qu'un port, sur la boucle locale. Depuis, Caddy est la porte d'entrée et ouvre deux ports
+sur le réseau. Le constat à jour, à rejouer avant le dépôt :
 
-| Service | Port publié |
-|---|---|
-| `postgres` | `127.0.0.1:5432`, boucle locale seulement |
-| `ml` | aucun |
-| `dashboard` | aucun |
+| Service | Port publié | Portée |
+|---|---|---|
+| `caddy` | `443` (dashboard), `3001` (Grafana), `80` (redirection) | réseau |
+| `postgres` | `127.0.0.1:5432` | boucle locale |
+| `prometheus` | `127.0.0.1:9090` | boucle locale |
+| `ml` | `127.0.0.1:8000` | boucle locale |
+| `dashboard`, `grafana`, `etl` | aucun | réseau Docker interne |
 
 ```bash
 sops exec-env secrets.enc.yaml 'docker compose config --services'
-grep -n -A2 "ports:" docker-compose.yml
+grep -n -A4 "ports:" docker-compose.yml
 ```
 
-**Résultat.** Trois services actifs, un seul port publié, lié à la boucle locale. Prometheus et
-Grafana sont **commentés** : la limite signalée dans [`secrets.md`](./secrets.md) sur des ports
-ouverts trop largement ne s'applique plus, et redeviendra vraie le jour où ces services seront
-activés.
+**Résultat.** Deux ports servis au réseau, tous deux tenus par le proxy et terminés en TLS, plus une
+redirection sur 80. Les trois ports d'administration restent liés à la boucle locale et demandent un
+accès SSH à la machine. Le motif du choix, et celui d'y faire passer Grafana, sont dans
+[`architecture.md`](./architecture.md).
 
 ## 7. Accès au dépôt et à la machine
 

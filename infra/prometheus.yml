@@ -24,6 +24,10 @@ scrape_configs:
   # exposent /metrics. Aucun ne le fait aujourd'hui ; la dérive du modèle est
   # la première attendue (#40). Elles complètent les deux sources ci-dessus,
   # elles ne les remplacent pas.
+  #
+  # Décommenter ne suffira pas : Prometheus vit sur le réseau `supervision`,
+  # `ml` et `dashboard` sur `data`. Sans réseau commun la cible passe DOWN sur
+  # « no such host », et rien dans le journal ne désigne la cause.
   # - job_name: ml
   #   static_configs:
   #     - targets: ["ml:8000"]

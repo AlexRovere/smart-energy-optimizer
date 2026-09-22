@@ -1,0 +1,17 @@
+---
+# Tout ce que le playbook consomme et qui décrit la machine ou ce qu'on y
+# déploie. Ce qui varie d'une machine à l'autre vit dans host_vars/.
+application_user: apprenant
+application_group: apprenant
+project_parent: /home/apprenant/Projet
+project_dir: "{{ project_parent }}/enerVision"
+parquet_dir: /data/output
+log_dir: /var/log/enervision
+age_key_file: /home/apprenant/.config/sops/age/keys.txt
+
+repository_url: https://github.com/EADL-2026/enerVision.git
+repository_version: main
+
+# Se désactive au besoin sans toucher au dépôt : `-e run_database_seed=false`
+# l'emporte sur cette valeur.
+run_database_seed: true

@@ -1,0 +1,42 @@
+{
+	# HTTP/3 n'est pas publié en UDP par la composition : l'annoncer ferait
+	# tenter QUIC dans le vide pendant trente jours.
+	servers {
+		protocols h1 h2
+	}
+}
+
+(security) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+		-Via
+	}
+	log {
+		output stdout
+		format json
+	}
+}
+
+{$DOMAIN} {
+	tls internal
+	import security
+	reverse_proxy dashboard:3000
+}
+
+{$DOMAIN}:{$GRAFANA_PORT} {
+	tls internal
+	import security
+	reverse_proxy grafana:3000
+}
+
+# Sans ce bloc, une requête portant un autre Host casse la poignée de main TLS
+# et le navigateur rend ERR_SSL_PROTOCOL_ERROR, sans rien dire de la cause.
+:443 {
+	tls internal
+	import security
+	respond "Adresse inattendue. Utiliser https://{$DOMAIN}/" 421
+}

@@ -1,0 +1,6 @@
+---
+# Adresse servie par Caddy, et donc nom porté par le certificat. Distincte de
+# `ansible_host`, qui dit par où Ansible joint la machine pour la piloter :
+# les deux coïncident aujourd'hui, elles n'ont aucune raison de le rester.
+# Le nom AD de la machine ne résout pas depuis les postes, seule l'IP répond.
+public_domain: 10.101.200.31

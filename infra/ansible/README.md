@@ -41,6 +41,30 @@ Rien. Aucune donnée d'exploitation ne quitte le site, l'hybride ayant été éc
 
 **Aucun commit depuis la machine.** Le compte y est mutualisé : un commit émis depuis la machine porterait une identité qui n'est celle de personne, alors que l'historique doit rester nominatif.
 
+## Où vivent les valeurs
+
+Le playbook ne définit aucune variable. Il décrit la recette, les valeurs
+viennent de l'inventaire.
+
+```text
+infra/ansible/
+├── inventory.ini              groupe, hôte, adresse de pilotage
+├── group_vars/enervision.yml  vrai de toute machine EnerVision
+├── host_vars/vm.yml           propre à cette machine
+└── playbook.yml               la recette, sans valeur en dur
+```
+
+Deux adresses cohabitent et ne servent pas à la même chose. `ansible_host`, dans
+`inventory.ini`, dit par où Ansible **joint** la machine pour la piloter.
+`public_domain`, dans `host_vars/`, dit quelle adresse Caddy **sert** aux
+utilisateurs, et c'est elle que porte le certificat. Elles coïncident aujourd'hui,
+elles n'ont aucune raison de le rester : un jour de rebond ou d'interface
+d'administration séparée, les confondre servirait un certificat pour une adresse
+que personne ne joint.
+
+Une valeur se surcharge sans toucher au dépôt avec `-e`, qui l'emporte sur tout
+le reste.
+
 ## Playbook de déploiement
 
 [`playbook.yml`](./playbook.yml) automatise les opérations de déploiement sur
@@ -163,11 +187,18 @@ exécute ce playbook après une CI réussie sur `main`, ou sur demande avec
 avec les labels `self-hosted`, `linux`, `x64` et `enervision`.
 
 Le runner doit être installé comme service sous l'utilisateur `apprenant`. Il
-utilise une connexion Ansible locale, sans SSH et sans sudo :
+lit le même inventaire que le déploiement manuel, et n'en change que la
+connexion, locale, sans SSH ni sudo :
 
 ```bash
-ansible-playbook -i 'enervision,' --connection local infra/ansible/playbook.yml
+ansible-playbook -i infra/ansible/inventory.ini --connection local infra/ansible/playbook.yml
 ```
+
+L'inventaire est la seule source de l'adresse de la machine. C'est
+`ansible_host` qui devient le `DOMAIN` servi par Caddy, donc l'adresse par
+laquelle on joint le dashboard. La connexion, elle, reste sur la ligne de
+commande et non dans l'inventaire : déclarée là, un déploiement lancé depuis un
+poste s'exécuterait sur le poste.
 
 Docker, Compose, Git, Ansible, SOPS et age doivent être visibles dans le `PATH`
 du service. La clé age et les répertoires préparés plus haut doivent appartenir
