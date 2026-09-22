@@ -177,7 +177,7 @@ not set defaults to any of vim, nano, vi, but none of them could be found
 
 Aucun de ces trois éditeurs n'est dans le `PATH` d'un Windows ordinaire ; `sops set` n'a aucun de ces modes de panne, c'est pourquoi il est préféré ici.
 
-**L'état actuel du fichier**, trois clés :
+**L'état actuel du fichier.** Les clés se lisent en clair, seules les valeurs sont chiffrées : `grep -n '^[A-Za-z_]*:' secrets.enc.yaml` rend l'inventaire à jour, et c'est cette commande qui fait foi plutôt qu'une liste recopiée ici. Au 21 septembre 2026, quinze clés, qui couvrent les secrets **et** les réglages de la composition : `SESSION_SECRET`, `SEED_PASSWORD`, `POSTGRES_PASSWORD`, `ETL_DB_PASSWORD`, `ETL_DB_USER`, `MOCK_API_URL`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PORT`, `PARQUET_DIR`, `PARQUET_DIR_HOST`, `ML_API_URL`, `LOG_LEVEL`, `TRUST_PROXY` et `GRAFANA_ADMIN_PASSWORD`.
 
 | Clé | Usage |
 |---|---|
@@ -198,11 +198,16 @@ Aucun de ces trois éditeurs n'est dans le `PATH` d'un Windows ordinaire ; `sops
 | `LOG_LEVEL` | niveau de journalisation de l'applicatif (`debug`, `info`, `warn`, `error`) |
 | `TRUST_PROXY` | active la confiance aux en-têtes `X-Forwarded-*` , nécessaire derrière Caddy |
 | `DOMAIN` | domaine public servi par Caddy, utilisé pour l'émission du certificat TLS |
+La dernière est arrivée avec #55 : `docker-compose.yml` l'exige par un `:?`, donc `sops exec-env` échouerait dessus si elle manquait. Attention, **Grafana ne la relit pas** après son premier démarrage : la rotation se joue dans le conteneur, la commande est dans [`supervision.md`](./supervision.md).
 
-**Injecter au lancement**, sans jamais écrire les valeurs sur le disque :
+**Injecter au déploiement**, sans jamais écrire les valeurs sur le disque :
 
 ```bash
-sops exec-env secrets.enc.yaml 'docker compose up -d'
+sops exec-env secrets.enc.yaml 'docker compose build etl ml dashboard migrate'
+sops exec-env secrets.enc.yaml 'docker compose up -d --wait postgres'
+sops exec-env secrets.enc.yaml 'docker compose run --rm migrate'
+sops exec-env secrets.enc.yaml 'docker compose run --rm seed'
+sops exec-env secrets.enc.yaml 'docker compose up -d --wait'
 ```
 
 C'est la commande du déploiement, et elle sert aussi **sur un poste** : les variables qu'elle pose priment sur le `.env`, donc il suffit d'y laisser la section RÉGLAGES de `.env.example` et aucun secret. C'est la façon la plus proche de la machine de lancer la pile chez soi, et elle ne laisse rien en clair sur le disque. Elle s'exécute **sur** la machine sur site, lancée par le runner auto-hébergé, avec la clé de la CI que GitHub lui passe le temps du job. Sous Windows, la commande passée est confiée à `cmd`, pas à un interpréteur POSIX : `sops exec-env secrets.enc.yaml 'echo $POSTGRES_PASSWORD'` affiche la chaîne littérale, pas la valeur, sans que l'environnement soit vide pour autant. Un test de ce genre se fait sous Git Bash ou WSL.
@@ -286,7 +291,7 @@ Le dernier surprend : un secret commité puis retiré au commit suivant fait qua
 
 **Sortie de secours d'un faux positif** (gitleaks se trompe déjà : une clé publique age classée `generic-api-key`, vérifié sur ce projet) : un commentaire `gitleaks:allow` sur la ligne (préféré pour une valeur documentée à l'avance), ou une entrée dans `.gitleaksignore` à la racine (à créer le jour du premier cas, format `<commit>:<chemin>:<règle>:<ligne>` tel que gitleaks le rend). Légitime pour un faux positif vérifié un par un, jamais pour faire taire un vrai secret : la différence se voit en revue, pas dans la syntaxe.
 
-**Sortie de secours du déploiement** : depuis que la machine est destinataire, elle se recrée sur place, `sops exec-env secrets.enc.yaml 'docker compose up -d'`, sans dépendre de GitHub ni recopier une valeur à la main. C'est aussi ce qui a motivé la clé. Un `workflow_dispatch` sur le workflow de déploiement reste le chemin propre quand le runner répond, sans pousser de commit et en laissant une trace.
+**Sortie de secours du déploiement** : depuis que la machine est destinataire, elle se recrée sur place avec la séquence `sops exec-env` documentée plus haut, sans dépendre de GitHub ni recopier une valeur à la main. C'est aussi ce qui a motivé la clé. Un `workflow_dispatch` sur le workflow de déploiement reste le chemin propre quand le runner répond, sans pousser de commit et en laissant une trace.
 
 ### Le détail du hook `pre-push`
 

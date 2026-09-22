@@ -53,6 +53,18 @@ ignore = [
   "UP017",
 ]
 
+[lint.isort]
+# Les packages locaux de chaque application sont déclarés ici pour que ruff
+# les place dans la section "first-party", séparée des dépendances tierces par
+# une ligne vide. Sans cette liste, ruff les traite comme des tiers et mélange
+# les blocs d'imports.
+known-first-party = [
+  # apps/ml
+  "api", "data", "features", "models", "training",
+  # apps/etl
+  "env_loader", "extract", "load", "progress",
+]
+
 [lint.per-file-ignores]
 
 # DTZ001 exige un fuseau sur tout `datetime`. La règle vise le code qui écrit ou

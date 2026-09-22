@@ -1,6 +1,19 @@
 import { DuckDBInstance } from '@duckdb/node-api'
 import { energyReadingSchema, type EnergyReading } from '../../shared/energyReadingSchema'
 
+let instancePromise: ReturnType<typeof DuckDBInstance.create> | null = null
+
+export function resetInstanceForTests(): void {
+  instancePromise = null
+}
+
+function getInstance() {
+  if (!instancePromise) {
+    instancePromise = DuckDBInstance.create(':memory:')
+  }
+  return instancePromise
+}
+
 function résoudreRépertoireParquet(): string {
   const dir = process.env.NUXT_PARQUET_DIR
   if (!dir) throw new Error("NUXT_PARQUET_DIR n'est pas défini — historique indisponible")
@@ -40,7 +53,7 @@ export async function querySiteHistory(
     LIMIT ${limit}
   `
 
-  const instance = await DuckDBInstance.create(':memory:')
+  const instance = await getInstance()
   const connexion = await instance.connect()
   const déclaration = await connexion.prepare(sql)
   const résultat = await déclaration.runAndReadAll()

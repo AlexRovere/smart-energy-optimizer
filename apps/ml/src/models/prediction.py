@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Protocol
 
 import pandas as pd
+
 from features import MINIMUM_HISTORY_HOURS, SiteSchedules, build_prediction_features
 
 MAXIMUM_HORIZON_HOURS = 168

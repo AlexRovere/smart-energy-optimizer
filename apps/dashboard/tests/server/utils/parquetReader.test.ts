@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { querySiteHistory } from '../../../server/utils/parquetReader'
+import { querySiteHistory, resetInstanceForTests } from '../../../server/utils/parquetReader'
 
 // vi.hoisted garantit que ces variables sont initialisées avant le hissage de vi.mock
 const { mockRunAndReadAll, mockPrepare, mockConnect, mockCreate } = vi.hoisted(() => {
@@ -38,6 +38,7 @@ describe('querySiteHistory', () => {
   const envSauvegarde = process.env.NUXT_PARQUET_DIR
 
   beforeEach(() => {
+    resetInstanceForTests()
     process.env.NUXT_PARQUET_DIR = '/data/parquet'
     vi.clearAllMocks()
     mockRunAndReadAll.mockResolvedValue(mockResultReader([mesureFixture]))
@@ -99,5 +100,11 @@ describe('querySiteHistory', () => {
     expect(warnSpy).toHaveBeenCalledOnce()
     expect(warnSpy.mock.calls[0]![0]).toContain('SITE001')
     warnSpy.mockRestore()
+  })
+
+  it("n'initialise DuckDBInstance qu'une seule fois pour plusieurs appels", async () => {
+    await querySiteHistory('SITE001', '2026-09-16T00:00:00Z', '2026-09-17T00:00:00Z', 500)
+    await querySiteHistory('SITE001', '2026-09-16T00:00:00Z', '2026-09-17T00:00:00Z', 500)
+    expect(mockCreate).toHaveBeenCalledOnce()
   })
 })
