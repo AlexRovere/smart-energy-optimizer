@@ -10,7 +10,7 @@ const MAP = {
   critical: { color: 'error' as const,   variant: 'soft' as const },
 } as const
 
-const badge = computed(() => MAP[props.severity])
+const badge = computed(() => MAP[props.severity] ?? { color: 'neutral' as const, variant: 'soft' as const })
 </script>
 
 <template>
