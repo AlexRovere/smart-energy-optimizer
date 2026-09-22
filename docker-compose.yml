@@ -111,6 +111,8 @@ services:
       # La composition n'a plus à le faire, et le mot de passe n'a plus à être
       # sans caractère spécial, l'assemblage l'encodant (#158).
       NUXT_POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      # Port interne au réseau Docker : toujours 5432, indépendamment du port
+      # exposé sur l'hôte par POSTGRES_PORT (qui sert uniquement à l'accès local).
       NUXT_POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       NUXT_POSTGRES_DATABASE: ${POSTGRES_DB:-enervision}
       NUXT_POSTGRES_USER: ${POSTGRES_USER:-enervision}

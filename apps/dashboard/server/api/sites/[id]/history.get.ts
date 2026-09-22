@@ -30,7 +30,8 @@ export default defineEventHandler(async (event) => {
 
   try {
     return await querySiteHistory(parsedId.data, from, to, limit)
-  } catch {
+  } catch (err) {
+    console.error('[history] échec de la requête Parquet :', err)
     throw createError({ status: 503, statusText: 'Historique indisponible' })
   }
 })
