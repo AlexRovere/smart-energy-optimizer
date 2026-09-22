@@ -44,6 +44,6 @@ jobs:
       - name: Déployer avec Ansible
         run: |
           ansible-playbook \
-            -i 'enervision,' \
+            -i infra/ansible/inventory.ini \
             --connection local \
             infra/ansible/playbook.yml

@@ -163,11 +163,18 @@ exécute ce playbook après une CI réussie sur `main`, ou sur demande avec
 avec les labels `self-hosted`, `linux`, `x64` et `enervision`.
 
 Le runner doit être installé comme service sous l'utilisateur `apprenant`. Il
-utilise une connexion Ansible locale, sans SSH et sans sudo :
+lit le même inventaire que le déploiement manuel, et n'en change que la
+connexion, locale, sans SSH ni sudo :
 
 ```bash
-ansible-playbook -i 'enervision,' --connection local infra/ansible/playbook.yml
+ansible-playbook -i infra/ansible/inventory.ini --connection local infra/ansible/playbook.yml
 ```
+
+L'inventaire est la seule source de l'adresse de la machine. C'est
+`ansible_host` qui devient le `DOMAIN` servi par Caddy, donc l'adresse par
+laquelle on joint le dashboard. La connexion, elle, reste sur la ligne de
+commande et non dans l'inventaire : déclarée là, un déploiement lancé depuis un
+poste s'exécuterait sur le poste.
 
 Docker, Compose, Git, Ansible, SOPS et age doivent être visibles dans le `PATH`
 du service. La clé age et les répertoires préparés plus haut doivent appartenir

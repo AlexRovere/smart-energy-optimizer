@@ -18,8 +18,8 @@
     log_dir: /var/log/enervision
     age_key_file: /home/apprenant/.config/sops/age/keys.txt
     run_database_seed: true
-    # Adresse servie par Caddy. Laissée vide, elle est déduite de la machine :
-    # son nom AD ne résout pas depuis les postes, seule l'IP répond.
+    # Adresse servie par Caddy. Laissée vide, c'est celle de l'inventaire : le
+    # nom AD de la machine ne résout pas depuis les postes, seule l'IP répond.
     public_domain: ""
 
   pre_tasks:
@@ -79,26 +79,21 @@
         update: true
         force: false
 
-    # L'adresse source de la route par défaut, et non `hostname -I` : sur une
-    # machine qui fait tourner Docker, celui-ci rend aussi les passerelles des
-    # réseaux de conteneurs, et rien ne garantit l'ordre.
-    - name: Relever l'adresse de la machine
-      ansible.builtin.shell: ip -4 route get 1.1.1.1 | awk '{print $7; exit}'
-      register: host_address
-      changed_when: false
-      when: not public_domain
-
     - name: Retenir l'adresse servie par le proxy
       ansible.builtin.set_fact:
-        resolved_domain: "{{ public_domain or host_address.stdout | trim }}"
+        resolved_domain: "{{ public_domain or ansible_host }}"
 
-    - name: Refuser un déploiement sans adresse pour le proxy
+    # `ansible_host` retombe sur le nom d'hôte quand l'inventaire ne donne pas
+    # d'adresse. Celui de la VM ne résout pas depuis les postes : mieux vaut
+    # refuser que servir un certificat pour un nom que personne ne joint.
+    - name: Refuser un déploiement sans adresse joignable
       ansible.builtin.assert:
         that:
-          - resolved_domain | length > 0
+          - resolved_domain is match('^[0-9.]+$') or '.' in resolved_domain
         fail_msg: >-
-          Impossible de déterminer l'adresse de la machine. Renseigner
-          public_domain dans les variables du playbook.
+          {{ resolved_domain }} n'est ni une adresse ni un nom qualifié.
+          Renseigner ansible_host dans infra/ansible/inventory.ini, ou
+          public_domain dans les variables de ce playbook.
 
     # Sans lui, un `docker compose up` lancé à la main sur la machine prendrait
     # le défaut de la composition, qui vise un poste, et écrirait les mesures
