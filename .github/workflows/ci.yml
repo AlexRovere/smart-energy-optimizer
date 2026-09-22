@@ -226,6 +226,7 @@ jobs:
           SESSION_SECRET: ci
           MOCK_API_URL: http://ci
           PARQUET_DIR_HOST: ./data/parquet
+          GRAFANA_ADMIN_PASSWORD: ci
         run: docker compose config --quiet
       # Aucune variable, et c'est le contrôle : la composition de développement
       # doit se lire sur un poste qui n'a rien configuré.

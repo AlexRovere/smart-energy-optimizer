@@ -14,6 +14,7 @@ Monorepo. La structure du dépôt n'est pas l'architecture de déploiement : les
 | `apps/etl/`          | Ingestion Python des capteurs simulés vers les fichiers Parquet          | `domain:data`                |
 | `apps/ml/`           | Service de prédiction (FastAPI, Prophet, MLflow)                         | `domain:ml`                  |
 | `infra/ansible/`     | Configuration de la machine sur site, rejouable                          | `domain:cloud`               |
+| `infra/grafana/`      | Supervision : source de données et tableaux, provisionnés depuis le dépôt   | `domain:cloud`               |
 | `.github/workflows/` | Pipeline build, test, scan, deploy                                       | `domain:cicd`                |
 | `docs/`              | Livrables et documentation technique                                     | `domain:doc`                 |
 | `docker-compose.yml` | La pile complète, à la racine pour un `docker compose up` direct         | `domain:cloud`               |
@@ -94,6 +95,12 @@ available` : poser `POSTGRES_PORT=15432` dans le `.env` suffit. Et aucun port
 n'est publié devant le dashboard, c'est le rôle du proxy de #39 : lancer la pile
 ici prouve qu'elle se construit et démarre, pas qu'on peut la parcourir au
 navigateur. Pour ça, la boucle de développement plus haut.
+
+**La supervision part avec la pile**, sans rien de plus à lancer : Grafana sur
+<http://127.0.0.1:3001> (compte `admin`, mot de passe `GRAFANA_ADMIN_PASSWORD`) et
+Prometheus sur <http://127.0.0.1:9090>. Le tableau est déjà là, il est provisionné
+depuis `infra/grafana/`. Les indicateurs et leur motif :
+[`docs/supervision.md`](./docs/supervision.md).
 
 Chaque application a son propre README avec ses prérequis.
 
