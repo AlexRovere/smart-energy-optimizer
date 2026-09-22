@@ -214,9 +214,10 @@ Les redéploiements conservent ce répertoire.
 
 ## Premier déploiement manuel avec Ansible
 
-Le test est exécuté directement sur la VM comme `apprenant`. L'inventaire
-temporaire `enervision,` désigne la machine locale : aucun SSH et aucun sudo ne
-sont nécessaires.
+Le test est exécuté directement sur la VM comme `apprenant`. L'inventaire du
+dépôt porte l'adresse de la machine, et `--connection local` évite SSH et sudo.
+Ne pas lui substituer un inventaire en ligne : c'est `ansible_host` qui devient
+le `DOMAIN` servi par Caddy, et le playbook refuse de démarrer sans lui.
 
 Depuis la racine du dépôt :
 
@@ -224,13 +225,13 @@ Depuis la racine du dépôt :
 cd /home/apprenant/Projet/enerVision
 
 ansible-playbook \
-  -i 'enervision,' \
+  -i infra/ansible/inventory.ini \
   --connection local \
   infra/ansible/playbook.yml \
   --syntax-check
 
 ansible-playbook \
-  -i 'enervision,' \
+  -i infra/ansible/inventory.ini \
   --connection local \
   infra/ansible/playbook.yml
 ```
@@ -280,26 +281,30 @@ docker ps
 Tester les services depuis la VM :
 
 ```bash
-curl --fail http://127.0.0.1:3000/
+curl --fail -k https://10.101.200.31/
+curl --fail -k https://10.101.200.31:3001/api/health
 curl --fail http://127.0.0.1:8000/health
-curl --fail http://127.0.0.1:3001/api/health
 curl --fail http://127.0.0.1:9090/-/healthy
 ```
 
-Les ports sont liés à `127.0.0.1`. Pour tester depuis un poste, ouvrir un tunnel
-SSH :
+Les deux premiers passent par Caddy, d'où le `-k` : le certificat vient de sa
+CA interne. Les deux suivants sont des ports d'administration, liés à
+`127.0.0.1` et joignables seulement depuis la machine.
+
+Le dashboard et Grafana se joignent directement depuis un poste, sans tunnel :
+`https://10.101.200.31/` et `https://10.101.200.31:3001/`. Le navigateur
+avertira sur le certificat, c'est attendu.
+
+Pour le service ML et Prometheus, il faut un tunnel :
 
 ```bash
 ssh \
-  -L 3000:127.0.0.1:3000 \
   -L 8000:127.0.0.1:8000 \
-  -L 3001:127.0.0.1:3001 \
   -L 9090:127.0.0.1:9090 \
   apprenant@10.101.200.31
 ```
 
-Puis ouvrir `http://localhost:3000`, `http://localhost:8000/health`,
-`http://localhost:3001` ou `http://localhost:9090`.
+Puis `http://localhost:8000/health` ou `http://localhost:9090`.
 
 ## Installer le runner GitHub
 
@@ -367,7 +372,7 @@ dernier playbook. Le job lance ensuite :
 
 ```bash
 ansible-playbook \
-  -i 'enervision,' \
+  -i infra/ansible/inventory.ini \
   --connection local \
   infra/ansible/playbook.yml
 ```

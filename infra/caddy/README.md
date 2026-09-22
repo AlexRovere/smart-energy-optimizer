@@ -14,7 +14,7 @@ Navigateur  ──HTTPS 443───▶  Caddy  ──HTTP──▶  dashboard:3
 ```
 
 Avantages pour nous :
-- **Surface d'exposition** : deux ports ouverts sur la VM, tous deux tenus par Caddy, au lieu d'un par service.
+- **Surface d'exposition** : deux ports servis sur la VM, plus le 80 qui ne fait que rediriger, tous tenus par Caddy, au lieu d'un par service.
 - **TLS centralisé** : le chiffrement est géré une seule fois, en un seul endroit, même si on ajoute des services derrière.
 - **En-têtes de sécurité** : posés une fois pour toutes dans Caddy, sans toucher le code applicatif.
 
@@ -24,18 +24,26 @@ Avantages pour nous :
 
 **Pourquoi un port dédié pour Grafana** plutôt qu'un sous-chemin `/grafana` : `DOMAIN` vaut une adresse IP, donc `grafana.<domaine>` n'existe pas, et un service sous-chemin obligerait à déclarer sa racine à Grafana et à faire correspondre les chemins de ses ressources. Le port ne lui demande rien et se referme seul, sans toucher au site principal.
 
+**L'autorité de certification vit dans le volume `caddy_data`.** Le détruire en forge une nouvelle, et tous les navigateurs qui avaient accepté l'ancienne doivent recommencer.
+
 **Pourquoi `tls internal` :** Caddy dispose de sa propre autorité de certification (CA). Avec `tls internal`, il génère un certificat signé par cette CA sans avoir besoin d'un nom de domaine public ni d'une connexion internet. Ici ce n'est pas un pis-aller : le nom Active Directory de la machine ne résout pas depuis les postes, `DOMAIN` vaut son IP, et Let's Encrypt ne pourra jamais valider une adresse IP privée. Le jour où un vrai domaine existe, retirer cette ligne suffit.
 
-**HTTP → HTTPS :** Caddy redirige le port 80 vers 443 par défaut, sans ligne de config supplémentaire.
+**HTTP vers HTTPS :** Caddy redirige le port 80 vers 443 par défaut, sans ligne de configuration supplémentaire.
 
-**En-têtes de sécurité — ce qu'ils font :**
+**Le site de repli `:443`** répond `421` à une requête dont l'en-tête `Host` ne vaut pas `DOMAIN`. Sans lui, Caddy casse la poignée de main TLS et le navigateur rend `ERR_SSL_PROTOCOL_ERROR`, sans rien dire de la cause. Quelqu'un essaiera le nom AD de la machine, qui ne résout pas.
+
+**HTTP/3 est coupé** par le bloc global. La composition ne publie pas l'UDP, et un navigateur mémorise l'annonce `Alt-Svc` pendant trente jours : il tenterait QUIC dans le vide à chaque session, pour une première requête lente sans trace côté serveur.
+
+**Pourquoi il n'y a pas de `trusted_proxies`, et pourquoi il ne faut pas en ajouter à la légère.** Sans cette directive, Caddy ne fait confiance à personne et **remplace** `X-Forwarded-For` par l'adresse réelle du pair, au lieu de compléter celui qu'un client aurait posé. C'est ce qui rend `TRUST_PROXY=true` honnête côté applicatif. Vérifié sur Caddy 2.11 avec une liste forgée, un en-tête répété et un `X-Real-IP` : tous écrasés. En revanche `h3` lit le **premier** élément de la liste : le jour où on déclare un proxy de confiance ou qu'on en chaîne un second, la limitation des tentatives de #29 redevient forgeable dans la seconde.
+
+**En-têtes de sécurité, ce qu'ils font :**
 | En-tête | Ce qu'il fait |
 |---|---|
 | `Strict-Transport-Security` (HSTS) | Indique au navigateur de ne jamais utiliser HTTP pour ce domaine pendant 1 an. Empêche le downgrade vers HTTP. **Sans effet tant que `DOMAIN` est une IP** : les navigateurs n'appliquent pas HSTS à une adresse. L'en-tête est là pour le jour où un vrai nom existe. |
 | `X-Content-Type-Options: nosniff` | Interdit au navigateur de « deviner » le type d'un fichier. Empêche des attaques où un fichier uploadé est exécuté comme du HTML/JS. |
 | `X-Frame-Options: DENY` | Interdit d'afficher le site dans une `<iframe>`. Empêche le clickjacking. |
 | `Referrer-Policy` | Limite les informations d'URL envoyées au site suivant quand l'utilisateur clique un lien. |
-| `-Server` | Supprime l'en-tête `Server: Caddy` que le serveur enverrait sinon. Moins d'infos pour un attaquant qui scanne. |
+| `-Server` et `-Via` | Suppriment `Server: Caddy` et `Via: 1.1 Caddy`, que Caddy pose sinon sur les réponses mandatées. Moins d'infos pour un attaquant qui scanne. |
 
 ## `docker-compose.yml`
 
@@ -61,7 +69,7 @@ Le fichier d'exemple laisse `true`, et ce n'est pas une inattention : il ne sert
 
 | Environnement | DOMAIN | TLS | Remarque |
 |---|---|---|---|
-| Poste local (dev Nuxt) | — | — | `docker-compose.dev.yml` ne lance que PostgreSQL ; Nuxt tourne via `npm run dev` sur `localhost:3000`. Pas de proxy nécessaire pour développer. |
+| Poste local (dev Nuxt) | sans objet | sans objet | `docker-compose.dev.yml` ne lance que PostgreSQL ; Nuxt tourne via `corepack pnpm --dir apps/dashboard dev` sur `localhost:3000`. Pas de proxy nécessaire pour développer. |
 | Stack Docker complète en local | `localhost` | `tls internal` (Caddy PKI) | `docker compose up -d` avec le compose principal. Avertissement navigateur normal (CA Caddy non reconnue par le système). **Attention**, HSTS s'applique bien à `localhost` : après une visite, le navigateur refusera `http://localhost` pendant un an, pour tous vos projets. Se défait dans `chrome://net-internals/#hsts`. |
 | VM école | l'IP de la machine, posée par le playbook | `tls internal` | Le nom `eadl-2025-nantes-g1.ad.campus-eni.fr` ne résout pas depuis les postes, seule l'adresse répond. Pour supprimer l'avertissement : exporter la CA du volume `caddy_data` et la faire reconnaître par le navigateur. |
 | VM de prod avec domaine | `enervision.xxx` | Auto-TLS Let's Encrypt | Retirer `tls internal` du Caddyfile. Ports 80 et 443 ouverts publiquement requis pour la vérification ACME. |
@@ -70,7 +78,7 @@ Le fichier d'exemple laisse `true`, et ce n'est pas une inattention : il ne sert
 
 > Menés sur un poste, avec `DOMAIN=localhost`, avant l'ajout de Grafana. Sur la machine, `DOMAIN` vaut une IP : les mêmes commandes s'y rejouent en remplaçant `localhost` par l'adresse, et `https://<ip>:3001/` doit rendre la page de connexion de Grafana.
 
-Test 1 — Logs Caddy - `docker compose logs caddy`
+Test 1 : Logs Caddy, `docker compose logs caddy`
 
 ```powershell
 PS C:\eni\enerVision> docker compose logs caddy
@@ -82,7 +90,7 @@ caddy-1  | {"level":"info","ts":1789982868.0788786,"msg":"serving initial config
 
 ---
 
-Test 2 — Le proxy répond `curl.exe -k -v https://localhost/`
+Test 2 : Le proxy répond `curl.exe -k -v https://localhost/`
 
 ```powershell
 PS C:\eni\enerVision> curl.exe -k -v https://localhost/
@@ -123,7 +131,7 @@ PS C:\eni\enerVision> curl.exe -k -v https://localhost/
 
 ---
 
-Test 3 — HTTP redirige vers HTTPS - `curl.exe -I http://localhost/`
+Test 3 : HTTP redirige vers HTTPS, `curl.exe -I http://localhost/`
 
 ```powershell
 PS C:\eni\enerVision> curl.exe -I http://localhost/
@@ -138,7 +146,7 @@ Date: Mon, 21 Sep 2026 09:46:05 GMT
 
 ---
 
-Test 4 — En-têtes de sécurité - `curl.exe -k -I https://localhost/`
+Test 4 : En-têtes de sécurité, `curl.exe -k -I https://localhost/`
 
 ```powershell
 PS C:\eni\enerVision> curl.exe -k -I https://localhost/
@@ -163,7 +171,7 @@ X-Frame-Options: DENY
 
 ---
 
-Test 5 — Dashboard non joignable directement - `curl.exe http://localhost:3000/`
+Test 5 : Dashboard non joignable directement, `curl.exe http://localhost:3000/`
 
 ```powershell
 PS C:\eni\enerVision> curl.exe http://localhost:3000/
@@ -172,7 +180,7 @@ curl: (7) Failed to connect to localhost port 3000 after 2258 ms: Could not conn
 
 ---
 
-Test 6 — Isolation réseau (Caddy ne voit pas ml) - `docker compose exec caddy wget -qO- http://ml:8000/ 2>&1`
+Test 6 : Isolation réseau (Caddy ne voit pas ml), `docker compose exec caddy wget -qO- http://ml:8000/ 2>&1`
 
 ```powershell
 PS C:\eni\enerVision> docker compose exec caddy wget -qO- http://ml:8000/ 2>&1

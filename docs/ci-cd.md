@@ -165,7 +165,7 @@ service sur la VM et exécuté par `apprenant`. Le runner appelle GitHub en HTTP
 sortant, récupère `main`, puis lance localement :
 
 ```bash
-ansible-playbook -i 'enervision,' --connection local infra/ansible/playbook.yml
+ansible-playbook -i infra/ansible/inventory.ini --connection local infra/ansible/playbook.yml
 ```
 
 Ansible met à jour la copie dans `/home/apprenant/Projet/enerVision`, injecte
