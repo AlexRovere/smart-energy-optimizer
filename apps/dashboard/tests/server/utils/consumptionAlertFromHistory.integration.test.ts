@@ -82,16 +82,28 @@ describe.skipIf(!baseDisponible())('detectConsumptionAlertFromHistory — Parque
   })
 
   it('déclenche sur un dépassement réel, avec la règle réglée en base', async () => {
-    expect(await detectConsumptionAlertFromHistory(db, 'SITE001', RÉFÉRENCE)).toBe(true)
+    expect(await detectConsumptionAlertFromHistory(db, 'SITE001', RÉFÉRENCE)).toEqual({
+      alert: true,
+      average: 230,
+      thresholdKwh: 200
+    })
   })
 
   it('ne déclenche pas quand la moyenne reste sous le seuil par défaut (200 kWh)', async () => {
-    expect(await detectConsumptionAlertFromHistory(db, 'SITE002', RÉFÉRENCE)).toBe(false)
+    expect(await detectConsumptionAlertFromHistory(db, 'SITE002', RÉFÉRENCE)).toEqual({
+      alert: false,
+      average: 60,
+      thresholdKwh: 200
+    })
   })
 
   it('déclenche à la limite exacte du seuil par défaut, sans règle en base', async () => {
     // Moyenne des trois dernières heures par défaut (duration = 5, donc les trois seules
     // heures écrites) : (200 + 250 + 150) / 3 = 200
-    expect(await detectConsumptionAlertFromHistory(db, 'SITE003', RÉFÉRENCE)).toBe(true)
+    expect(await detectConsumptionAlertFromHistory(db, 'SITE003', RÉFÉRENCE)).toEqual({
+      alert: true,
+      average: 200,
+      thresholdKwh: 200
+    })
   })
 })

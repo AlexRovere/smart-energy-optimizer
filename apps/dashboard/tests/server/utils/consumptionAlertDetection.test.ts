@@ -14,24 +14,36 @@ function fenêtre(valeurs: [number, number, number]) {
 }
 
 describe('detectConsumptionAlert', () => {
-  it('déclenche quand la moyenne glissante dépasse le seuil', () => {
+  it('déclenche quand la moyenne glissante dépasse le seuil, et rend la moyenne et le seuil', () => {
     // Moyenne : 230
-    expect(detectConsumptionAlert(fenêtre([210, 220, 260]), REFERENCE, RÉGLAGE)).toBe(true)
+    expect(detectConsumptionAlert(fenêtre([210, 220, 260]), REFERENCE, RÉGLAGE)).toEqual({
+      alert: true,
+      average: 230,
+      thresholdKwh: 200
+    })
   })
 
   it('ne déclenche pas quand la moyenne glissante reste sous le seuil', () => {
     // Moyenne : 180
-    expect(detectConsumptionAlert(fenêtre([170, 180, 190]), REFERENCE, RÉGLAGE)).toBe(false)
+    expect(detectConsumptionAlert(fenêtre([170, 180, 190]), REFERENCE, RÉGLAGE)).toEqual({
+      alert: false,
+      average: 180,
+      thresholdKwh: 200
+    })
   })
 
   it('déclenche à la limite exacte du seuil, "atteint ou dépasse"', () => {
     // Moyenne : exactement 200
-    expect(detectConsumptionAlert(fenêtre([180, 200, 220]), REFERENCE, RÉGLAGE)).toBe(true)
+    expect(detectConsumptionAlert(fenêtre([180, 200, 220]), REFERENCE, RÉGLAGE).alert).toBe(true)
   })
 
-  it('ne déclenche pas quand aucune donnée ne tombe dans la fenêtre', () => {
+  it('ne déclenche pas quand aucune donnée ne tombe dans la fenêtre, moyenne nulle', () => {
     const valeurs = [{ timestamp: '2026-01-01T00:00:00Z', value: 999 }]
 
-    expect(detectConsumptionAlert(valeurs, REFERENCE, RÉGLAGE)).toBe(false)
+    expect(detectConsumptionAlert(valeurs, REFERENCE, RÉGLAGE)).toEqual({
+      alert: false,
+      average: null,
+      thresholdKwh: 200
+    })
   })
 })

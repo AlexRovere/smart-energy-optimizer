@@ -12,22 +12,37 @@ const PRÉCÉDENTES = [
 ]
 
 describe('detectSpikeAlert', () => {
-  it('déclenche quand la valeur courante dépasse la moyenne × threshold', () => {
+  it('déclenche quand la valeur courante dépasse la moyenne × threshold, et rend la moyenne et le seuil en kW', () => {
     // 200 × 1.5 = 300
-    expect(detectSpikeAlert(PRÉCÉDENTES, REFERENCE, 310, RÉGLAGE)).toBe(true)
+    expect(detectSpikeAlert(PRÉCÉDENTES, REFERENCE, 310, RÉGLAGE)).toEqual({
+      alert: true,
+      currentValue: 310,
+      average: 200,
+      thresholdKw: 300
+    })
   })
 
   it('ne déclenche pas quand la valeur courante reste sous la moyenne × threshold', () => {
-    expect(detectSpikeAlert(PRÉCÉDENTES, REFERENCE, 250, RÉGLAGE)).toBe(false)
+    expect(detectSpikeAlert(PRÉCÉDENTES, REFERENCE, 250, RÉGLAGE)).toEqual({
+      alert: false,
+      currentValue: 250,
+      average: 200,
+      thresholdKw: 300
+    })
   })
 
   it('déclenche à la limite exacte, "atteint ou dépasse"', () => {
-    expect(detectSpikeAlert(PRÉCÉDENTES, REFERENCE, 300, RÉGLAGE)).toBe(true)
+    expect(detectSpikeAlert(PRÉCÉDENTES, REFERENCE, 300, RÉGLAGE).alert).toBe(true)
   })
 
   it('ne déclenche pas quand aucune moyenne ne peut être calculée', () => {
     const aucune: typeof PRÉCÉDENTES = []
 
-    expect(detectSpikeAlert(aucune, REFERENCE, 9999, RÉGLAGE)).toBe(false)
+    expect(detectSpikeAlert(aucune, REFERENCE, 9999, RÉGLAGE)).toEqual({
+      alert: false,
+      currentValue: 9999,
+      average: null,
+      thresholdKw: null
+    })
   })
 })

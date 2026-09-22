@@ -1,3 +1,4 @@
+import { useFetch } from 'nuxt/app'
 import { ref, computed } from 'vue'
 import type { Prediction, Recommendation, SiteId } from "~/types/api";
 import { useSites } from "../composables/useSites";
@@ -37,54 +38,6 @@ function mockPredictions(siteId: SiteId): Prediction {
   }
 }
 
-function mockRecommendations(siteId: SiteId): Recommendation[] {
-  const now = new Date().toISOString()
-  return [
-    {
-      recommendation_id: `REC-${siteId}-1`,
-      site_id: siteId,
-      source: 'forecast',
-      type: 'scheduling',
-      priority: 'high',
-      title: 'Décaler la relance CVC de 45 min',
-      description: 'fenêtre 14:30 → 15:15 · confiance haute',
-      trigger: { timestamp: now, value_kw: 98, threshold_kw: 240 },
-      estimated_saving_kwh: 12,
-      gain_kw: -17,
-      confidence: 0.88,
-      window: '14:30 → 15:15',
-    },
-    {
-      recommendation_id: `REC-${siteId}-2`,
-      site_id: siteId,
-      source: 'forecast',
-      type: 'load_balancing',
-      priority: 'medium',
-      title: 'Reporter le lot de production non prioritaire',
-      description: 'fenêtre 15:00 → 17:00 · impact planning',
-      trigger: { timestamp: now, value_kw: 98, threshold_kw: 240 },
-      estimated_saving_kwh: 58,
-      gain_kw: -29,
-      confidence: 0.74,
-      window: '15:00 → 17:00',
-    },
-    {
-      recommendation_id: `REC-${siteId}-3`,
-      site_id: siteId,
-      source: 'threshold',
-      type: 'efficiency',
-      priority: 'low',
-      title: 'Alterner les compresseurs 2 et 3',
-      description: 'fenêtre immédiate · sans impact process',
-      trigger: { timestamp: now, value_kw: 98, threshold_kw: 240 },
-      estimated_saving_kwh: 7,
-      gain_kw: -11,
-      confidence: 0.91,
-      window: 'immédiate',
-    },
-  ]
-}
-
 export function usePredictions() {
   const { getReadings, getSiteInfo } = useSites()
 
@@ -92,7 +45,11 @@ export function usePredictions() {
 
   const prediction = computed(() => mockPredictions(selectedSiteId.value))
   const historicalPoints = computed(() => getReadings(selectedSiteId.value))
-  const recommendations = computed(() => mockRecommendations(selectedSiteId.value))
+  const { data: recommendationsData } = useFetch<Recommendation[]>(
+    () => `/api/sites/${selectedSiteId.value}/recommendations`,
+    { watch: [selectedSiteId] }
+  )
+  const recommendations = computed(() => recommendationsData.value ?? [])
   const siteInfo = computed(() => getSiteInfo(selectedSiteId.value))
   const thresholdKw = computed(() => siteInfo.value?.threshold_kw ?? 240)
   const peakKw = computed(() => 
