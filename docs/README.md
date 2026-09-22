@@ -5,6 +5,7 @@
 | `architecture.md` | **La référence d'architecture de l'équipe**, figée au J1, et les écarts constatés ensuite | EC01, EC02 |
 | `ci-cd.md` | Fonctionnement du pipeline, quality gate, scans | EC03 |
 | **`securisation.md`** | **Le rapport de sécurisation : chaque contrôle avec la commande qui le rejoue et son résultat daté, puis les limites connues** | **EC04** |
+| `supervision.md` | Sources de mesure, indicateurs retenus et la question à laquelle chacun répond, mise en service | EC04 |
 | `secrets.md` | Chiffrement au repos, clés age, procédure de chiffrement et de déchiffrement, rotation | EC03, EC04 |
 | `data.md` | Modèle relationnel, contrat des fichiers Parquet, stratégie d'imputation, règles de qualité | EC05 |
 | `api.md` | Contrats d'interface des quatre briques, croisés à partir des propositions de chacun et figés avant le développement parallèle | EC03, C20 |
