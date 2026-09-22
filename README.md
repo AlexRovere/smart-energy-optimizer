@@ -103,14 +103,14 @@ Deux choses à savoir avant d'essayer. Si un PostgreSQL est déjà installé en
 service sur le poste, il tient 5432 et le lancement échoue sur `ports are not
 available` : poser `POSTGRES_PUBLISHED_PORT=15432` dans le `.env` suffit. C'est
 bien ce nom-là, et pas `POSTGRES_PORT`, qui reste le port joint à l'intérieur du
-réseau Docker et n'a aucune raison de bouger. Et aucun port
-n'est publié devant le dashboard, c'est le rôle du proxy de #39 : lancer la pile
-ici prouve qu'elle se construit et démarre, pas qu'on peut la parcourir au
-navigateur. Pour ça, la boucle de développement plus haut.
+réseau Docker et n'a aucune raison de bouger. Et le dashboard ne publie aucun
+port : il se parcourt sur <https://localhost>, par Caddy, avec l'avertissement de
+certificat que produit sa CA interne ([`infra/caddy/README.md`](./infra/caddy/README.md)).
+Pour développer, la boucle plus haut reste plus rapide.
 
 **La supervision part avec la pile**, sans rien de plus à lancer : Grafana sur
-<http://127.0.0.1:3001> (compte `admin`, mot de passe `GRAFANA_ADMIN_PASSWORD`) et
-Prometheus sur <http://127.0.0.1:9090>. Le tableau est déjà là, il est provisionné
+<https://localhost:3001> (compte `admin`, mot de passe `GRAFANA_ADMIN_PASSWORD`), servi par
+Caddy comme le dashboard, et Prometheus sur <http://127.0.0.1:9090>. Le tableau est déjà là, il est provisionné
 depuis `infra/grafana/`. Les indicateurs et leur motif :
 [`docs/supervision.md`](./docs/supervision.md).
 
