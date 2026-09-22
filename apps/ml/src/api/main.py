@@ -39,9 +39,7 @@ def get_prediction_model() -> CatBoostRegressor:
     except mlflow.exceptions.MlflowException as error:
         # Même réponse que /model : sans ça, l'absence de modèle se présentait
         # en 500, indiscernable d'un service en panne.
-        raise HTTPException(
-            status_code=503, detail="Aucun modèle champion disponible"
-        ) from error
+        raise HTTPException(status_code=503, detail="Aucun modèle champion disponible") from error
 
 
 @lru_cache(maxsize=1)
