@@ -14,8 +14,6 @@ from features import SiteSchedules, load_site_schedules
 from models import PredictionService, PredictionTarget, load_model
 from training import MLFLOW_MODEL_NAME, train_model
 
-DEFAULT_DATA_PATH = "datas/all_sites_combined.csv"
-DEFAULT_MODEL_PATH = "artifacts/catboost_model.cbm"
 DEFAULT_SITE_CONFIG_PATH = "config/sites.json"
 
 mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "sqlite:///artifacts/mlflow.db"))
@@ -36,7 +34,12 @@ def get_site_config_path() -> str:
 # en mémoire, contrairement à l'historique qui est relu à chaque requête.
 @lru_cache(maxsize=1)
 def get_prediction_model() -> CatBoostRegressor:
-    return load_model()
+    try:
+        return load_model()
+    except mlflow.exceptions.MlflowException as error:
+        # Même réponse que /model : sans ça, l'absence de modèle se présentait
+        # en 500, indiscernable d'un service en panne.
+        raise HTTPException(status_code=503, detail="Aucun modèle champion disponible") from error
 
 
 @lru_cache(maxsize=1)

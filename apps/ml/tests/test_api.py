@@ -189,3 +189,26 @@ def test_model_endpoint_retourne_503_si_aucun_champion(monkeypatch):
     response = client.get("/model")
 
     assert response.status_code == 503
+
+
+def test_predictions_retourne_503_si_aucun_champion(monkeypatch):
+    import mlflow.exceptions
+
+    monkeypatch.setenv("PARQUET_DIR", "/data")
+
+    def aucun_modele(alias: str = "champion"):
+        raise mlflow.exceptions.MlflowException(
+            f"Registered Model with name={MLFLOW_MODEL_NAME} not found"
+        )
+
+    monkeypatch.setattr(api_main, "load_model", aucun_modele)
+    api_main.get_prediction_model.cache_clear()
+    client = TestClient(app)
+
+    response = client.post(
+        "/predictions",
+        json=[{"site_id": "SITE001", "date": "2025-01-08", "hour": 0}],
+    )
+    api_main.get_prediction_model.cache_clear()
+
+    assert response.status_code == 503

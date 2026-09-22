@@ -279,7 +279,8 @@ Deux nommages coexistent volontairement : `.env` porte des noms neutres, la comp
 | `SESSION_SECRET` | applicatif | `NUXT_SESSION_PASSWORD`, nom lu par `nuxt-auth-utils` |
 | `TRUST_PROXY` | applicatif | `NUXT_TRUST_PROXY`, faux par défaut, vrai seulement derrière le proxy de #39 |
 | `MOCK_API_URL` | applicatif, ETL | `NUXT_MOCK_API_URL` / `MOCK_API_URL` |
-| `PARQUET_DIR_HOST` | composition seule | sert au montage |
+| `PARQUET_DIR_HOST` | composition seule | sert au montage, défaut `./data/parquet` |
+| `POSTGRES_PUBLISHED_PORT` | composition seule | port publié sur l'hôte, sans effet sur les conteneurs |
 | *(constante `/data`)* | applicatif, ETL, ML | `NUXT_PARQUET_DIR` / `PARQUET_DIR` |
 | `ML_API_URL` | applicatif | `NUXT_ML_SERVICE_URL`, la clé `mlServiceUrl` du `runtimeConfig` |
 | `LOG_LEVEL` | tous | `NUXT_LOG_LEVEL` / `LOG_LEVEL` |

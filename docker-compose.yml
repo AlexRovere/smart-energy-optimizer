@@ -12,8 +12,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?renseigner POSTGRES_PASSWORD dans .env}
     # Lié à la boucle locale : pratique pour un client SQL sur son poste,
     # injoignable depuis le réseau. Aucun service interne n'est exposé.
+    # Variable distincte de POSTGRES_PORT : ici le port vu de l'HÔTE, plus bas
+    # celui que joignent les CONTENEURS. Les confondre cassait la pile (#197).
     ports:
-      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PUBLISHED_PORT:-5432}:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -195,10 +197,12 @@ services:
       # INSERT sur la seule table sites, UPDATE sur sept de ses colonnes. Il
       # ne peut lire ni les comptes, ni les sessions, ni les périmètres, et
       # ne peut pas écrire warning_threshold_kw (docs/data.md).
-      POSTGRES_USER: ${ETL_DB_USER:?renseigner ETL_DB_USER dans .env}
+      POSTGRES_USER: ${ETL_DB_USER:-etl}
       POSTGRES_PASSWORD: ${ETL_DB_PASSWORD:?renseigner ETL_DB_PASSWORD dans .env}
+    # Le défaut vise le poste. Sur la machine, le playbook pose le chemin réel
+    # et refuse un chemin relatif.
     volumes:
-      - ${PARQUET_DIR_HOST:?}:${PARQUET_DIR:-/data}
+      - ${PARQUET_DIR_HOST:-./data/parquet}:${PARQUET_DIR:-/data}
     depends_on:
       postgres:
         condition: service_healthy
@@ -207,7 +211,6 @@ services:
     build: ./apps/ml
     environment:
       PARQUET_DIR: ${PARQUET_DIR:-/data}
-      ML_MODEL_PATH: /app/artifacts/catboost_model.cbm
       ML_SITE_CONFIG_PATH: /app/config/sites.json
     # Provisoire : le reverse proxy (architecture.md, "un seul port public")
     # n'existe pas encore. Sans lui, rien n'est joignable depuis l'hôte,
@@ -215,7 +218,7 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
-      - ${PARQUET_DIR_HOST:?}:${PARQUET_DIR:-/data}:ro
+      - ${PARQUET_DIR_HOST:-./data/parquet}:${PARQUET_DIR:-/data}:ro
       - ml_artifacts:/app/artifacts
 
     restart: unless-stopped
@@ -245,7 +248,7 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
     volumes:
-      - ${PARQUET_DIR_HOST:?}:${PARQUET_DIR:-/data}:ro       # lecture seule, et rien d'autre que l'exposé
+      - ${PARQUET_DIR_HOST:-./data/parquet}:${PARQUET_DIR:-/data}:ro       # lecture seule, et rien d'autre que l'exposé
     depends_on:
       postgres:
         condition: service_healthy
