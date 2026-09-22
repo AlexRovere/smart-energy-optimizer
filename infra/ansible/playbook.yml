@@ -162,7 +162,7 @@
           - sops
           - exec-env
           - secrets.enc.yaml
-          - docker compose build etl ml dashboard migrate
+          - docker compose --parallel 1 build etl ml dashboard migrate
       args:
         chdir: "{{ project_dir }}"
       changed_when: false
