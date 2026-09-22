@@ -6,6 +6,7 @@ from unittest.mock import ANY, call, patch
 
 import pandas as pd
 import pytest
+
 from main import build_parser, main, run_hour, run_periods, run_sites
 
 

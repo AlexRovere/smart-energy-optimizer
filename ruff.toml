@@ -54,15 +54,23 @@ ignore = [
 ]
 
 [lint.isort]
-# Les packages locaux de chaque application sont déclarés ici pour que ruff
-# les place dans la section "first-party", séparée des dépendances tierces par
-# une ligne vide. Sans cette liste, ruff les traite comme des tiers et mélange
-# les blocs d'imports.
+
+# Évite que les modules internes de l'ETL soient classés différemment selon
+# l'environnement (poste local ou runner Linux), ce qui produisait des I001
+# uniquement dans la CI.
 known-first-party = [
-  # apps/ml
-  "api", "data", "features", "models", "training",
-  # apps/etl
-  "env_loader", "extract", "load", "progress",
+  "api",
+  "data",
+  "env_loader",
+  "extract",
+  "features",
+  "load",
+  "main",
+  "models",
+  "progress",
+  "run_log",
+  "training",
+  "transform",
 ]
 
 [lint.per-file-ignores]

@@ -4,6 +4,8 @@
   gather_facts: false
   environment:
     SOPS_AGE_KEY_FILE: "{{ age_key_file }}"
+    # Chemin des mesures sur la machine : la composition n'a qu'un défaut de poste.
+    PARQUET_DIR_HOST: "{{ parquet_dir }}"
 
   vars:
     application_user: apprenant
@@ -38,6 +40,18 @@
       ansible.builtin.command: age --version
       changed_when: false
 
+    # Reprend le garde-fou que la composition portait par un `:?` : un chemin
+    # relatif créerait le répertoire des mesures dans le dépôt, sans rien dire.
+    - name: Refuser un chemin de mesures relatif
+      ansible.builtin.assert:
+        that:
+          - parquet_dir is defined
+          - parquet_dir is string
+          - parquet_dir.startswith('/')
+        fail_msg: >-
+          parquet_dir doit être un chemin absolu de la machine, valeur reçue :
+          {{ parquet_dir | default('(non définie)') }}.
+
   tasks:
     - name: Vérifier les répertoires applicatifs
       ansible.builtin.file:
@@ -61,6 +75,19 @@
         version: "{{ repository_version }}"
         update: true
         force: false
+
+    # Sans lui, un `docker compose up` lancé à la main sur la machine prendrait
+    # le défaut de la composition, qui vise un poste, et écrirait les mesures
+    # dans le dépôt. Aucun secret ici : ceux-là restent dans secrets.enc.yaml.
+    - name: Poser les réglages de la machine
+      ansible.builtin.copy:
+        dest: "{{ project_dir }}/.env"
+        owner: "{{ application_user }}"
+        group: "{{ application_group }}"
+        mode: "0644"
+        content: |
+          # Écrit par infra/ansible/playbook.yml, ne pas modifier à la main.
+          PARQUET_DIR_HOST={{ parquet_dir }}
 
     - name: Vérifier la présence de la clé age de la VM
       ansible.builtin.stat:

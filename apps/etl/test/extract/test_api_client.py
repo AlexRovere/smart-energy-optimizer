@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 import requests
+
 from extract.api_client import get_json
 
 

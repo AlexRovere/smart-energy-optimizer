@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -11,6 +12,10 @@ TARGET_COLUMN = "consumption_kwh_corrected"
 CATEGORICAL_FEATURES = ["site_id", "site_type"]
 MLFLOW_EXPERIMENT = "enervision-training"
 MLFLOW_MODEL_NAME = "enervision-catboost"
+# Sans racine explicite, MLflow retombe sur ./mlruns : hors du volume, donc perdu
+# au remplacement du conteneur, et non inscriptible puisque /app est à root.
+MLFLOW_ARTIFACT_ROOT_ENV = "MLFLOW_ARTIFACT_ROOT"
+DEFAULT_ARTIFACT_ROOT = "artifacts/mlruns"
 
 # End of the validation block, as a quantile of the available history. Exported because any
 # analysis measuring the model on unseen hours has to cut at the same place: a second literal
@@ -25,6 +30,17 @@ class TrainingResult:
     sites: int
     training_start: str
     training_end: str
+
+
+def _select_experiment() -> None:
+    """La racine est figée à la création : `set_experiment` seul laisse MLflow choisir."""
+    client = mlflow.MlflowClient()
+    if client.get_experiment_by_name(MLFLOW_EXPERIMENT) is None:
+        client.create_experiment(
+            MLFLOW_EXPERIMENT,
+            artifact_location=os.getenv(MLFLOW_ARTIFACT_ROOT_ENV, DEFAULT_ARTIFACT_ROOT),
+        )
+    mlflow.set_experiment(MLFLOW_EXPERIMENT)
 
 
 def train_model(data_path: str | Path) -> TrainingResult:
@@ -54,7 +70,7 @@ def train_model(data_path: str | Path) -> TrainingResult:
 
     model = CatBoostRegressor(**params)
 
-    mlflow.set_experiment(MLFLOW_EXPERIMENT)
+    _select_experiment()
     with mlflow.start_run() as run:
         mlflow.log_params(
             {k: v for k, v in params.items() if k not in ("verbose", "allow_writing_files")}
