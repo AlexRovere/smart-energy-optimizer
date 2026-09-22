@@ -1,17 +1,32 @@
-# Surveillance de la pile on-premise. Les cibles applicatives s'ajoutent au fur
-# et à mesure que les services exposent /metrics.
+# Surveillance de la pile on-premise. Deux sources, et le motif du choix de
+# chaque indicateur est dans docs/supervision.md.
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
 scrape_configs:
+  # Prometheus lui-même : sans cette cible, rien ne dit qu'il collecte encore.
   - job_name: prometheus
     static_configs:
       - targets: ["localhost:9090"]
 
-  # - job_name: etl
+  # La machine : processeur, mémoire, disques, réseau.
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  # Les conteneurs : consommation, redémarrages, dernière apparition.
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
+
+  # Les cibles applicatives s'ajoutent ici au fur et à mesure que les services
+  # exposent /metrics. Aucun ne le fait aujourd'hui ; la dérive du modèle est
+  # la première attendue (#40). Elles complètent les deux sources ci-dessus,
+  # elles ne les remplacent pas.
+  # - job_name: ml
   #   static_configs:
-  #     - targets: ["etl:8000"]
+  #     - targets: ["ml:8000"]
   # - job_name: dashboard
   #   static_configs:
   #     - targets: ["dashboard:3000"]

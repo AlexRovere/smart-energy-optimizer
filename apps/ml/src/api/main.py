@@ -2,19 +2,21 @@ import os
 from functools import lru_cache
 from typing import Annotated
 
+import mlflow
 from catboost import CatBoostRegressor
-from data import read_recent_history
-from env_loader import load_root_env
 from fastapi import Depends, FastAPI, HTTPException
-from features import SiteSchedules, load_site_schedules
-from models import PredictionService, PredictionTarget, load_model
 from pydantic import Field
-from training import train_model
 
 from api.schemas import PredictionRequest, PredictionResponse, TrainingResponse
+from data import read_recent_history
+from env_loader import load_root_env
+from features import SiteSchedules, load_site_schedules
+from models import PredictionService, PredictionTarget, load_model
+from training import MLFLOW_MODEL_NAME, train_model
 
-DEFAULT_MODEL_PATH = "artifacts/catboost_model.cbm"
 DEFAULT_SITE_CONFIG_PATH = "config/sites.json"
+
+mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "sqlite:///artifacts/mlflow.db"))
 
 
 def get_data_path() -> str:
@@ -22,10 +24,6 @@ def get_data_path() -> str:
     if not data_path:
         raise RuntimeError("PARQUET_DIR is not set")
     return data_path
-
-
-def get_model_path() -> str:
-    return os.getenv("ML_MODEL_PATH", DEFAULT_MODEL_PATH)
 
 
 def get_site_config_path() -> str:
@@ -36,7 +34,12 @@ def get_site_config_path() -> str:
 # en mémoire, contrairement à l'historique qui est relu à chaque requête.
 @lru_cache(maxsize=1)
 def get_prediction_model() -> CatBoostRegressor:
-    return load_model(get_model_path())
+    try:
+        return load_model()
+    except mlflow.exceptions.MlflowException as error:
+        # Même réponse que /model : sans ça, l'absence de modèle se présentait
+        # en 500, indiscernable d'un service en panne.
+        raise HTTPException(status_code=503, detail="Aucun modèle champion disponible") from error
 
 
 @lru_cache(maxsize=1)
@@ -63,10 +66,20 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/model")
+def get_model_info() -> dict[str, object]:
+    client = mlflow.MlflowClient()
+    try:
+        version = client.get_model_version_by_alias(MLFLOW_MODEL_NAME, "champion")
+    except mlflow.exceptions.MlflowException as error:
+        raise HTTPException(status_code=503, detail="Aucun modèle champion disponible") from error
+    return {"name": MLFLOW_MODEL_NAME, "version": int(version.version), "alias": "champion"}
+
+
 @app.post("/training", response_model=TrainingResponse)
 def create_training() -> TrainingResponse:
     try:
-        result = train_model(get_data_path(), get_model_path())
+        result = train_model(get_data_path())
     except FileNotFoundError as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
     except ValueError as error:

@@ -12,8 +12,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?renseigner POSTGRES_PASSWORD dans .env}
     # Lié à la boucle locale : pratique pour un client SQL sur son poste,
     # injoignable depuis le réseau. Aucun service interne n'est exposé.
+    # Variable distincte de POSTGRES_PORT : ici le port vu de l'HÔTE, plus bas
+    # celui que joignent les CONTENEURS. Les confondre cassait la pile (#197).
     ports:
-      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PUBLISHED_PORT:-5432}:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -23,19 +25,157 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # Prometheus sert aussi à la dérive du modèle (C24), donc il reste prévu.
-  # Commenté plutôt que retiré : le temps de l'activer sur le serveur n'est
-  # pas garanti d'ici la fin du POC, et ce n'est pas la priorité. À
-  # décommenter (avec le volume prom_data ci-dessous) quand ça le devient.
-  # prometheus:
-  #   image: prom/prometheus:latest
-  #   container_name: enervision-prometheus
-  #   ports:
-  #     - "9090:9090"
-  #   volumes:
-  #     - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-  #     - prom_data:/prometheus
-  #   restart: unless-stopped
+  # Outils d'administration ponctuels. Ils utilisent l'étape de construction
+  # du dashboard, qui contient les sources, Drizzle et pnpm, mais ne démarrent
+  # jamais avec la pile normale grâce au profil `admin`.
+  migrate:
+    image: enervision-dashboard-tools
+    build:
+      context: ./apps/dashboard
+      target: build
+    profiles: ["admin"]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-enervision}
+      POSTGRES_USER: ${POSTGRES_USER:-enervision}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?renseigner POSTGRES_PASSWORD via sops}
+    command: ["pnpm", "db:migrate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  seed:
+    image: enervision-dashboard-tools
+    build:
+      context: ./apps/dashboard
+      target: build
+    profiles: ["admin"]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-enervision}
+      POSTGRES_USER: ${POSTGRES_USER:-enervision}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?renseigner POSTGRES_PASSWORD via sops}
+      SEED_PASSWORD: ${SEED_PASSWORD:?renseigner SEED_PASSWORD via sops}
+      ETL_DB_PASSWORD: ${ETL_DB_PASSWORD:?renseigner ETL_DB_PASSWORD via sops}
+    command: ["pnpm", "db:seed"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ----------------------------- Supervision (#55) -----------------------------
+  # Deux sources de mesure, et aucune ne remplace l'autre : le node exporter dit
+  # ce que fait la MACHINE (processeur, mémoire, disques), cAdvisor ce que font
+  # les CONTENEURS. Une machine saine peut héberger un conteneur qui redémarre en
+  # boucle, un conteneur sobre peut tourner sur une machine qui sature. Les
+  # cibles applicatives s'ajouteront à infra/prometheus.yml le jour où un service
+  # exposera /metrics (#40). Les indicateurs retenus et leur motif sont dans
+  # docs/supervision.md.
+  #
+  # Versions épinglées plutôt que `latest` : une image de supervision qui change
+  # toute seule au premier `pull` transforme un diagnostic en enquête.
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: enervision-prometheus
+    # Boucle locale, comme le reste de la pile : le reverse proxy de #39
+    # n'existe pas encore, et rien de tout ceci n'a vocation à être public.
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prom_data:/prometheus
+    # Le playbook lance la pile avec `--wait` : sans sonde, il n'attend que
+    # l'état « démarré », qui ne dit pas que le service répond.
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # Mesure l'hôte et non son propre conteneur, d'où `pid: host` et la racine
+  # montée sous /host. Aucun port publié : Prometheus le joint par le réseau
+  # interne de la composition.
+  node-exporter:
+    image: quay.io/prometheus/node-exporter:v1.9.1
+    container_name: enervision-node-exporter
+    pid: host
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/host/root"
+      # Écarte les systèmes de fichiers virtuels du relevé d'espace : sans ce
+      # filtre, les couches du moteur de conteneurs noient la seule mesure qui
+      # nous intéresse, celle du disque où grossissent les Parquet.
+      - "--collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker/.+)($$|/)"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      # Sans `rslave`, volontairement : cette option exige que la racine de
+      # l'hôte soit un montage partagé ou esclave, ce qui est vrai sur la VM
+      # Linux et faux sous Docker Desktop, où le conteneur refuse alors de
+      # démarrer. Ce qu'elle coûte : un système de fichiers monté APRÈS le
+      # démarrage du conteneur n'apparaît qu'au prochain remplacement de
+      # celui-ci. Les points de montage de la machine sont posés au démarrage.
+      - /:/host/root:ro
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9100/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # Lit l'état des conteneurs par le moteur Docker. Le mode privilégié lui est
+  # nécessaire sous Linux pour /dev/kmsg ; tous ses montages restent en lecture
+  # seule, il observe et n'écrit nulle part.
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    container_name: enervision-cadvisor
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    restart: unless-stopped
+
+  # 3001 et non 3000 : le dashboard tient déjà ce port sur la boucle locale.
+  # Source de données et tableaux sont provisionnés depuis infra/grafana/, donc
+  # reconstructibles depuis Git. Ce qui est cliqué dans l'interface ne survit pas
+  # au remplacement du conteneur, et c'est voulu : un tableau qui ne vit que dans
+  # un volume n'est relu par personne en revue.
+  grafana:
+    image: grafana/grafana:12.1.0
+    container_name: enervision-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?renseigner GRAFANA_ADMIN_PASSWORD dans .env ou par sops}
+      # Ni inscription, ni visite anonyme : la supervision donne l'état de la
+      # machine, elle s'authentifie.
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      # Coupe les appels sortants vers grafana.com. La machine est sur site et
+      # n'a rien à raconter à l'extérieur.
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3001}:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    depends_on:
+      - prometheus
+    restart: unless-stopped
 
   # Pas de restart: ce service ne tourne jamais en continu. Il est déclenché
   # par un cron sur la machine, via `docker compose run --rm etl ...`, ce qui
@@ -57,10 +197,12 @@ services:
       # INSERT sur la seule table sites, UPDATE sur sept de ses colonnes. Il
       # ne peut lire ni les comptes, ni les sessions, ni les périmètres, et
       # ne peut pas écrire warning_threshold_kw (docs/data.md).
-      POSTGRES_USER: ${ETL_DB_USER:?renseigner ETL_DB_USER dans .env}
+      POSTGRES_USER: ${ETL_DB_USER:-etl}
       POSTGRES_PASSWORD: ${ETL_DB_PASSWORD:?renseigner ETL_DB_PASSWORD dans .env}
+    # Le défaut vise le poste. Sur la machine, le playbook pose le chemin réel
+    # et refuse un chemin relatif.
     volumes:
-      - ${PARQUET_DIR_HOST:?}:${PARQUET_DIR:-/data}
+      - ${PARQUET_DIR_HOST:-./data/parquet}:${PARQUET_DIR:-/data}
     depends_on:
       postgres:
         condition: service_healthy
@@ -69,7 +211,6 @@ services:
     build: ./apps/ml
     environment:
       PARQUET_DIR: ${PARQUET_DIR:-/data}
-      ML_MODEL_PATH: /app/artifacts/catboost_model.cbm
       ML_SITE_CONFIG_PATH: /app/config/sites.json
     # Provisoire : le reverse proxy (architecture.md, "un seul port public")
     # n'existe pas encore. Sans lui, rien n'est joignable depuis l'hôte,
@@ -77,7 +218,7 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
-      - ${PARQUET_DIR_HOST:?}:${PARQUET_DIR:-/data}:ro
+      - ${PARQUET_DIR_HOST:-./data/parquet}:${PARQUET_DIR:-/data}:ro
       - ml_artifacts:/app/artifacts
 
     restart: unless-stopped
@@ -107,7 +248,7 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
     volumes:
-      - ${PARQUET_DIR_HOST:?}:${PARQUET_DIR:-/data}:ro       # lecture seule, et rien d'autre que l'exposé
+      - ${PARQUET_DIR_HOST:-./data/parquet}:${PARQUET_DIR:-/data}:ro       # lecture seule, et rien d'autre que l'exposé
     depends_on:
       postgres:
         condition: service_healthy
@@ -119,4 +260,5 @@ services:
 volumes:
   db_data:
   ml_artifacts:
-  # prom_data: décommenter avec le service prometheus ci-dessus.
+  prom_data:
+  grafana_data:

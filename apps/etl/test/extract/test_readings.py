@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pandas as pd
+
 from extract.readings import (
     fetch_all_readings,
     fetch_readings,

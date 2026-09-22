@@ -1,0 +1,15 @@
+# Charge les tableaux depuis les fichiers du dépôt. Même raison que pour la
+# source de données : un tableau construit à la souris ne se relit pas en revue
+# et ne survit pas au conteneur.
+apiVersion: 1
+
+providers:
+  - name: enervision
+    orgId: 1
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

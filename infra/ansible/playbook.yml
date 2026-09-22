@@ -1,0 +1,194 @@
+---
+- name: Déployer EnerVision
+  hosts: enervision
+  gather_facts: false
+  environment:
+    SOPS_AGE_KEY_FILE: "{{ age_key_file }}"
+    # Chemin des mesures sur la machine : la composition n'a qu'un défaut de poste.
+    PARQUET_DIR_HOST: "{{ parquet_dir }}"
+
+  vars:
+    application_user: apprenant
+    application_group: apprenant
+    project_parent: /home/apprenant/Projet
+    project_dir: "{{ project_parent }}/enerVision"
+    repository_url: https://github.com/EADL-2026/enerVision.git
+    repository_version: main
+    parquet_dir: /data/output
+    log_dir: /var/log/enervision
+    age_key_file: /home/apprenant/.config/sops/age/keys.txt
+    run_database_seed: true
+
+  pre_tasks:
+    - name: Vérifier Docker
+      ansible.builtin.command: docker --version
+      changed_when: false
+
+    - name: Vérifier Docker Compose
+      ansible.builtin.command: docker compose version
+      changed_when: false
+
+    - name: Vérifier l'accès de l'utilisateur au moteur Docker
+      ansible.builtin.command: docker info
+      changed_when: false
+
+    - name: Vérifier SOPS
+      ansible.builtin.command: sops --version
+      changed_when: false
+
+    - name: Vérifier age
+      ansible.builtin.command: age --version
+      changed_when: false
+
+    # Reprend le garde-fou que la composition portait par un `:?` : un chemin
+    # relatif créerait le répertoire des mesures dans le dépôt, sans rien dire.
+    - name: Refuser un chemin de mesures relatif
+      ansible.builtin.assert:
+        that:
+          - parquet_dir is defined
+          - parquet_dir is string
+          - parquet_dir.startswith('/')
+        fail_msg: >-
+          parquet_dir doit être un chemin absolu de la machine, valeur reçue :
+          {{ parquet_dir | default('(non définie)') }}.
+
+  tasks:
+    - name: Vérifier les répertoires applicatifs
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: "{{ application_user }}"
+        group: "{{ application_group }}"
+        mode: "{{ item.mode }}"
+      loop:
+        - path: "{{ project_parent }}"
+          mode: "0755"
+        - path: "{{ parquet_dir }}"
+          mode: "0755"
+        - path: "{{ log_dir }}"
+          mode: "0750"
+
+    - name: Récupérer la version attendue du dépôt
+      ansible.builtin.git:
+        repo: "{{ repository_url }}"
+        dest: "{{ project_dir }}"
+        version: "{{ repository_version }}"
+        update: true
+        force: false
+
+    # Sans lui, un `docker compose up` lancé à la main sur la machine prendrait
+    # le défaut de la composition, qui vise un poste, et écrirait les mesures
+    # dans le dépôt. Aucun secret ici : ceux-là restent dans secrets.enc.yaml.
+    - name: Poser les réglages de la machine
+      ansible.builtin.copy:
+        dest: "{{ project_dir }}/.env"
+        owner: "{{ application_user }}"
+        group: "{{ application_group }}"
+        mode: "0644"
+        content: |
+          # Écrit par infra/ansible/playbook.yml, ne pas modifier à la main.
+          PARQUET_DIR_HOST={{ parquet_dir }}
+
+    - name: Vérifier la présence de la clé age de la VM
+      ansible.builtin.stat:
+        path: "{{ age_key_file }}"
+      register: age_key
+
+    - name: Refuser un déploiement sans clé age
+      ansible.builtin.assert:
+        that:
+          - age_key.stat.exists
+          - age_key.stat.isreg
+        fail_msg: >-
+          La clé age de la VM est absente de {{ age_key_file }}.
+
+    - name: Protéger la clé age de la VM
+      ansible.builtin.file:
+        path: "{{ age_key_file }}"
+        state: file
+        owner: "{{ application_user }}"
+        group: "{{ application_group }}"
+        mode: "0600"
+
+    - name: Valider la composition avec les secrets déchiffrés en mémoire
+      ansible.builtin.command:
+        argv:
+          - sops
+          - exec-env
+          - secrets.enc.yaml
+          - docker compose config --quiet
+      args:
+        chdir: "{{ project_dir }}"
+      changed_when: false
+
+    - name: Construire les images
+      ansible.builtin.command:
+        argv:
+          - sops
+          - exec-env
+          - secrets.enc.yaml
+          - docker compose build etl ml dashboard migrate
+      args:
+        chdir: "{{ project_dir }}"
+      changed_when: false
+
+    - name: Démarrer PostgreSQL
+      ansible.builtin.command:
+        argv:
+          - sops
+          - exec-env
+          - secrets.enc.yaml
+          - docker compose up -d --wait postgres
+      args:
+        chdir: "{{ project_dir }}"
+      changed_when: false
+
+    - name: Appliquer les migrations PostgreSQL
+      ansible.builtin.command:
+        argv:
+          - sops
+          - exec-env
+          - secrets.enc.yaml
+          - docker compose run --rm migrate
+      args:
+        chdir: "{{ project_dir }}"
+      changed_when: false
+
+    - name: Amorcer les comptes et activer le rôle ETL
+      ansible.builtin.command:
+        argv:
+          - sops
+          - exec-env
+          - secrets.enc.yaml
+          - docker compose run --rm seed
+      args:
+        chdir: "{{ project_dir }}"
+      changed_when: false
+      when: run_database_seed | bool
+
+    - name: Démarrer la pile applicative
+      ansible.builtin.command:
+        argv:
+          - sops
+          - exec-env
+          - secrets.enc.yaml
+          - docker compose up -d --wait
+      args:
+        chdir: "{{ project_dir }}"
+      changed_when: false
+
+    - name: Afficher l'état de la pile
+      ansible.builtin.command:
+        argv:
+          - sops
+          - exec-env
+          - secrets.enc.yaml
+          - docker compose ps
+      args:
+        chdir: "{{ project_dir }}"
+      register: compose_status
+      changed_when: false
+
+    - name: Résumer le déploiement
+      ansible.builtin.debug:
+        var: compose_status.stdout_lines

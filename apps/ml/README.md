@@ -46,8 +46,16 @@ uv sync --dev
 uv run jupyter lab
 ```
 
-Jupyter affiche son URL dans le terminal et permet ensuite d'ouvrir
-`notebooks/model_selection.ipynb` depuis le navigateur.
+Jupyter affiche son URL dans le terminal. Deux carnets, deux questions :
+
+| Carnet | Question | Produit |
+|---|---|---|
+| `model_selection.ipynb` | quel algorithme, quelles variables | la configuration reproduite par `training/train.py` |
+| `impact_kpi.ipynb` | ce que le modèle fait gagner à l'exploitant | deux KPI métier, repris dans [`docs/ml.md`](../../docs/ml.md) |
+
+`impact_kpi.ipynb` rejoue la prévision sur le bloc de test. Il charge le modèle **depuis le registre
+MLflow**, par son alias `champion`, donc il mesure celui que l'API sert : lancer `POST /training` au
+moins une fois avant. Ses chemins d'entrée sont groupés dans la première cellule de code.
 
 ## Insights
 
@@ -145,7 +153,8 @@ Les heures manquantes entre la derniere mesure et une demande sont predites en
 interne. Une prediction devient ainsi l'historique de la suivante, sans jamais
 utiliser une consommation future reelle.
 
-MLflow n'est volontairement pas inclus dans cette premiere version.
+Chaque entraînement enregistre une version dans le registre MLflow et lui repose l'alias
+`champion` ; c'est cette version que la prédiction charge.
 
 ## Tests et couverture
 

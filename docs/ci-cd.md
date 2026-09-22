@@ -4,12 +4,13 @@ Deux workflows GitHub Actions gardent la branche principale. Ce document dit ce 
 
 Il couvre le pipeline entier, y compris ce qui n'est pas encore en place : chaque partie à venir porte le numéro de l'issue qui la pose et son état. Un lecteur qui n'a pas écrit ces fichiers doit pouvoir rejouer une étape sur son poste et diagnostiquer un échec sans demander d'aide.
 
-## Les deux workflows
+## Les trois workflows
 
 | Fichier | Nom affiché | Déclencheur | Ce qu'il vérifie |
 |---|---|---|---|
 | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | CI | pull request vers `main`, et push sur `main` | Lint, types, tests, validation de la composition, construction **et scan** des images |
 | [`.github/workflows/security.yml`](../.github/workflows/security.yml) | Sécurité | **tout** push, sur n'importe quelle branche | Vulnérabilités, secrets dans l'arbre et dans l'historique, cohérence du chiffrement SOPS |
+| [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | CD | fin réussie de `CI` sur `main`, ou lancement manuel | Exécution locale du playbook Ansible sur la VM |
 
 La séparation n'est pas cosmétique. Un secret poussé par erreur ne doit pas attendre l'ouverture d'une pull request pour être détecté : le workflow `Sécurité` tourne donc dès le premier push de la branche. Le reste coûte des minutes de runner et reste attaché aux pull requests.
 
@@ -43,7 +44,7 @@ L'enchaînement est **par domaine** : lint, puis tests, puis construction de l'i
 | 4 | Composition | `infra` : `docker compose config` | Un `docker-compose.yml` invalide | En place |
 | 5 | Images | `image-*` : `docker build`, puis Trivy | Un Dockerfile cassé, une vulnérabilité **critique** dans l'image | En place |
 | 6 | Scan du code | `security.yml` : Trivy, gitleaks, SOPS | Une vulnérabilité critique **ou élevée**, un secret, un destinataire oublié | En place, hors chaîne (voir plus bas) |
-| 7 | Déploiement | à venir | Ne s'exécute que si tout ce qui précède est vert | #107 |
+| 7 | Déploiement | `deploy.yml` sur le runner de la VM | Ne s'exécute qu'après une CI verte sur `main` | En place |
 
 L'ordre du ticket #50 plaçait la construction des images avant les tests. Elle vient après, ici : les tests ne tournent pas dans l'image, donc la construire avant de savoir si le lint passe achète des minutes de runner contre rien. L'enchaînement, lui, est bien celui demandé.
 
@@ -152,13 +153,30 @@ Aucune des deux n'est passée par `.trivyignore`. C'est l'ordre que la procédur
 
 ## Le déploiement (#107)
 
-Non implémenté à ce jour. La cible, pour que la lecture du pipeline soit complète :
+Le workflow `CD` écoute la fin du workflow `CI`. Il ne déploie automatiquement
+que si cette CI est verte et porte sur `main`. `workflow_dispatch` permet de
+rejouer exactement le même déploiement depuis l'interface GitHub, sans pousser
+de commit.
 
-- Il n'a lieu que si tout ce qui précède est vert, et **seulement depuis `main`**.
-- Il est déclenché explicitement, jamais à chaque fusion.
-- Le réseau de l'école n'autorise aucune connexion entrante vers la machine : il n'y a donc pas de clé d'accès à distribuer. C'est un **runner auto-hébergé** posé sur la machine (#47) qui appelle GitHub en sortant et exécute le job localement.
-- Il récupère le code de `main`, **construit les images sur place** (pas de registre, voir plus haut) et redémarre la composition.
-- Rien n'est modifié à la main sur la machine. Le pipeline est le seul chemin, et c'est vérifié une fois.
+Le réseau de l'école n'autorise aucune connexion entrante depuis GitHub : il
+n'y a donc pas de clé SSH de déploiement. Le job cible le runner auto-hébergé
+portant les labels `self-hosted`, `linux`, `x64` et `enervision`, installé comme
+service sur la VM et exécuté par `apprenant`. Le runner appelle GitHub en HTTPS
+sortant, récupère `main`, puis lance localement :
+
+```bash
+ansible-playbook -i 'enervision,' --connection local infra/ansible/playbook.yml
+```
+
+Ansible met à jour la copie dans `/home/apprenant/Projet/enerVision`, injecte
+les secrets avec SOPS, construit les images sur place, applique les migrations
+et redémarre la composition. Le groupe de concurrence `production` sérialise
+les déploiements : un second commit attend, il n'interrompt jamais celui qui
+est en cours.
+
+Le workflow `Sécurité` reste indépendant : sa conclusion n'est pas un prérequis
+technique du déclenchement `workflow_run`. La discipline de revue décrite dans
+`CLAUDE.md` doit donc continuer à exiger les deux contrôles avant la fusion.
 
 **Un déploiement qui échoue laisse la version précédente en place.** Les images sont construites avant que la composition ne redémarre : une construction ratée n'atteint jamais les conteneurs qui tournent. Si le redémarrage lui-même échoue, l'image précédente est encore présente localement et reste ce que la composition relance.
 
@@ -217,7 +235,6 @@ Ce qui suit est connu, décidé, et non corrigé. C'est ce qui distingue une doc
 | **Pas de cache de dépendances côté Python** | `actions/setup-python` calcule sa clé sur `requirements.txt`, que le projet n'a pas : l'ETL et le ML sont sous `uv` avec un `uv.lock`. Le cache viendra avec `astral-sh/setup-uv`, quand ces jobs feront autre chose qu'un `echo`. Le cache `pnpm`, lui, est actif |
 | **Pas de seuil de couverture bloquant** | Retiré le 16 septembre 2026 (#51). Sur dix jours, un seuil non tenu est une CI rouge qui empêche de fusionner : un coût sans contrepartie |
 | **Les jobs `etl` et `ml` ne lancent pas de tests** | Ils lintent et formatent depuis #90, mais leur étape de tests reste un `echo`. Elle arrive avec #51 |
-| **`ansible-lint` est commenté** | `infra/ansible/` ne contient qu'un README. Le playbook arrive avec #47 |
 | **Le scan n'est pas dans le graphe de `ci.yml`** | Il tourne sur tout push, donc plus tôt et plus souvent que s'il attendait une pull request. Le chaîner le rendrait plus tardif, pas plus sûr |
 | **L'applicatif est construit deux fois** | Une fois par `pnpm build`, une fois dans l'image. Environ deux minutes, contre un Dockerfile réellement vérifié |
 | **Le formatage TypeScript n'est pas automatisé** | Les règles stylistiques de `@nuxt/eslint` reformateraient tout le dashboard, en collision avec les branches en cours dessus. Pull request dédiée quand elles auront atterri |
