@@ -86,4 +86,10 @@ describe('useSiteHistory', () => {
     siteId.value = 'SITE002'
     expect(urlGetter()).toContain('SITE002')
   })
+
+  it("l'URL factory est stable entre deux appels successifs (SSR / hydratation)", () => {
+    useSiteHistory(ref<SiteId>('SITE001'), ref('24h'))
+    const urlGetter = mockUseFetch.mock.calls[0]![0] as () => string
+    expect(urlGetter()).toBe(urlGetter())
+  })
 })

@@ -11,7 +11,7 @@ const cheminFichier = join(répertoireTemp, 'site_id=SITE001', 'year=2026', 'mon
 beforeAll(async () => {
   mkdirSync(join(répertoireTemp, 'site_id=SITE001', 'year=2026', 'month=09', 'day=16'), { recursive: true })
 
-  const instance = await DuckDBInstance.create(':memory:')
+  const instance = await DuckDBInstance.create()
   const conn = await instance.connect()
   await conn.run(`
     COPY (

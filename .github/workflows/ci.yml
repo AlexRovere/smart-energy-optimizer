@@ -211,10 +211,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       # Terraform est passé hors périmètre au J1 : plus de ressource de
-      # fournisseur à créer, la machine est fournie. Ce job valide désormais la
-      # composition. TODO : décommenter avec le playbook, infra/ansible n'ayant
-      # pour l'instant qu'un README.
-      # - run: pipx install ansible-lint && ansible-lint infra/ansible
+      # fournisseur à créer, la machine est fournie. Ansible décrit désormais
+      # la configuration reproductible de cette machine.
+      - name: Le playbook Ansible est valide
+        run: pipx install ansible-lint && ansible-lint infra/ansible
       # Les valeurs sont bidon et c'est voulu : `:?` refuse une variable vide
       # autant qu'absente, et la validation porte sur la structure du fichier,
       # jamais sur ce que les variables contiennent.
@@ -223,9 +223,11 @@ jobs:
           POSTGRES_PASSWORD: ci
           ETL_DB_PASSWORD: ci
           ETL_DB_USER : ci
+          SEED_PASSWORD: ci
           SESSION_SECRET: ci
           MOCK_API_URL: http://ci
           PARQUET_DIR_HOST: ./data/parquet
+          GRAFANA_ADMIN_PASSWORD: ci
         run: docker compose config --quiet
       # Aucune variable, et c'est le contrôle : la composition de développement
       # doit se lire sur un poste qui n'a rien configuré.
