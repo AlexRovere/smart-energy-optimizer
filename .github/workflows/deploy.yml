@@ -25,7 +25,9 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
-    runs-on: [self-hosted, linux, x64]
+    # Le label `enervision` désigne le runner de la VM. Sans lui, un autre
+    # runner auto-hébergé capterait le job et déploierait ailleurs.
+    runs-on: [self-hosted, linux, x64, enervision]
     timeout-minutes: 45
 
     steps:

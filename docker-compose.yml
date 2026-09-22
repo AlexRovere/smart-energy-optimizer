@@ -18,11 +18,9 @@ services:
       # le playbook qui pose l'adresse réelle.
       DOMAIN: ${DOMAIN:-localhost}
       GRAFANA_PORT: ${GRAFANA_PORT:-3001}
-    # L'API d'administration et non le site : celui-ci ne répond qu'à un Host
-    # valant DOMAIN, une sonde sur localhost n'y correspondrait pas.
+    # L'API d'administration, qui n'écoute qu'en IPv4. Elle dit que Caddy vit et
+    # qu'une configuration est chargée, pas que les amonts répondent.
     healthcheck:
-      # 127.0.0.1 et non localhost : le wget de l'image résout localhost en IPv6,
-      # où l'API d'administration n'écoute pas.
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:2019/config/"]
       interval: 10s
       timeout: 3s
@@ -30,9 +28,6 @@ services:
     restart: unless-stopped
     networks:
       - frontend
-    depends_on:
-      - dashboard
-      - grafana
 
   # PostgreSQL nu, sans TimescaleDB : la base ne porte plus les mesures, qui
   # vivent en fichiers Parquet sur le volume partagé. Il ne lui reste que le
@@ -213,6 +208,7 @@ services:
       # Grafana est servi par Caddy sur son propre port TLS. Sans racine
       # explicite, les liens qu'il fabrique pointeraient sur localhost:3000.
       GF_SERVER_ROOT_URL: https://${DOMAIN:-localhost}:${GRAFANA_PORT:-3001}/
+      GF_SECURITY_COOKIE_SECURE: "true"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -296,11 +292,12 @@ services:
       # SESSION_SECRET qu'injecte `sops exec-env` au déploiement : lire ici un
       # NUXT_SESSION_SECRET aurait fait échouer le lancement sur la machine.
       NUXT_SESSION_PASSWORD: ${SESSION_SECRET:?renseigner SESSION_SECRET dans .env ou par sops}
-      NUXT_TRUST_PROXY: ${TRUST_PROXY:-false}
+      # Vrai par défaut : dans cette composition le dashboard ne publie aucun
+      # port et n'est joignable que par Caddy. À faux, toutes les requêtes
+      # porteraient l'adresse du proxy et cinq échecs verrouilleraient tout le
+      # monde.
+      NUXT_TRUST_PROXY: ${TRUST_PROXY:-true}
       LOG_LEVEL: ${LOG_LEVEL:-info}
-    # Aucun port publié : Caddy est le seul chemin vers le dashboard. C'est ce
-    # qui rend TRUST_PROXY=true honnête, l'en-tête X-Forwarded-For ne pouvant
-    # plus venir que du proxy.
     volumes:
       - ${PARQUET_DIR_HOST:-./data/parquet}:${PARQUET_DIR:-/data}:ro       # lecture seule, et rien d'autre que l'exposé
     depends_on:

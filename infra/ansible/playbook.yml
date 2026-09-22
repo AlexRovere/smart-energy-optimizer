@@ -55,6 +55,22 @@
           parquet_dir doit être un chemin absolu de la machine, valeur reçue :
           {{ parquet_dir | default('(non définie)') }}.
 
+    - name: Retenir l'adresse servie par le proxy
+      ansible.builtin.set_fact:
+        resolved_domain: "{{ public_domain or ansible_host | default(inventory_hostname) }}"
+
+    # Servir un certificat pour un nom que personne ne résout ne se voit qu'au
+    # navigateur. Mieux vaut refuser avant d'avoir touché la machine.
+    - name: Refuser un déploiement sans adresse joignable
+      ansible.builtin.assert:
+        that:
+          - resolved_domain is match('^([0-9]{1,3}\.){3}[0-9]{1,3}$')
+            or resolved_domain is match('^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$')
+        fail_msg: >-
+          {{ resolved_domain }} n'est ni une adresse IPv4 ni un nom qualifié.
+          Renseigner ansible_host dans infra/ansible/inventory.ini, ou
+          public_domain dans les variables de ce playbook.
+
   tasks:
     - name: Vérifier les répertoires applicatifs
       ansible.builtin.file:
@@ -79,22 +95,6 @@
         update: true
         force: false
 
-    - name: Retenir l'adresse servie par le proxy
-      ansible.builtin.set_fact:
-        resolved_domain: "{{ public_domain or ansible_host }}"
-
-    # `ansible_host` retombe sur le nom d'hôte quand l'inventaire ne donne pas
-    # d'adresse. Celui de la VM ne résout pas depuis les postes : mieux vaut
-    # refuser que servir un certificat pour un nom que personne ne joint.
-    - name: Refuser un déploiement sans adresse joignable
-      ansible.builtin.assert:
-        that:
-          - resolved_domain is match('^[0-9.]+$') or '.' in resolved_domain
-        fail_msg: >-
-          {{ resolved_domain }} n'est ni une adresse ni un nom qualifié.
-          Renseigner ansible_host dans infra/ansible/inventory.ini, ou
-          public_domain dans les variables de ce playbook.
-
     # Sans lui, un `docker compose up` lancé à la main sur la machine prendrait
     # le défaut de la composition, qui vise un poste, et écrirait les mesures
     # dans le dépôt. Aucun secret ici : ceux-là restent dans secrets.enc.yaml.
@@ -103,7 +103,7 @@
         dest: "{{ project_dir }}/.env"
         owner: "{{ application_user }}"
         group: "{{ application_group }}"
-        mode: "0644"
+        mode: "0640"
         content: |
           # Écrit par infra/ansible/playbook.yml, ne pas modifier à la main.
           PARQUET_DIR_HOST={{ parquet_dir }}
@@ -161,7 +161,7 @@
           - sops
           - exec-env
           - secrets.enc.yaml
-          - docker compose up -d --wait postgres
+          - docker compose up -d --wait --wait-timeout 180 postgres
       args:
         chdir: "{{ project_dir }}"
       changed_when: false
@@ -195,7 +195,7 @@
           - sops
           - exec-env
           - secrets.enc.yaml
-          - docker compose up -d --wait
+          - docker compose up -d --wait --wait-timeout 300
       args:
         chdir: "{{ project_dir }}"
       changed_when: false
