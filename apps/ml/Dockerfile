@@ -43,7 +43,8 @@ WORKDIR /app
 COPY --from=build --chown=app:app /app /app
 
 ENV PATH="/app/.venv/bin:$PATH" \
-    ML_MODEL_PATH=/app/artifacts/catboost_model.cbm \
+    MLFLOW_ARTIFACT_ROOT=/app/artifacts/mlruns \
+    MLFLOW_TRACKING_URI=sqlite:////app/artifacts/mlflow.db \
     ML_SITE_CONFIG_PATH=/app/config/sites.json
 
 # Le répertoire Parquet (PARQUET_DIR) est monté en lecture seule.

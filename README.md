@@ -59,11 +59,12 @@ La procédure complète de la VM, depuis les répertoires et la clé age jusqu'a
 runner GitHub et à la CD automatique, est détaillée dans
 [`DEPLOIEMENT.md`](./DEPLOIEMENT.md).
 
-La pile complète, qui construit ses images et exige toutes ses variables. Rien
-ne démarre sur une valeur oubliée, c'est voulu.
+La pile complète, qui construit ses images. Les réglages ont leurs défauts dans
+la composition, les secrets n'en ont aucun : rien ne démarre sur un secret
+oublié, c'est voulu.
 
 ```bash
-cp .env.example .env      # renseigner les valeurs
+cp .env.example .env      # renseigner les secrets, et eux seuls
 docker compose build etl ml dashboard migrate
 docker compose up -d --wait postgres
 docker compose run --rm migrate
@@ -73,10 +74,11 @@ docker compose ps
 ```
 
 **La même pile sur son poste, sans écrire un seul secret dans un fichier** :
-`sops exec-env` les fournit, et le `.env` ne garde que la section RÉGLAGES.
+`sops exec-env` les fournit, et les réglages ont leurs défauts dans la
+composition. Il n'y a donc **rien à copier**, le `.env` n'est utile que pour
+surcharger un réglage.
 
 ```bash
-cp .env.example .env      # ne renseigner que les RÉGLAGES
 sops exec-env secrets.enc.yaml 'docker compose build etl ml dashboard migrate'
 sops exec-env secrets.enc.yaml 'docker compose up -d --wait postgres'
 sops exec-env secrets.enc.yaml 'docker compose run --rm migrate'
@@ -85,7 +87,10 @@ sops exec-env secrets.enc.yaml 'docker compose up -d --wait'
 ```
 
 L'environnement prime sur le `.env`, donc les valeurs déchiffrées l'emportent
-sur ce que le fichier contiendrait. Sur la VM, le playbook
+sur ce que le fichier contiendrait. C'est la raison pour laquelle
+`secrets.enc.yaml` ne porte **que** des secrets : un réglage qui s'y glisse ne
+peut plus être surchargé localement, et rien ne le signale (#197). Sur la VM, le
+playbook
 [`infra/ansible/playbook.yml`](./infra/ansible/playbook.yml) construit les
 images, applique les migrations puis démarre la pile avec ce même mécanisme. Il
 demande que la machine soit destinataire des secrets :
@@ -96,7 +101,9 @@ ni le même nom de projet Docker.
 
 Deux choses à savoir avant d'essayer. Si un PostgreSQL est déjà installé en
 service sur le poste, il tient 5432 et le lancement échoue sur `ports are not
-available` : poser `POSTGRES_PORT=15432` dans le `.env` suffit. Et aucun port
+available` : poser `POSTGRES_PUBLISHED_PORT=15432` dans le `.env` suffit. C'est
+bien ce nom-là, et pas `POSTGRES_PORT`, qui reste le port joint à l'intérieur du
+réseau Docker et n'a aucune raison de bouger. Et aucun port
 n'est publié devant le dashboard, c'est le rôle du proxy de #39 : lancer la pile
 ici prouve qu'elle se construit et démarre, pas qu'on peut la parcourir au
 navigateur. Pour ça, la boucle de développement plus haut.
