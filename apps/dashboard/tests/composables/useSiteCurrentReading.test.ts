@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { nextTick, ref } from 'vue'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import type { SiteId } from '../../app/types/api'
 import type { EnergyReading } from '../../shared/energyReadingSchema'
@@ -7,6 +7,7 @@ import { useSiteCurrentReading } from '../../app/composables/useSiteCurrentReadi
 
 const useFetchMock = vi.hoisted(() => vi.fn())
 mockNuxtImport('useFetch', () => useFetchMock)
+mockNuxtImport('useRoute', () => () => ({ path: '/sites/SITE001' }))
 
 const readingFixture: EnergyReading = {
   timestamp: '2026-09-17T10:00:00Z',
@@ -123,6 +124,26 @@ describe('useSiteCurrentReading', () => {
       const { data } = useSiteCurrentReading(id)
 
       expect(data.value).toBeNull()
+    })
+  })
+
+  describe('journalisation des erreurs', () => {
+    afterEach(() => vi.restoreAllMocks())
+
+    it('loggue sur console.error quand error passe de null à une Error', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const id = ref<SiteId>('SITE001')
+      const errorRef = ref<Error | null>(null)
+      useFetchMock.mockReturnValue({ data: ref(null), pending: ref(false), error: errorRef })
+
+      useSiteCurrentReading(id)
+
+      errorRef.value = new Error('503 Lecture courante indisponible')
+      await nextTick()
+
+      expect(consoleSpy).toHaveBeenCalledOnce()
+      const [, données] = consoleSpy.mock.calls[0] as [string, Record<string, unknown>]
+      expect(données.message).toBe('503 Lecture courante indisponible')
     })
   })
 })

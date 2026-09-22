@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ref } from 'vue'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { ref, nextTick } from 'vue'
 import type { SiteId } from '../../app/types/api'
 import { useSiteHistory } from '../../app/composables/useSiteHistory'
 
@@ -9,7 +9,8 @@ const { mockUseFetch } = vi.hoisted(() => {
 })
 
 vi.mock('nuxt/app', () => ({
-  useFetch: mockUseFetch
+  useFetch: mockUseFetch,
+  useRoute: () => ({ path: '/sites/SITE001' })
 }))
 
 const mesureFixture = {
@@ -91,5 +92,36 @@ describe('useSiteHistory', () => {
     useSiteHistory(ref<SiteId>('SITE001'), ref('24h'))
     const urlGetter = mockUseFetch.mock.calls[0]![0] as () => string
     expect(urlGetter()).toBe(urlGetter())
+  })
+
+  describe('journalisation des erreurs', () => {
+    afterEach(() => vi.restoreAllMocks())
+
+    it('loggue sur console.error quand error passe de null à une Error', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errorRef = ref<Error | null>(null)
+      mockUseFetch.mockReturnValue({ data: ref(null), pending: ref(false), error: errorRef })
+
+      useSiteHistory(ref<SiteId>('SITE001'), ref<'24h' | '7j'>('24h'))
+
+      errorRef.value = new Error('503 Service Unavailable')
+      await nextTick()
+
+      expect(consoleSpy).toHaveBeenCalledOnce()
+      const [, données] = consoleSpy.mock.calls[0] as [string, Record<string, unknown>]
+      expect(données.message).toBe('503 Service Unavailable')
+      expect(typeof données.route).toBe('string')
+      expect(typeof données.url).toBe('string')
+    })
+
+    it('ne loggue pas quand error reste null', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      mockUseFetch.mockReturnValue({ data: ref(null), pending: ref(false), error: ref(null) })
+
+      useSiteHistory(ref<SiteId>('SITE001'), ref<'24h' | '7j'>('24h'))
+      await nextTick()
+
+      expect(consoleSpy).not.toHaveBeenCalled()
+    })
   })
 })
