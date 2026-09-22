@@ -1,10 +1,11 @@
 from datetime import datetime
 
-import api.main as api_main
 import pandas as pd
 import pytest
-from api.main import app, get_prediction_model, get_site_schedules
 from fastapi.testclient import TestClient
+
+import api.main as api_main
+from api.main import app, get_prediction_model, get_site_schedules
 from training import TrainingResult
 
 SCHEDULES = {

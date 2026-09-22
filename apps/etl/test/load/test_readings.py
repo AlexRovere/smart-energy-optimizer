@@ -6,6 +6,7 @@ from datetime import date
 import pandas as pd
 import pyarrow.parquet as pq
 import pytest
+
 from load.readings import (
     RAW_READING_COLUMNS,
     SCHEMA,

@@ -53,6 +53,26 @@ ignore = [
   "UP017",
 ]
 
+[lint.isort]
+
+# Évite que les modules internes de l'ETL soient classés différemment selon
+# l'environnement (poste local ou runner Linux), ce qui produisait des I001
+# uniquement dans la CI.
+known-first-party = [
+  "api",
+  "data",
+  "env_loader",
+  "extract",
+  "features",
+  "load",
+  "main",
+  "models",
+  "progress",
+  "run_log",
+  "training",
+  "transform",
+]
+
 [lint.per-file-ignores]
 
 # DTZ001 exige un fuseau sur tout `datetime`. La règle vise le code qui écrit ou

@@ -3,15 +3,15 @@ from functools import lru_cache
 from typing import Annotated
 
 from catboost import CatBoostRegressor
-from data import read_recent_history
-from env_loader import load_root_env
 from fastapi import Depends, FastAPI, HTTPException
-from features import SiteSchedules, load_site_schedules
-from models import PredictionService, PredictionTarget, load_model
 from pydantic import Field
-from training import train_model
 
 from api.schemas import PredictionRequest, PredictionResponse, TrainingResponse
+from data import read_recent_history
+from env_loader import load_root_env
+from features import SiteSchedules, load_site_schedules
+from models import PredictionService, PredictionTarget, load_model
+from training import train_model
 
 DEFAULT_MODEL_PATH = "artifacts/catboost_model.cbm"
 DEFAULT_SITE_CONFIG_PATH = "config/sites.json"

@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from catboost import CatBoostRegressor
+
 from data import read_training_history
 from features import FEATURE_COLUMNS, add_training_features
 

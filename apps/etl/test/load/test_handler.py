@@ -4,6 +4,7 @@ from datetime import date
 from unittest.mock import patch
 
 import pandas as pd
+
 from load.handler import (
     get_context_days,
     get_existing_days,
