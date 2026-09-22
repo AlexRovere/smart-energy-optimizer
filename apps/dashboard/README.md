@@ -156,6 +156,20 @@ pour que les deux puissent coexister.
 | `pnpm test` | Les tests, dont ceux qui parlent à PostgreSQL. **Docker doit tourner** |
 | `pnpm test:watch` | Les mêmes, en mode observateur |
 
+En production, Node et pnpm ne sont pas installés sur la VM. La composition
+construit une image d'administration depuis l'étape `build` du Dockerfile, puis
+exécute les mêmes scripts dans des conteneurs ponctuels :
+
+```bash
+sops exec-env secrets.enc.yaml 'docker compose up -d --wait postgres'
+sops exec-env secrets.enc.yaml 'docker compose run --rm migrate'
+sops exec-env secrets.enc.yaml 'docker compose run --rm seed'
+sops exec-env secrets.enc.yaml 'docker compose up -d --wait'
+```
+
+`migrate` et `seed` appartiennent au profil `admin` et ne démarrent donc pas
+avec la pile normale. Le playbook Ansible exécute cette séquence.
+
 Les tests démarrent eux-mêmes un conteneur `postgres:16-alpine` jetable, par
 Testcontainers : il n'y a ni base de test à créer à la main, ni composition à
 lancer au préalable. La première exécution tire l'image, les suivantes non.

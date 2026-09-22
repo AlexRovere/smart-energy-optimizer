@@ -199,7 +199,6 @@ Le jeton n'est jamais lisible par un script : il vit dans un cookie `httpOnly`, 
 1. **Reverse proxy** : acté, mais absent du schéma proposé en séance. À harmoniser.
 2. **Contrats d'interface** des trois services : séance prévue au J2, avant tout développement parallèle.
 3. **Protection de la branche principale** : impossible tant que le dépôt est privé sur une organisation en offre gratuite. Décision à prendre sur le passage en public.
-4. **Supervision** : Prometheus et Grafana prévus, pas encore positionnés dans le schéma.
 
 ## Points tranchés depuis
 
@@ -233,8 +232,13 @@ Le motif est qu'une table entreprise serait une dimension sans données : l'API 
 
 Cela ne revient pas sur le reste du cloisonnement : l'ETL n'a toujours aucune notion de compte, de rôle ou de session, n'appelle ni l'applicatif ni le service ML, et la table `sites` reste créée et administrée ailleurs (migration dédiée, hors périmètre ETL).
 
+**Supervision : deux sources de mesure, un tableau, aucun service exposé.** Tranché le lundi 21 septembre 2026, avec #55. Le point ouvert disait « Prometheus et Grafana prévus, pas encore positionnés ». Ils le sont : quatre conteneurs dans la même composition que le reste, un node exporter pour la machine et cAdvisor pour les conteneurs, Prometheus qui collecte, Grafana qui restitue. Aucun n'est publié ailleurs que sur la boucle locale, l'accès distant passant par un tunnel SSH : la supervision ne figure pas derrière le proxy de #39, qui reste le seul point d'entrée public.
+
+Deux sources et non une, parce qu'aucune ne voit ce que voit l'autre : une machine saine peut héberger un conteneur qui redémarre en boucle, et des conteneurs sobres ne disent rien d'un disque que remplissent les journaux. Les indicateurs retenus, leur motif et ce qui a été écarté sont dans [`supervision.md`](./supervision.md).
+
 ## Où trouver le reste
 
 - `data.md` : le modèle relationnel et le contrat des fichiers Parquet. **Arrive séparément**, le schéma relationnel demandant encore un tour de relecture ; l'index de `docs/` l'annonce déjà.
+- [`supervision.md`](./supervision.md) : les sources de mesure, les indicateurs retenus et la question à laquelle chacun répond.
 - [`README.md`](./README.md) : ce que contient chaque document et pour quelle épreuve.
 - Le document de chaque service, dans `apps/<service>/README.md` : ses entrées, ses sorties, son démarrage.
