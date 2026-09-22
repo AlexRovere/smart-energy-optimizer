@@ -18,6 +18,9 @@
     log_dir: /var/log/enervision
     age_key_file: /home/apprenant/.config/sops/age/keys.txt
     run_database_seed: true
+    # Adresse servie par Caddy. Laissée vide, elle est déduite de la machine :
+    # son nom AD ne résout pas depuis les postes, seule l'IP répond.
+    public_domain: ""
 
   pre_tasks:
     - name: Vérifier Docker
@@ -76,6 +79,27 @@
         update: true
         force: false
 
+    # L'adresse source de la route par défaut, et non `hostname -I` : sur une
+    # machine qui fait tourner Docker, celui-ci rend aussi les passerelles des
+    # réseaux de conteneurs, et rien ne garantit l'ordre.
+    - name: Relever l'adresse de la machine
+      ansible.builtin.shell: ip -4 route get 1.1.1.1 | awk '{print $7; exit}'
+      register: host_address
+      changed_when: false
+      when: not public_domain
+
+    - name: Retenir l'adresse servie par le proxy
+      ansible.builtin.set_fact:
+        resolved_domain: "{{ public_domain or host_address.stdout | trim }}"
+
+    - name: Refuser un déploiement sans adresse pour le proxy
+      ansible.builtin.assert:
+        that:
+          - resolved_domain | length > 0
+        fail_msg: >-
+          Impossible de déterminer l'adresse de la machine. Renseigner
+          public_domain dans les variables du playbook.
+
     # Sans lui, un `docker compose up` lancé à la main sur la machine prendrait
     # le défaut de la composition, qui vise un poste, et écrirait les mesures
     # dans le dépôt. Aucun secret ici : ceux-là restent dans secrets.enc.yaml.
@@ -88,6 +112,10 @@
         content: |
           # Écrit par infra/ansible/playbook.yml, ne pas modifier à la main.
           PARQUET_DIR_HOST={{ parquet_dir }}
+          DOMAIN={{ resolved_domain }}
+          # Caddy est le seul chemin vers le dashboard, aucun port ne lui est
+          # publié à côté : X-Forwarded-For ne peut venir que du proxy.
+          TRUST_PROXY=true
 
     - name: Vérifier la présence de la clé age de la VM
       ansible.builtin.stat:

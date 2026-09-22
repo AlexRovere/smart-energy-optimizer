@@ -1,20 +1,38 @@
 # Pile on-premise.
 services:
+  # Seule porte d'entrée depuis le réseau : le dashboard sur 443, Grafana sur
+  # GRAFANA_PORT. Détails dans infra/caddy/README.md.
   caddy:
     image: caddy:2-alpine
     ports:
       - "443:443"
       - "80:80"
+      - "${GRAFANA_PORT:-3001}:${GRAFANA_PORT:-3001}"
     volumes:
       - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data # Stockage certificats (persistance entre reboots)
       - caddy_config:/config
     environment:
-      DOMAIN: ${DOMAIN}
+      # Un défaut et non un `:?` : vide, le Caddyfile devient invalide et Caddy
+      # meurt sur une erreur qui ne désigne pas la cause. Sur la machine, c'est
+      # le playbook qui pose l'adresse réelle.
+      DOMAIN: ${DOMAIN:-localhost}
+      GRAFANA_PORT: ${GRAFANA_PORT:-3001}
+    # L'API d'administration et non le site : celui-ci ne répond qu'à un Host
+    # valant DOMAIN, une sonde sur localhost n'y correspondrait pas.
+    healthcheck:
+      # 127.0.0.1 et non localhost : le wget de l'image résout localhost en IPv6,
+      # où l'API d'administration n'écoute pas.
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:2019/config/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
     networks:
       - frontend
     depends_on:
       - dashboard
+      - grafana
 
   # PostgreSQL nu, sans TimescaleDB : la base ne porte plus les mesures, qui
   # vivent en fichiers Parquet sur le volume partagé. Il ne lui reste que le
@@ -62,6 +80,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # Sans cette ligne, le service tombe sur le réseau `default` implicite et
+    # ne joint plus postgres, qui vit sur `data`.
+    networks:
+      - data
 
   seed:
     image: enervision-dashboard-tools
@@ -81,6 +103,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - data
 
   # ----------------------------- Supervision (#55) -----------------------------
   # Deux sources de mesure, et aucune ne remplace l'autre : le node exporter dit
@@ -96,8 +120,8 @@ services:
   prometheus:
     image: prom/prometheus:v3.5.0
     container_name: enervision-prometheus
-    # Boucle locale, comme le reste de la pile : le reverse proxy de #39
-    # n'existe pas encore, et rien de tout ceci n'a vocation à être public.
+    # Boucle locale : outil d'administration, consulté par tunnel SSH. Seul
+    # Grafana passe devant le proxy.
     ports:
       - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
     volumes:
@@ -111,6 +135,8 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
+    networks:
+      - supervision
 
   # Mesure l'hôte et non son propre conteneur, d'où `pid: host` et la racine
   # montée sous /host. Aucun port publié : Prometheus le joint par le réseau
@@ -143,6 +169,8 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
+    networks:
+      - supervision
 
   # Lit l'état des conteneurs par le moteur Docker. Le mode privilégié lui est
   # nécessaire sous Linux pour /dev/kmsg ; tous ses montages restent en lecture
@@ -160,8 +188,10 @@ services:
       - /var/lib/docker/:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
     restart: unless-stopped
+    networks:
+      - supervision
 
-  # 3001 et non 3000 : le dashboard tient déjà ce port sur la boucle locale.
+  # Aucun port publié ici : c'est Caddy qui l'expose, sur GRAFANA_PORT.
   # Source de données et tableaux sont provisionnés depuis infra/grafana/, donc
   # reconstructibles depuis Git. Ce qui est cliqué dans l'interface ne survit pas
   # au remplacement du conteneur, et c'est voulu : un tableau qui ne vit que dans
@@ -180,8 +210,9 @@ services:
       GF_ANALYTICS_REPORTING_ENABLED: "false"
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
       GF_NEWS_NEWS_FEED_ENABLED: "false"
-    ports:
-      - "127.0.0.1:${GRAFANA_PORT:-3001}:3000"
+      # Grafana est servi par Caddy sur son propre port TLS. Sans racine
+      # explicite, les liens qu'il fabrique pointeraient sur localhost:3000.
+      GF_SERVER_ROOT_URL: https://${DOMAIN:-localhost}:${GRAFANA_PORT:-3001}/
     volumes:
       - grafana_data:/var/lib/grafana
       - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -194,6 +225,9 @@ services:
     depends_on:
       - prometheus
     restart: unless-stopped
+    networks:
+      - frontend
+      - supervision
 
   # Pas de restart: ce service ne tourne jamais en continu. Il est déclenché
   # par un cron sur la machine, via `docker compose run --rm etl ...`, ce qui
@@ -232,9 +266,8 @@ services:
     environment:
       PARQUET_DIR: ${PARQUET_DIR:-/data}
       ML_SITE_CONFIG_PATH: /app/config/sites.json
-    # Provisoire : le reverse proxy (architecture.md, "un seul port public")
-    # n'existe pas encore. Sans lui, rien n'est joignable depuis l'hôte,
-    # dashboard compris. À retirer quand le proxy prend le relais.
+    # Boucle locale, pas le proxy : c'est le seul moyen de déclencher un
+    # entraînement (POST /training) sur la machine, par tunnel SSH.
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
@@ -252,8 +285,6 @@ services:
       # La composition n'a plus à le faire, et le mot de passe n'a plus à être
       # sans caractère spécial, l'assemblage l'encodant (#158).
       NUXT_POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
-      # Port interne au réseau Docker : toujours 5432, indépendamment du port
-      # exposé sur l'hôte par POSTGRES_PORT (qui sert uniquement à l'accès local).
       NUXT_POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       NUXT_POSTGRES_DATABASE: ${POSTGRES_DB:-enervision}
       NUXT_POSTGRES_USER: ${POSTGRES_USER:-enervision}
@@ -267,10 +298,9 @@ services:
       NUXT_SESSION_PASSWORD: ${SESSION_SECRET:?renseigner SESSION_SECRET dans .env ou par sops}
       NUXT_TRUST_PROXY: ${TRUST_PROXY:-false}
       LOG_LEVEL: ${LOG_LEVEL:-info}
-    # Provisoire, même motif que ml ci-dessus : à retirer une fois le
-    # reverse proxy en place, seul point d'entrée public prévu.
-    ports:
-      - "127.0.0.1:3000:3000"
+    # Aucun port publié : Caddy est le seul chemin vers le dashboard. C'est ce
+    # qui rend TRUST_PROXY=true honnête, l'en-tête X-Forwarded-For ne pouvant
+    # plus venir que du proxy.
     volumes:
       - ${PARQUET_DIR_HOST:-./data/parquet}:${PARQUET_DIR:-/data}:ro       # lecture seule, et rien d'autre que l'exposé
     depends_on:
@@ -284,8 +314,9 @@ services:
       - data
 
 networks:
-  frontend: # proxy <-> dashboard
+  frontend: # caddy <-> dashboard, grafana
   data: # dashboard <-> postgres / ml / etl
+  supervision: # prometheus <-> exporters <-> grafana
 
 volumes:
   db_data:
