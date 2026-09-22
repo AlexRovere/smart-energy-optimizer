@@ -1,4 +1,10 @@
 {
+	# Un navigateur qui vise une adresse IP n'envoie aucun SNI, la spécification
+	# l'interdit. Sans ce nom par défaut, Caddy cherche un certificat au nom de
+	# l'adresse locale de la connexion, celle du réseau Docker, n'en trouve
+	# aucun et coupe la poignée de main.
+	default_sni {$DOMAIN}
+
 	# HTTP/3 n'est pas publié en UDP par la composition : l'annoncer ferait
 	# tenter QUIC dans le vide pendant trente jours.
 	servers {
