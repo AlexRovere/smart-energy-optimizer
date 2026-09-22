@@ -7,21 +7,6 @@
     # Chemin des mesures sur la machine : la composition n'a qu'un défaut de poste.
     PARQUET_DIR_HOST: "{{ parquet_dir }}"
 
-  vars:
-    application_user: apprenant
-    application_group: apprenant
-    project_parent: /home/apprenant/Projet
-    project_dir: "{{ project_parent }}/enerVision"
-    repository_url: https://github.com/EADL-2026/enerVision.git
-    repository_version: main
-    parquet_dir: /data/output
-    log_dir: /var/log/enervision
-    age_key_file: /home/apprenant/.config/sops/age/keys.txt
-    run_database_seed: true
-    # Adresse servie par Caddy. Laissée vide, c'est celle de l'inventaire : le
-    # nom AD de la machine ne résout pas depuis les postes, seule l'IP répond.
-    public_domain: ""
-
   pre_tasks:
     - name: Vérifier Docker
       ansible.builtin.command: docker --version
@@ -57,7 +42,7 @@
 
     - name: Retenir l'adresse servie par le proxy
       ansible.builtin.set_fact:
-        resolved_domain: "{{ public_domain or ansible_host | default(inventory_hostname) }}"
+        resolved_domain: "{{ public_domain | default('') or ansible_host | default(inventory_hostname) }}"
 
     # Servir un certificat pour un nom que personne ne résout ne se voit qu'au
     # navigateur. Mieux vaut refuser avant d'avoir touché la machine.
@@ -68,8 +53,8 @@
             or resolved_domain is match('^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$')
         fail_msg: >-
           {{ resolved_domain }} n'est ni une adresse IPv4 ni un nom qualifié.
-          Renseigner ansible_host dans infra/ansible/inventory.ini, ou
-          public_domain dans les variables de ce playbook.
+          Renseigner public_domain dans infra/ansible/host_vars/, ou à défaut
+          ansible_host dans infra/ansible/inventory.ini.
 
   tasks:
     - name: Vérifier les répertoires applicatifs

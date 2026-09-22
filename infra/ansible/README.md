@@ -41,6 +41,30 @@ Rien. Aucune donnée d'exploitation ne quitte le site, l'hybride ayant été éc
 
 **Aucun commit depuis la machine.** Le compte y est mutualisé : un commit émis depuis la machine porterait une identité qui n'est celle de personne, alors que l'historique doit rester nominatif.
 
+## Où vivent les valeurs
+
+Le playbook ne définit aucune variable. Il décrit la recette, les valeurs
+viennent de l'inventaire.
+
+```text
+infra/ansible/
+├── inventory.ini              groupe, hôte, adresse de pilotage
+├── group_vars/enervision.yml  vrai de toute machine EnerVision
+├── host_vars/vm.yml           propre à cette machine
+└── playbook.yml               la recette, sans valeur en dur
+```
+
+Deux adresses cohabitent et ne servent pas à la même chose. `ansible_host`, dans
+`inventory.ini`, dit par où Ansible **joint** la machine pour la piloter.
+`public_domain`, dans `host_vars/`, dit quelle adresse Caddy **sert** aux
+utilisateurs, et c'est elle que porte le certificat. Elles coïncident aujourd'hui,
+elles n'ont aucune raison de le rester : un jour de rebond ou d'interface
+d'administration séparée, les confondre servirait un certificat pour une adresse
+que personne ne joint.
+
+Une valeur se surcharge sans toucher au dépôt avec `-e`, qui l'emporte sur tout
+le reste.
+
 ## Playbook de déploiement
 
 [`playbook.yml`](./playbook.yml) automatise les opérations de déploiement sur
