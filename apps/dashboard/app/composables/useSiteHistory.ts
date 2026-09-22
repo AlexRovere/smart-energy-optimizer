@@ -1,7 +1,8 @@
-import { useFetch } from 'nuxt/app'
+import { useFetch, useRoute } from 'nuxt/app'
 import { computed } from 'vue'
 import type { Ref } from 'vue'
 import type { Reading, SiteId } from '../types/api'
+import { observerErreurFetch } from '../utils/erreurFetch'
 
 function plage(fenêtre: '24h' | '7j') {
   // Arrondi à la minute pour stabiliser la clé entre SSR et hydratation client
@@ -20,6 +21,11 @@ export function useSiteHistory(siteId: Ref<SiteId>, fenêtre: Ref<'24h' | '7j'>)
     },
     { watch: [siteId, fenêtre] }
   )
+  const route = useRoute()
+  observerErreurFetch(error, {
+    url: () => `/api/sites/${siteId.value}/history`,
+    route: () => route.path,
+  })
   const readings = computed(() => data.value ?? [])
   return { readings, pending, error }
 }

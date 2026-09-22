@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ref } from 'vue'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { ref, nextTick } from 'vue'
 import { useSitesList } from '../../app/composables/useSitesList'
 
 const { mockUseFetch } = vi.hoisted(() => {
@@ -8,7 +8,8 @@ const { mockUseFetch } = vi.hoisted(() => {
 })
 
 vi.mock('nuxt/app', () => ({
-  useFetch: mockUseFetch
+  useFetch: mockUseFetch,
+  useRoute: () => ({ path: '/sites' })
 }))
 
 const sitesFixture = [
@@ -72,5 +73,24 @@ describe('useSitesList', () => {
     })
     const { error } = useSitesList()
     expect(error.value).toBe(erreur)
+  })
+
+  describe('journalisation des erreurs', () => {
+    afterEach(() => vi.restoreAllMocks())
+
+    it('loggue sur console.error quand error passe de null à une Error', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errorRef = ref<Error | null>(null)
+      mockUseFetch.mockReturnValue({ data: ref(null), pending: ref(false), error: errorRef })
+
+      useSitesList()
+
+      errorRef.value = new Error('503 sites indisponibles')
+      await nextTick()
+
+      expect(consoleSpy).toHaveBeenCalledOnce()
+      const [, données] = consoleSpy.mock.calls[0] as [string, Record<string, unknown>]
+      expect(données.message).toBe('503 sites indisponibles')
+    })
   })
 })

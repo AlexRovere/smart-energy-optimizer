@@ -136,6 +136,21 @@ Clé primaire composite `(user_id, site_id)`, qui interdit la double attribution
 
 `ON DELETE RESTRICT` sur `site_id` et non `CASCADE` : un site n'est de toute façon jamais supprimé (cf. `present_in_source`), et un `CASCADE` ferait disparaître des droits en silence si quelqu'un en supprimait un à la main.
 
+### `alert_thresholds`
+
+Les seuils d'alerte réglés par site, au plus une ligne « conso » et une ligne « pic ».
+
+| Colonne | Type | Contraintes | Description |
+| :--- | :--- | :--- | :--- |
+| `site_id` | VARCHAR(16) | NOT NULL, REFERENCES `sites(id)` ON DELETE RESTRICT | |
+| `type` | VARCHAR(10) | NOT NULL | `conso` ou `pic` |
+| `duration` | INTEGER | NOT NULL, DEFAULT 5 | Durée en heures de la fenêtre de moyenne glissante |
+| `threshold` | REAL | NOT NULL | Valeur à dépasser : moyenne glissante en kWh si `type = conso`, facteur multiplicatif de cette moyenne si `type = pic` |
+
+Clé primaire composite `(site_id, type)`, qui interdit plus d'une règle de chaque type par site.
+
+`ON DELETE RESTRICT` sur `site_id`, même raisonnement que pour `user_sites` : un site n'est jamais supprimé, et un `CASCADE` ferait disparaître des seuils réglés en silence.
+
 ### Index
 
 ```sql
@@ -197,32 +212,36 @@ C'est le point le plus facile à rater. `pa.Table.from_pylist(lignes)` **devine*
 Le schéma est donc **écrit une fois, dans un module unique** (`load/readings.py`), et l'écriture caste dessus :
 
 ```python
-SCHEMA = pa.schema([
-    ("site_id",                      pa.string()),
-    ("timestamp",                    pa.timestamp("us", tz="UTC")),
-    ("site_type",                    pa.string()),
-    ("consumption_kw",               pa.float64()),   # telle que renvoyee, nullable
-    ("consumption_kw_corrected",     pa.float64()),   # imputee (forward-fill)
-    ("consumption_kwh",              pa.float64()),
-    ("consumption_kwh_corrected",    pa.float64()),
-    ("voltage_v",                    pa.float64()),
-    ("voltage_v_corrected",          pa.float64()),
-    ("current_a",                    pa.float64()),
-    ("current_a_corrected",          pa.float64()),
-    ("power_factor",                 pa.float64()),
-    ("power_factor_corrected",       pa.float64()),
-    ("temperature_celsius",          pa.float64()),
-    ("temperature_celsius_corrected", pa.float64()),
-    ("humidity_percent",             pa.float64()),
-    ("humidity_percent_corrected",   pa.float64()),
-    ("data_quality",                 pa.string()),
-    ("null_reasons",                 pa.list_(pa.string())),
-    ("consumption_lag_1h",           pa.float64()),   # + lag_2h, lag_24h, lag_48h, lag_168h
-    ("rolling_mean_24h",             pa.float64()),   # + rolling_mean_168h
-    ("hour",                         pa.int32()),      # + day_of_week, month, is_weekend, is_working_hours
-])
+SCHEMA = pa.schema(
+    [
+        ("site_id", pa.string()),
+        ("timestamp", pa.timestamp("us", tz="UTC")),
+        ("site_type", pa.string()),
+        ("consumption_kw", pa.float64()),  # telle que renvoyee, nullable
+        ("consumption_kw_corrected", pa.float64()),  # imputee (forward-fill)
+        ("consumption_kwh", pa.float64()),
+        ("consumption_kwh_corrected", pa.float64()),
+        ("voltage_v", pa.float64()),
+        ("voltage_v_corrected", pa.float64()),
+        ("current_a", pa.float64()),
+        ("current_a_corrected", pa.float64()),
+        ("power_factor", pa.float64()),
+        ("power_factor_corrected", pa.float64()),
+        ("temperature_celsius", pa.float64()),
+        ("temperature_celsius_corrected", pa.float64()),
+        ("humidity_percent", pa.float64()),
+        ("humidity_percent_corrected", pa.float64()),
+        ("data_quality", pa.string()),
+        ("null_reasons", pa.list_(pa.string())),
+        ("consumption_lag_1h", pa.float64()),  # + lag_2h, lag_24h, lag_48h, lag_168h
+        ("rolling_mean_24h", pa.float64()),  # + rolling_mean_168h
+        ("hour", pa.int32()),  # + day_of_week, month, is_weekend, is_working_hours
+    ]
+)
 
-table = pa.Table.from_pandas(lignes, schema=SCHEMA, preserve_index=False)   # leve si un type ne colle pas
+table = pa.Table.from_pandas(
+    lignes, schema=SCHEMA, preserve_index=False
+)  # leve si un type ne colle pas
 ```
 
 **Les noms sont ceux de la source**, donc ceux de `EnergyReading` dans [`api.md`](./api.md). Une première version portait des noms français, ce qui imposait une table de correspondance entre le fichier et la réponse HTTP : elle n'était écrite nulle part, et c'est le genre d'écart qui ne se découvre qu'à l'intégration. La règle de qualité ci-dessous dit « stockées telles que l'API les renvoie » ; les stocker sous des noms traduits, c'est déjà ne plus les stocker telles quelles.
@@ -343,6 +362,7 @@ erDiagram
     users ||--o{ sessions : "ouvre"
     users ||--o{ user_sites : "accede a"
     sites ||--o{ user_sites : "est accessible a"
+    sites ||--o{ alert_thresholds : "regle"
 
     roles {
         int id PK
@@ -381,5 +401,11 @@ erDiagram
         uuid user_id PK,FK
         varchar site_id PK,FK
         timestamptz created_at
+    }
+    alert_thresholds {
+        varchar site_id PK,FK
+        varchar type PK
+        int duration
+        real threshold
     }
 ```

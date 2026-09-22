@@ -57,6 +57,19 @@ Jupyter affiche son URL dans le terminal. Deux carnets, deux questions :
 MLflow**, par son alias `champion`, donc il mesure celui que l'API sert : lancer `POST /training` au
 moins une fois avant. Ses chemins d'entrée sont groupés dans la première cellule de code.
 
+## Insights
+
+Apercu de la qualite et de l'evolution des mesures, depuis `apps/ml` (necessite
+`PARQUET_DIR` dans `.env`) :
+
+```powershell
+uv sync --dev
+uv run python notebooks/insights/prepare_data.py
+uv run python notebooks/insights/build_html.py
+```
+
+Ouvrir ensuite `notebooks/insights/apercu_sites_001_003.html` dans un navigateur.
+
 ## Docker
 
 Construire l'image depuis `apps/ml` :

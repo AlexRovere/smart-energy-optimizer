@@ -2,11 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { H3Event } from 'h3'
 import handler from '../../../../server/api/sites/[id]/history.get'
 
-const { mockQuerySiteHistory, mockGetQuery, mockGetRouterParam } = vi.hoisted(() => {
+const { mockQuerySiteHistory, mockGetQuery, mockGetRouterParam, mockLoggerError } = vi.hoisted(() => {
   const mockQuerySiteHistory = vi.fn()
   const mockGetQuery = vi.fn()
   const mockGetRouterParam = vi.fn()
-  return { mockQuerySiteHistory, mockGetQuery, mockGetRouterParam }
+  const mockLoggerError = vi.fn()
+  return { mockQuerySiteHistory, mockGetQuery, mockGetRouterParam, mockLoggerError }
 })
 
 vi.mock('../../../../server/utils/parquetReader', () => ({
@@ -24,6 +25,10 @@ vi.mock('h3', async (importOriginal) => {
 
 vi.mock('../../../../server/utils/guard', () => ({
   requireAccount: vi.fn().mockResolvedValue(undefined)
+}))
+
+vi.mock('../../../../server/utils/logger', () => ({
+  logger: { error: mockLoggerError, warn: vi.fn(), info: vi.fn(), debug: vi.fn() }
 }))
 
 
@@ -108,6 +113,22 @@ describe('GET /api/sites/[id]/history', () => {
       to: '2026-09-17T00:00:00Z'
     })
     await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 503 })
+  })
+
+  it('loggue l\'erreur DuckDB avant de lancer 503', async () => {
+    const messageErreur = 'DuckDB: impossible de lire le fichier Parquet'
+    mockQuerySiteHistory.mockRejectedValue(new Error(messageErreur))
+    configurerÉvénement('SITE001', {
+      from: '2026-09-16T00:00:00Z',
+      to: '2026-09-17T00:00:00Z'
+    })
+
+    await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 503 })
+
+    expect(mockLoggerError).toHaveBeenCalledOnce()
+    const [, contexte] = mockLoggerError.mock.calls[0] as [string, Record<string, unknown>]
+    expect(contexte.message).toBe(messageErreur)
+    expect(contexte.siteId).toBe('SITE001')
   })
 
   it('applique la limite personnalisée', async () => {

@@ -12,13 +12,23 @@ import {
 describe('lecture de docs/data.md', () => {
   const tables = lireTablesDocumentees()
 
-  it('trouve les cinq tables', () => {
+  it('trouve les six tables', () => {
     expect([...tables.keys()].sort()).toEqual([
+      'alert_thresholds',
       'roles',
       'sessions',
       'sites',
       'user_sites',
       'users'
+    ])
+  })
+
+  it('lit les colonnes de alert_thresholds', () => {
+    expect(tables.get('alert_thresholds')!.colonnes.map(c => c.nom)).toEqual([
+      'site_id',
+      'type',
+      'duration',
+      'threshold'
     ])
   })
 
@@ -63,6 +73,7 @@ describe('lecture de docs/data.md', () => {
       longueur: null
     })
     expect(typePostgres('SERIAL')).toEqual({ dataType: 'integer', longueur: null })
+    expect(typePostgres('REAL')).toEqual({ dataType: 'real', longueur: null })
     expect(() => typePostgres('JSONB')).toThrow(/JSONB/)
   })
 
@@ -74,6 +85,8 @@ describe('lecture de docs/data.md', () => {
     // Décrite en prose sous le tableau, pas par colonne : aucune colonne de
     // user_sites ne porte PRIMARY KEY dans le document.
     expect(colonnesClePrimaire(tables.get('user_sites')!)).toEqual([])
+    // Même motif pour alert_thresholds : clé composite (site_id, type).
+    expect(colonnesClePrimaire(tables.get('alert_thresholds')!)).toEqual([])
   })
 
   it('dérive les colonnes UNIQUE du document', () => {
@@ -88,7 +101,13 @@ describe('lecture de docs/data.md', () => {
       { table: 'users', colonne: 'role_id', tableReferencee: 'roles', onDelete: 'RESTRICT' },
       { table: 'sessions', colonne: 'user_id', tableReferencee: 'users', onDelete: 'CASCADE' },
       { table: 'user_sites', colonne: 'user_id', tableReferencee: 'users', onDelete: 'CASCADE' },
-      { table: 'user_sites', colonne: 'site_id', tableReferencee: 'sites', onDelete: 'RESTRICT' }
+      { table: 'user_sites', colonne: 'site_id', tableReferencee: 'sites', onDelete: 'RESTRICT' },
+      {
+        table: 'alert_thresholds',
+        colonne: 'site_id',
+        tableReferencee: 'sites',
+        onDelete: 'RESTRICT'
+      }
     ])
   })
 

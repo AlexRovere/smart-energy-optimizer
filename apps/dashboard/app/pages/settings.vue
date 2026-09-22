@@ -4,8 +4,6 @@ import { useSettings } from '~/composables/useSettings'
 
 const {
   activeRole, roleCapabilities,
-  siteThresholds, hasUnsavedChanges,
-  updateThreshold, resetThresholds, saveThresholds, capacityPercent,
   notifications, updateNotification,
   session,
 } = useSettings()
@@ -36,10 +34,7 @@ const NOTIFICATIONS: { key: keyof typeof notifications.value; label: string; des
     <header class="flex flex-col gap-1.5">
       <h2 class="font-ev text-[28px] font-bold tracking-tight">Paramétrages</h2>
       <p class="font-ev text-sm text-ev-text-3">
-        Seuils par site, rôle actif et préférences de notification.
-        <span class="font-medium" style="color: var(--ev-amber)">
-          L'écriture des seuils n'a pas d'endpoint&nbsp;: persistance locale en attendant le contrat API.
-        </span>
+        Règles d'alerte par site, rôle actif et préférences de notification.
       </p>
     </header>
 
@@ -77,82 +72,8 @@ const NOTIFICATIONS: { key: keyof typeof notifications.value; label: string; des
       </div>
     </EvCard>
 
-    <!-- Seuils de déclenchement par site -->
-    <EvCard>
-      <template #title>
-        <span class="font-ev text-base font-semibold">Seuils de déclenchement par site</span>
-      </template>
-      <template #actions>
-        <EvButton variant="secondary" @click="resetThresholds">Réinitialiser</EvButton>
-        <EvButton variant="primary" :disabled="!hasUnsavedChanges" @click="saveThresholds">Enregistrer</EvButton>
-      </template>
-
-      <table class="w-full">
-        <thead>
-          <tr class="border-b" style="border-color: var(--ev-border)">
-            <th class="font-ev-mono text-[11px] font-semibold text-ev-text-3 text-left pb-3 pr-6">SITE</th>
-            <th class="font-ev-mono text-[11px] font-semibold text-ev-text-3 text-left pb-3 pr-6">CAPACITÉ</th>
-            <th class="font-ev-mono text-[11px] font-semibold text-ev-text-3 text-left pb-3 pr-6">SEUIL (kW)</th>
-            <th class="font-ev-mono text-[11px] font-semibold text-ev-text-3 text-left pb-3 pr-6">% DE CAPACITÉ</th>
-            <th class="font-ev-mono text-[11px] font-semibold text-ev-text-3 text-left pb-3">ÉTAT</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="entry in siteThresholds"
-            :key="entry.site_id"
-            class="border-b last:border-b-0"
-            style="border-color: var(--ev-border)"
-          >
-            <!-- Site -->
-            <td class="py-4 pr-6">
-              <div class="font-ev text-sm font-semibold">{{ entry.site_name }}</div>
-              <div class="font-ev-mono text-[11px] text-ev-text-3 mt-0.5">{{ entry.site_id }}</div>
-            </td>
-
-            <!-- Capacité -->
-            <td class="py-4 pr-6">
-              <span class="font-ev-mono text-sm text-ev-text-2">{{ entry.capacity_kw.toLocaleString('fr-FR') }}</span>
-            </td>
-
-            <!-- Seuil éditable -->
-            <td class="py-4 pr-6">
-              <UInput
-                :model-value="entry.threshold_kw"
-                type="number"
-                min="1"
-                :max="entry.capacity_kw"
-                class="w-28"
-                :ui="{ base: 'font-ev-mono text-sm' }"
-                @update:model-value="updateThreshold(entry.site_id, Number($event))"
-              />
-            </td>
-
-            <!-- % de capacité -->
-            <td class="py-4 pr-6">
-              <div class="flex items-center gap-3">
-                <div class="w-24 h-1.5 rounded-full overflow-hidden" style="background: var(--ev-surface)">
-                  <div
-                    class="h-full rounded-full transition-all"
-                    style="background: var(--ev-green)"
-                    :style="{ width: capacityPercent(entry) + '%' }"
-                  />
-                </div>
-                <span class="font-ev-mono text-sm text-ev-text-2">{{ capacityPercent(entry) }} %</span>
-              </div>
-            </td>
-
-            <!-- État -->
-            <td class="py-4">
-              <span
-                class="font-ev text-sm"
-                :style="entry.state === 'modifié' ? 'color: var(--ev-amber)' : 'color: var(--ev-text-3)'"
-              >{{ entry.state }}</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </EvCard>
+    <!-- Règles d'alerte par site -->
+    <EvAlertThresholdSettings />
 
     <!-- Ligne du bas : Notifications + Session -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">

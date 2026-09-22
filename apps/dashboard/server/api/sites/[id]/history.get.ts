@@ -2,6 +2,7 @@ import { createError, defineEventHandler, getQuery, getRouterParam } from 'h3'
 import { z } from 'zod'
 import { querySiteHistory } from '../../../utils/parquetReader'
 import { requireAccount } from '../../../utils/guard'
+import { logger } from '../../../utils/logger'
 
 const siteIdSchema = z.string().regex(/^SITE\d{3}$/)
 
@@ -31,7 +32,11 @@ export default defineEventHandler(async (event) => {
   try {
     return await querySiteHistory(parsedId.data, from, to, limit)
   } catch (err) {
-    console.error('[history] échec de la requête Parquet :', err)
+    logger.error('Échec lecture historique Parquet', {
+      route: event.path,
+      siteId: parsedId.data,
+      message: err instanceof Error ? err.message : String(err),
+    })
     throw createError({ status: 503, statusText: 'Historique indisponible' })
   }
 })

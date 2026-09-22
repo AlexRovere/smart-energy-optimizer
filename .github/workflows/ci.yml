@@ -150,9 +150,10 @@ jobs:
           name: rapport-qualite-ml
           path: rapport-qualite/
 
-      # TODO : les tests arrivent avec #51.
-      # - run: uv run --directory apps/ml pytest
-      - run: echo "TODO ML - tests du contrat de l API de prediction"
+      # Le seuil de couverture (80 % sur src) est porté par pyproject.toml : pas
+      # de --cov-fail-under ici, une seule source de vérité.
+      - name: Tests (pytest)
+        run: uv run --directory apps/ml pytest
 
   dashboard:
     needs: changes

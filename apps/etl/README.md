@@ -21,6 +21,25 @@ python main.py hour                              # équivalent à periods --star
 python main.py hour --verbose
 ```
 
+### Analyses locales
+
+Depuis la racine du dépôt sous PowerShell, les scripts d'insights lisent les
+partitions Parquet sans les modifier :
+
+```powershell
+$env:PARQUET_DIR = "D:\enerVision\data\output"
+& ".\apps\etl\.venv\Scripts\python.exe" ".\apps\etl\insights\prepare_data.py"
+& ".\apps\etl\.venv\Scripts\python.exe" ".\apps\etl\insights\build_html.py"
+& ".\apps\etl\.venv\Scripts\python.exe" ".\apps\etl\insights\build_profiles_html.py"
+& ".\apps\etl\.venv\Scripts\python.exe" ".\apps\etl\insights\build_comparison_html.py"
+& ".\apps\etl\.venv\Scripts\python.exe" ".\apps\etl\insights\build_kpi_html.py"
+```
+
+`prepare_data.py` produit les JSON intermédiaires. Les quatre scripts suivants
+génèrent `apercu_sites_001_003.html`, `profils_consommation.html` et
+`comparaison_types_sites.html`, puis `tableau_kpi.html` dans
+`apps/etl/insights`. Ces sorties sont locales et ignorées par Git.
+
 ## Fonctionnement
 
 ### Extract

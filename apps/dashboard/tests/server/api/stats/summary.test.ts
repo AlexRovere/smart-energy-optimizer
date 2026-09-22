@@ -2,9 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import handler from '../../../../server/api/stats/summary.get'
 import { createError } from 'h3'
 
-const { mockFetchMockApi } = vi.hoisted(() => {
+const { mockFetchMockApi, mockLoggerError } = vi.hoisted(() => {
   const mockFetchMockApi = vi.fn()
-  return { mockFetchMockApi }
+  const mockLoggerError = vi.fn()
+  return { mockFetchMockApi, mockLoggerError }
 })
 
 vi.mock('../../../../server/utils/mockApiClient', () => ({
@@ -13,6 +14,10 @@ vi.mock('../../../../server/utils/mockApiClient', () => ({
 
 vi.mock('../../../../server/utils/guard', () => ({
   requireAccount: vi.fn().mockResolvedValue(undefined)
+}))
+
+vi.mock('../../../../server/utils/logger', () => ({
+  logger: { error: mockLoggerError, warn: vi.fn(), info: vi.fn(), debug: vi.fn() }
 }))
 
 
@@ -62,5 +67,16 @@ describe('GET /api/stats/summary', () => {
   it('lève une erreur 503 si la source est indisponible', async () => {
     mockFetchMockApi.mockRejectedValue(createError({ status: 503 }))
     await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 503 })
+  })
+
+  it('loggue l\'erreur source avant de lancer 503', async () => {
+    const messageErreur = 'API Mock injoignable'
+    mockFetchMockApi.mockRejectedValue(new Error(messageErreur))
+
+    await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 503 })
+
+    expect(mockLoggerError).toHaveBeenCalledOnce()
+    const [, contexte] = mockLoggerError.mock.calls[0] as [string, Record<string, unknown>]
+    expect(contexte.message).toBe(messageErreur)
   })
 })
