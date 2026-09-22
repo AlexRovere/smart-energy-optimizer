@@ -1,7 +1,7 @@
 // Source de vérité du schéma PostgreSQL, propriété de l'applicatif et de lui
 // seul : l'ETL écrit des lignes dans `sites`, jamais du DDL (docs/data.md).
 //
-// Transcription littérale des cinq tables de docs/data.md. Toute différence
+// Transcription littérale des six tables de docs/data.md. Toute différence
 // entre ce fichier et le document est un défaut, et
 // tests/database/schema-conforme-au-document.test.ts la fait échouer.
 //
@@ -18,6 +18,7 @@ import {
   integer,
   pgTable,
   primaryKey,
+  real,
   serial,
   timestamp,
   uuid,
@@ -109,4 +110,17 @@ export const userSites = pgTable(
     primaryKey({ columns: [t.userId, t.siteId] }),
     index('idx_user_sites_site').on(t.siteId)
   ]
+)
+
+export const alertThresholds = pgTable(
+  'alert_thresholds',
+  {
+    siteId: varchar('site_id', { length: 16 })
+      .notNull()
+      .references(() => sites.id, { onDelete: 'restrict' }),
+    type: varchar('type', { length: 10 }).notNull(),
+    duration: integer('duration').notNull().default(5),
+    threshold: real('threshold').notNull()
+  },
+  t => [primaryKey({ columns: [t.siteId, t.type] })]
 )
