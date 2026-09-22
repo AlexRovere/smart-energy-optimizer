@@ -211,7 +211,6 @@ services:
     build: ./apps/ml
     environment:
       PARQUET_DIR: ${PARQUET_DIR:-/data}
-      ML_MODEL_PATH: /app/artifacts/catboost_model.cbm
       ML_SITE_CONFIG_PATH: /app/config/sites.json
     # Provisoire : le reverse proxy (architecture.md, "un seul port public")
     # n'existe pas encore. Sans lui, rien n'est joignable depuis l'hôte,
