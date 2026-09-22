@@ -217,7 +217,6 @@ Ce qui suit est connu, décidé, et non corrigé. C'est ce qui distingue une doc
 | **Pas de cache de dépendances côté Python** | `actions/setup-python` calcule sa clé sur `requirements.txt`, que le projet n'a pas : l'ETL et le ML sont sous `uv` avec un `uv.lock`. Le cache viendra avec `astral-sh/setup-uv`, quand ces jobs feront autre chose qu'un `echo`. Le cache `pnpm`, lui, est actif |
 | **Pas de seuil de couverture bloquant** | Retiré le 16 septembre 2026 (#51). Sur dix jours, un seuil non tenu est une CI rouge qui empêche de fusionner : un coût sans contrepartie |
 | **Les jobs `etl` et `ml` ne lancent pas de tests** | Ils lintent et formatent depuis #90, mais leur étape de tests reste un `echo`. Elle arrive avec #51 |
-| **`ansible-lint` est commenté** | `infra/ansible/` ne contient qu'un README. Le playbook arrive avec #47 |
 | **Le scan n'est pas dans le graphe de `ci.yml`** | Il tourne sur tout push, donc plus tôt et plus souvent que s'il attendait une pull request. Le chaîner le rendrait plus tardif, pas plus sûr |
 | **L'applicatif est construit deux fois** | Une fois par `pnpm build`, une fois dans l'image. Environ deux minutes, contre un Dockerfile réellement vérifié |
 | **Le formatage TypeScript n'est pas automatisé** | Les règles stylistiques de `@nuxt/eslint` reformateraient tout le dashboard, en collision avec les branches en cours dessus. Pull request dédiée quand elles auront atterri |

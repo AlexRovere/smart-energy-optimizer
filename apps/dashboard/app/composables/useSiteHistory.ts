@@ -4,7 +4,8 @@ import type { Ref } from 'vue'
 import type { Reading, SiteId } from '../types/api'
 
 function plage(fenêtre: '24h' | '7j') {
-  const to = new Date()
+  // Arrondi à la minute pour stabiliser la clé entre SSR et hydratation client
+  const to = new Date(Math.floor(Date.now() / 60000) * 60000)
   const from = new Date(to)
   if (fenêtre === '24h') from.setHours(from.getHours() - 24)
   else from.setDate(from.getDate() - 7)

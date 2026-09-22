@@ -14,6 +14,7 @@ Monorepo. La structure du dépôt n'est pas l'architecture de déploiement : les
 | `apps/etl/`          | Ingestion Python des capteurs simulés vers les fichiers Parquet          | `domain:data`                |
 | `apps/ml/`           | Service de prédiction (FastAPI, Prophet, MLflow)                         | `domain:ml`                  |
 | `infra/ansible/`     | Configuration de la machine sur site, rejouable                          | `domain:cloud`               |
+| `infra/grafana/`      | Supervision : source de données et tableaux, provisionnés depuis le dépôt   | `domain:cloud`               |
 | `.github/workflows/` | Pipeline build, test, scan, deploy                                       | `domain:cicd`                |
 | `docs/`              | Livrables et documentation technique                                     | `domain:doc`                 |
 | `docker-compose.yml` | La pile complète, à la racine pour un `docker compose up` direct         | `domain:cloud`               |
@@ -58,7 +59,11 @@ ne démarre sur une valeur oubliée, c'est voulu.
 
 ```bash
 cp .env.example .env      # renseigner les valeurs
-docker compose up -d      # la pile complète
+docker compose build etl ml dashboard migrate
+docker compose up -d --wait postgres
+docker compose run --rm migrate
+docker compose run --rm seed
+docker compose up -d --wait
 docker compose ps
 ```
 
@@ -67,12 +72,18 @@ docker compose ps
 
 ```bash
 cp .env.example .env      # ne renseigner que les RÉGLAGES
-sops exec-env secrets.enc.yaml 'docker compose up -d'
+sops exec-env secrets.enc.yaml 'docker compose build etl ml dashboard migrate'
+sops exec-env secrets.enc.yaml 'docker compose up -d --wait postgres'
+sops exec-env secrets.enc.yaml 'docker compose run --rm migrate'
+sops exec-env secrets.enc.yaml 'docker compose run --rm seed'
+sops exec-env secrets.enc.yaml 'docker compose up -d --wait'
 ```
 
 L'environnement prime sur le `.env`, donc les valeurs déchiffrées l'emportent
-sur ce que le fichier contiendrait. C'est aussi, mot pour mot, la commande du
-déploiement. Elle demande d'être destinataire des secrets :
+sur ce que le fichier contiendrait. Sur la VM, le playbook
+[`infra/ansible/playbook.yml`](./infra/ansible/playbook.yml) construit les
+images, applique les migrations puis démarre la pile avec ce même mécanisme. Il
+demande que la machine soit destinataire des secrets :
 [`docs/secrets.md`](./docs/secrets.md).
 
 Cette pile et celle de développement cohabitent sans se gêner : ni le même port,
@@ -84,6 +95,12 @@ available` : poser `POSTGRES_PORT=15432` dans le `.env` suffit. Et aucun port
 n'est publié devant le dashboard, c'est le rôle du proxy de #39 : lancer la pile
 ici prouve qu'elle se construit et démarre, pas qu'on peut la parcourir au
 navigateur. Pour ça, la boucle de développement plus haut.
+
+**La supervision part avec la pile**, sans rien de plus à lancer : Grafana sur
+<http://127.0.0.1:3001> (compte `admin`, mot de passe `GRAFANA_ADMIN_PASSWORD`) et
+Prometheus sur <http://127.0.0.1:9090>. Le tableau est déjà là, il est provisionné
+depuis `infra/grafana/`. Les indicateurs et leur motif :
+[`docs/supervision.md`](./docs/supervision.md).
 
 Chaque application a son propre README avec ses prérequis.
 

@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # dans allowBuilds (ERR_PNPM_IGNORED_BUILDS), y compris pour des paquets
 # ajoutés récemment (testcontainers) et jamais approuvés. La 10 n'a pas ce
 # comportement bloquant.
-RUN corepack enable && corepack use pnpm@10
+RUN corepack enable && corepack use pnpm@10.11.0
 
 WORKDIR /app
 
