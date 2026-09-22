@@ -1,6 +1,7 @@
 # teste la transformation de l'historique des mesures : clone {colonne}_corrected, sans règle de
 # nettoyage pour l'instant
 import pandas as pd
+
 from transform.readings import (
     CORRECTABLE_COLUMNS,
     LAG_HOURS,

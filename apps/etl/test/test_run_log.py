@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import pandas as pd
 import pytest
+
 from run_log import RunLogger
 
 FROZEN_START = datetime(2026, 9, 18, 2, 0, 3, tzinfo=timezone.utc)

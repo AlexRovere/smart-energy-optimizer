@@ -62,7 +62,7 @@ known-first-party = [
   # apps/ml
   "api", "data", "features", "models", "training",
   # apps/etl
-  "env_loader", "extract", "load", "progress",
+  "env_loader", "extract", "load", "progress", "run_log", "transform",
 ]
 
 [lint.per-file-ignores]
