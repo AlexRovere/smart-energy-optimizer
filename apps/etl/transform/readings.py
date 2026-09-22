@@ -37,7 +37,6 @@ def forward_fill_corrected(readings: pd.DataFrame) -> pd.DataFrame:
     return readings
 
 
-
 def add_calendar_features(readings: pd.DataFrame) -> pd.DataFrame:
     readings = readings.copy()
     timestamps = pd.to_datetime(readings["timestamp"], utc=True, format="ISO8601")

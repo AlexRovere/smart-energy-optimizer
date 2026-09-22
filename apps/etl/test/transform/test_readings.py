@@ -197,7 +197,6 @@ def test_transform_readings_returns_empty_dataframe_when_no_reading():
     assert result.empty
 
 
-
 def test_transform_readings_does_not_produce_lag_or_rolling_columns():
     readings = pd.DataFrame([SAMPLE_ROW])
 
