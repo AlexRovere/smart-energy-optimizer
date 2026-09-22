@@ -1,6 +1,8 @@
 # Modèle de prévision
 
-Ce document est celui annoncé dans [`README.md`](./README.md) pour EC06. Il ne couvre pour l'instant que **l'impact métier du modèle** (#94). Le choix du modèle vit dans `apps/ml/notebooks/model_selection.ipynb`, le versionnement dans #37 et la surveillance de la dérive dans #40 : chaque section arrive avec son ticket.
+Ce document est celui annoncé dans [`README.md`](./README.md) pour EC06. Il ne couvre pour l'instant que **l'impact métier du modèle** (#94). Le choix du modèle vit dans `apps/ml/notebooks/model_selection.ipynb`, le versionnement dans le registre MLflow posé par #37, et la surveillance de la dérive reste à venir avec #40.
+
+Le carnet charge le modèle **depuis ce registre**, par son alias `champion` : il mesure donc la version que l'API sert, et non une copie posée à côté. Les chiffres ci-dessous portent sur la version 1.
 
 ## Ce qui est mesuré
 
