@@ -1,8 +1,11 @@
 # assemble apercu_sites_001_003.html a partir de data.json (genere par prepare_data.py)
 import json
+import os
 from pathlib import Path
 
-OUTPUT_DIR = Path(__file__).resolve().parent
+# même variable et même défaut que prepare_data.py : les deux scripts doivent pointer
+# sur le même dossier
+OUTPUT_DIR = Path(os.getenv("INSIGHTS_OUTPUT_DIR", str(Path(__file__).resolve().parent)))
 DATA_PATH = OUTPUT_DIR / "data.json"
 OUT_PATH = OUTPUT_DIR / "apercu_sites_001_003.html"
 

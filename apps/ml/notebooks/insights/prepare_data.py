@@ -17,7 +17,10 @@ PARQUET_DIR = os.getenv("PARQUET_DIR")
 if not PARQUET_DIR:
     raise RuntimeError("PARQUET_DIR is not set")
 
-OUTPUT_DIR = Path(__file__).resolve().parent
+# configurable pour les tests (fausses données, dossier de sortie jetable) ; par défaut,
+# comportement inchangé : à côté du script
+OUTPUT_DIR = Path(os.getenv("INSIGHTS_OUTPUT_DIR", str(Path(__file__).resolve().parent)))
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 t0 = time.time()
 # Liste explicite des .parquet : le répertoire peut contenir d'autres fichiers
