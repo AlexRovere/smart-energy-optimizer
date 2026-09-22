@@ -41,6 +41,10 @@ mlruns/
 *.pkl
 *.joblib
 
+# Rapports locaux générés depuis les Parquet
+apps/etl/insights/*.json
+apps/etl/insights/*.html
+
 # Conceptions et plans de travail : documents de méthode, pas des livrables.
 # Ils restent sur le poste et dans l'historique, ils ne sont plus versionnés.
 .superpowers/
