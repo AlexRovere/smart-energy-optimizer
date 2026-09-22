@@ -136,6 +136,21 @@ Clé primaire composite `(user_id, site_id)`, qui interdit la double attribution
 
 `ON DELETE RESTRICT` sur `site_id` et non `CASCADE` : un site n'est de toute façon jamais supprimé (cf. `present_in_source`), et un `CASCADE` ferait disparaître des droits en silence si quelqu'un en supprimait un à la main.
 
+### `alert_thresholds`
+
+Les seuils d'alerte réglés par site, au plus une ligne « conso » et une ligne « pic ».
+
+| Colonne | Type | Contraintes | Description |
+| :--- | :--- | :--- | :--- |
+| `site_id` | VARCHAR(16) | NOT NULL, REFERENCES `sites(id)` ON DELETE RESTRICT | |
+| `type` | VARCHAR(10) | NOT NULL | `conso` ou `pic` |
+| `duration` | INTEGER | NOT NULL, DEFAULT 5 | Durée en heures de la fenêtre de moyenne glissante |
+| `threshold` | REAL | NOT NULL | Valeur à dépasser : moyenne glissante en kWh si `type = conso`, facteur multiplicatif de cette moyenne si `type = pic` |
+
+Clé primaire composite `(site_id, type)`, qui interdit plus d'une règle de chaque type par site.
+
+`ON DELETE RESTRICT` sur `site_id`, même raisonnement que pour `user_sites` : un site n'est jamais supprimé, et un `CASCADE` ferait disparaître des seuils réglés en silence.
+
 ### Index
 
 ```sql
@@ -347,6 +362,7 @@ erDiagram
     users ||--o{ sessions : "ouvre"
     users ||--o{ user_sites : "accede a"
     sites ||--o{ user_sites : "est accessible a"
+    sites ||--o{ alert_thresholds : "regle"
 
     roles {
         int id PK
@@ -385,5 +401,11 @@ erDiagram
         uuid user_id PK,FK
         varchar site_id PK,FK
         timestamptz created_at
+    }
+    alert_thresholds {
+        varchar site_id PK,FK
+        varchar type PK
+        int duration
+        real threshold
     }
 ```

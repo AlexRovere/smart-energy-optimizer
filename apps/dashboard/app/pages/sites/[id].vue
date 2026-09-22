@@ -2,6 +2,7 @@
 import { useSiteCurrentReading } from '~/composables/useSiteCurrentReading';
 import type { SiteId } from '~/types/api'
 import { useSiteHistory } from '~/composables/useSiteHistory'
+import { useSiteRecommendations } from '~/composables/useSiteRecommendations'
 
 const route = useRoute()
 const router = useRouter()
@@ -11,6 +12,11 @@ const id = computed(() => route.params.id as SiteId)
 const { getSite, getSiteSensors, getSiteAlerts, getSiteHealth, getSiteInfo } = useSites()
 
 const { data: reading, pending: readingPending, error: readingError } = useSiteCurrentReading(id)
+
+const { recommendations } = useSiteRecommendations(id)
+const popupFermée = ref(false)
+watch(id, () => { popupFermée.value = false })
+const popupOuverte = computed(() => recommendations.value.length > 0 && !popupFermée.value)
 
 const loadPercent = computed(() => {
   const kw = reading.value?.consumption_kw
@@ -452,5 +458,12 @@ const chartData = computed(() => {
       </EvCard>
 
     </template>
+
+    <EvAlertPopup
+      :open="popupOuverte"
+      :site-name="site?.site_name ?? String(id)"
+      :recommendations="recommendations"
+      @close="popupFermée = true"
+    />
   </div>
 </template>
