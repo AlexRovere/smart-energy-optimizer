@@ -347,8 +347,26 @@ Dans GitHub, le runner doit apparaître `Idle` avec les labels demandés par
 `.github/workflows/deploy.yml` :
 
 ```text
-self-hosted, Linux, X64
+self-hosted, Linux, X64, enervision
 ```
+
+Les trois premiers sont posés automatiquement, `enervision` est un label
+personnalisé à ajouter dans Settings, Actions, Runners. C'est lui qui garantit
+que le job atterrit sur cette machine et pas sur un autre runner auto-hébergé.
+Sans lui, le job reste en attente sans message.
+
+Pour l'exploitation courante, depuis `/home/apprenant/actions-runner` :
+
+```bash
+sudo ./svc.sh status
+sudo ./svc.sh stop
+sudo ./svc.sh start
+```
+
+Le service est un service systemd ordinaire, nommé
+`actions.runner.EADL-2026-enerVision.enervision-vm.service`. Ses journaux se
+lisent avec `journalctl -u <service> -n 50`, et ceux des jobs dans
+`/home/apprenant/actions-runner/_diag/`.
 
 Le fichier `.env` présent dans `actions-runner` appartient au fonctionnement
 interne du runner. Ce n'est pas un fichier de secrets EnerVision et il ne doit
