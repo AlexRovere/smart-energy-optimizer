@@ -1,0 +1,49 @@
+name: CD
+
+# La VM n'est pas joignable depuis un runner GitHub hébergé. Le déploiement
+# s'exécute donc sur le runner auto-hébergé installé sur la VM, après une CI
+# réussie sur main. workflow_dispatch conserve une sortie de secours manuelle.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Deux commits rapprochés attendent leur tour : interrompre un déploiement au
+# milieu des migrations laisserait un état plus difficile à diagnostiquer.
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Déployer sur la VM
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 45
+
+    steps:
+      - name: Récupérer main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Vérifier les outils de déploiement
+        run: |
+          ansible-playbook --version
+          docker compose version
+          sops --version
+          age --version
+
+      - name: Déployer avec Ansible
+        run: |
+          ansible-playbook \
+            -i 'enervision,' \
+            --connection local \
+            infra/ansible/playbook.yml

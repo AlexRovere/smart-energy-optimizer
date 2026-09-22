@@ -17,6 +17,7 @@ Monorepo. La structure du dépôt n'est pas l'architecture de déploiement : les
 | `infra/grafana/`      | Supervision : source de données et tableaux, provisionnés depuis le dépôt   | `domain:cloud`               |
 | `.github/workflows/` | Pipeline build, test, scan, deploy                                       | `domain:cicd`                |
 | `docs/`              | Livrables et documentation technique                                     | `domain:doc`                 |
+| `DEPLOIEMENT.md`     | Procédure pas à pas de préparation de la VM, Ansible et runner GitHub    | `domain:cloud`, `domain:cicd` |
 | `docker-compose.yml` | La pile complète, à la racine pour un `docker compose up` direct         | `domain:cloud`               |
 | `docker-compose.dev.yml` | Le seul PostgreSQL, pour la boucle de développement locale           | `domain:cloud`               |
 
@@ -53,6 +54,10 @@ La version longue des commandes est dans le [README du
 dashboard](./apps/dashboard/README.md).
 
 ### Déployer
+
+La procédure complète de la VM, depuis les répertoires et la clé age jusqu'au
+runner GitHub et à la CD automatique, est détaillée dans
+[`DEPLOIEMENT.md`](./DEPLOIEMENT.md).
 
 La pile complète, qui construit ses images. Les réglages ont leurs défauts dans
 la composition, les secrets n'en ont aucun : rien ne démarre sur un secret
