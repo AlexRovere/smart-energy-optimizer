@@ -12,6 +12,11 @@ CATEGORICAL_FEATURES = ["site_id", "site_type"]
 MLFLOW_EXPERIMENT = "enervision-training"
 MLFLOW_MODEL_NAME = "enervision-catboost"
 
+# End of the validation block, as a quantile of the available history. Exported because any
+# analysis measuring the model on unseen hours has to cut at the same place: a second literal
+# elsewhere would drift without failing.
+VALIDATION_QUANTILE = 0.85
+
 
 @dataclass(frozen=True)
 class TrainingResult:
@@ -30,7 +35,7 @@ def train_model(data_path: str | Path) -> TrainingResult:
     # The notebook uses the first 70% for training, the next 15% for
     # validation and the final 15% for testing. Once the choices are frozen,
     # its final model is fitted on train + validation, never on the test block.
-    validation_end = history["timestamp"].quantile(0.85)
+    validation_end = history["timestamp"].quantile(VALIDATION_QUANTILE)
     training_data = featured[featured["timestamp"] <= validation_end].dropna(
         subset=FEATURE_COLUMNS + [TARGET_COLUMN]
     )
