@@ -1,19 +1,13 @@
-# teste la transformation de l'historique des mesures : clone {colonne}_corrected, sans règle de
-# nettoyage pour l'instant
+# teste la transformation de l'historique des mesures : clone {colonne}_corrected, champs
+# calendaires — les lags et moyennes glissantes sont calculés par le service ML, pas ici
 import pandas as pd
 
 from transform.readings import (
     CORRECTABLE_COLUMNS,
-    LAG_HOURS,
-    ROLLING_WINDOWS_HOURS,
     add_calendar_features,
-    add_consumption_lags,
-    add_rolling_means,
     align_timestamps_to_the_hour,
     transform_readings,
 )
-
-ROLLING_COLUMNS = [f"rolling_mean_{hours}h" for hours in ROLLING_WINDOWS_HOURS]
 
 SAMPLE_ROW = {
     "site_id": "SITE001",
@@ -76,8 +70,8 @@ def test_transform_readings_shifts_timestamps_to_the_nearest_exact_hour():
 
 def test_transform_readings_deduplicates_rows_that_round_to_the_same_hour():
     # le contexte (deja sur disque, deja arrondi) et le nouveau point extrait (heure encore brute)
-    # peuvent finir sur la meme heure une fois arrondis : sans dedoublonnage, add_consumption_lags
-    # plante (index avec doublons) au lieu de garder la valeur la plus recente
+    # peuvent finir sur la meme heure une fois arrondis : sans dedoublonnage, la ligne la plus
+    # recente n'ecrase pas l'ancienne et le lot devient incoherent
     readings = pd.DataFrame(
         [
             {**SAMPLE_ROW, "timestamp": "2026-09-17T13:58:00Z", "consumption_kw": 10.0},
@@ -99,13 +93,7 @@ def test_transform_readings_clones_each_correctable_column():
 
     for column in CORRECTABLE_COLUMNS:
         assert result[f"{column}_corrected"].equals(result[column])
-    lag_columns = [f"consumption_lag_{hours}h" for hours in LAG_HOURS]
-    added_columns = (
-        [f"{column}_corrected" for column in CORRECTABLE_COLUMNS]
-        + lag_columns
-        + ROLLING_COLUMNS
-        + CALENDAR_COLUMNS
-    )
+    added_columns = [f"{column}_corrected" for column in CORRECTABLE_COLUMNS] + CALENDAR_COLUMNS
     expected = readings.copy()
     expected["timestamp"] = pd.to_datetime(expected["timestamp"], utc=True, format="ISO8601")
     pd.testing.assert_frame_equal(
@@ -209,79 +197,16 @@ def test_transform_readings_returns_empty_dataframe_when_no_reading():
     assert result.empty
 
 
-def test_add_consumption_lags_looks_up_value_at_each_horizon_per_site():
-    times = pd.date_range("2026-09-15T00:00:00Z", periods=7, freq="30min")
-    readings = pd.DataFrame(
-        {
-            "site_id": ["SITE001"] * 7,
-            "timestamp": times,
-            "consumption_kwh_corrected": [10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0],
-        }
-    )
 
-    result = add_consumption_lags(readings)
+def test_transform_readings_does_not_produce_lag_or_rolling_columns():
+    readings = pd.DataFrame([SAMPLE_ROW])
 
-    # a t=120min (index 4), lag_1h retrouve la valeur a t=60min (index 2) = 12.0
-    assert result.loc[4, "consumption_lag_1h"] == 12.0
-    # a t=180min (index 6), lag_2h retrouve la valeur a t=60min (index 2) = 12.0
-    assert result.loc[6, "consumption_lag_2h"] == 12.0
-    # a t=0min (index 0), aucun historique disponible
-    assert pd.isna(result.loc[0, "consumption_lag_1h"])
-    assert pd.isna(result.loc[0, "consumption_lag_24h"])
+    result = transform_readings(readings)
 
-
-def test_add_consumption_lags_does_not_leak_across_sites():
-    times = pd.date_range("2026-09-15T00:00:00Z", periods=3, freq="1h")
-    readings = pd.DataFrame(
-        {
-            "site_id": ["SITE001", "SITE001", "SITE002"],
-            "timestamp": [times[0], times[2], times[2]],
-            "consumption_kwh_corrected": [100.0, 200.0, 999.0],
-        }
-    )
-
-    result = add_consumption_lags(readings)
-
-    site1_last = result[(result["site_id"] == "SITE001") & (result["timestamp"] == times[2])]
-    assert site1_last["consumption_lag_2h"].iloc[0] == 100.0
-    site2_last = result[(result["site_id"] == "SITE002") & (result["timestamp"] == times[2])]
-    assert pd.isna(site2_last["consumption_lag_2h"].iloc[0])
-
-
-def test_add_rolling_means_computes_trailing_time_based_average_per_site():
-    times = pd.date_range("2026-09-15T00:00:00Z", periods=5, freq="12h")
-    readings = pd.DataFrame(
-        {
-            "site_id": ["SITE001"] * 5,
-            "timestamp": times,
-            "consumption_kwh_corrected": [10.0, 20.0, 30.0, 40.0, 50.0],
-        }
-    )
-
-    result = add_rolling_means(readings)
-
-    # a t=0h (index 0), aucune donnee anterieure : la fenetre ne contient que le point lui-meme
-    assert result.loc[0, "rolling_mean_24h"] == 10.0
-    # a t=36h (index 3), la fenetre 24h couvre t=24h (30.0) et t=36h (40.0)
-    assert result.loc[3, "rolling_mean_24h"] == 35.0
-    # a t=48h (index 4), la fenetre 168h couvre toute la serie disponible (48h de donnees)
-    assert result.loc[4, "rolling_mean_168h"] == 30.0
-
-
-def test_add_rolling_means_does_not_leak_across_sites():
-    times = pd.date_range("2026-09-15T00:00:00Z", periods=2, freq="1h")
-    readings = pd.DataFrame(
-        {
-            "site_id": ["SITE001", "SITE002"],
-            "timestamp": [times[0], times[1]],
-            "consumption_kwh_corrected": [10.0, 990.0],
-        }
-    )
-
-    result = add_rolling_means(readings)
-
-    site2_row = result[result["site_id"] == "SITE002"]
-    assert site2_row["rolling_mean_24h"].iloc[0] == 990.0
+    lag_columns = [f"consumption_lag_{h}h" for h in [1, 2, 24, 48, 168]]
+    rolling_columns = [f"rolling_mean_{h}h" for h in [24, 168]]
+    for column in lag_columns + rolling_columns:
+        assert column not in result.columns
 
 
 def test_add_calendar_features_derives_hour_day_month_weekend_and_working_hours():

@@ -21,11 +21,10 @@ from load.handler import (
 from progress import ProgressReporter
 from run_log import RunLogger
 from transform.handler import dedupe_sites, transform_sites
-from transform.readings import LAG_HOURS, ROLLING_WINDOWS_HOURS, transform_readings
+from transform.readings import transform_readings
 
-# nombre de jours de contexte a relire avant le premier jour reellement extrait, pour que
-# les lags/moyennes glissantes (jusqu'a 168h) se calculent juste meme sur un run incremental
-CONTEXT_DAYS = math.ceil(max(LAG_HOURS + ROLLING_WINDOWS_HOURS) / 24)
+# contexte minimal pour que le forward-fill inter-journalier reste correct sur un run incremental
+CONTEXT_DAYS = 1
 
 
 def run_sites(sync_db: bool = False) -> dict[str, object]:

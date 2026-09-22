@@ -1,5 +1,6 @@
 # point d'entrée Transform pour l'historique des mesures : alignement horaire, clone
-# {colonne}_corrected, règles de nettoyage à venir
+# {colonne}_corrected, champs calendaires — les lags et moyennes glissantes sont des
+# constructions ML calculées par le service ML, pas par l'ETL
 from __future__ import annotations
 
 import pandas as pd
@@ -36,42 +37,6 @@ def forward_fill_corrected(readings: pd.DataFrame) -> pd.DataFrame:
     return readings
 
 
-LAG_HOURS = [1, 2, 24, 48, 168]
-LAG_MATCH_TOLERANCE = pd.Timedelta(seconds=60)
-
-
-def add_consumption_lags(readings: pd.DataFrame) -> pd.DataFrame:
-    readings = readings.copy()
-    for hours in LAG_HOURS:
-        readings[f"consumption_lag_{hours}h"] = pd.Series(index=readings.index, dtype="float64")
-
-    for _, group in readings.groupby("site_id"):
-        history = group.set_index("timestamp")["consumption_kwh_corrected"].sort_index()
-        for hours in LAG_HOURS:
-            lookup_times = pd.DatetimeIndex(group["timestamp"] - pd.Timedelta(hours=hours))
-            lagged = history.reindex(lookup_times, method="nearest", tolerance=LAG_MATCH_TOLERANCE)
-            readings.loc[group.index, f"consumption_lag_{hours}h"] = lagged.to_numpy()
-
-    return readings
-
-
-ROLLING_WINDOWS_HOURS = [24, 168]
-
-
-def add_rolling_means(readings: pd.DataFrame) -> pd.DataFrame:
-    readings = readings.copy()
-    for hours in ROLLING_WINDOWS_HOURS:
-        readings[f"rolling_mean_{hours}h"] = pd.Series(index=readings.index, dtype="float64")
-
-    for _, group in readings.groupby("site_id"):
-        ordered = group.sort_values("timestamp")
-        series = ordered.set_index("timestamp")["consumption_kwh_corrected"]
-        for hours in ROLLING_WINDOWS_HOURS:
-            rolled = series.rolling(f"{hours}h").mean()
-            readings.loc[ordered.index, f"rolling_mean_{hours}h"] = rolled.to_numpy()
-
-    return readings
-
 
 def add_calendar_features(readings: pd.DataFrame) -> pd.DataFrame:
     readings = readings.copy()
@@ -92,7 +57,5 @@ def transform_readings(readings: pd.DataFrame) -> pd.DataFrame:
 
     readings = align_timestamps_to_the_hour(readings)
     readings = forward_fill_corrected(readings)
-    readings = add_consumption_lags(readings)
-    readings = add_rolling_means(readings)
     readings = add_calendar_features(readings)
     return readings
