@@ -1,8 +1,9 @@
-import { createError } from 'h3'
+import { createError, defineEventHandler, getRouterParam } from 'h3'
 import { z } from 'zod'
 import { energyReadingSchema } from '../../../../shared/energyReadingSchema'
 import { requireAccount } from '../../../utils/guard'
 import { fetchMockApi } from '../../../utils/mockApiClient'
+import { logger } from '../../../utils/logger'
 
 const siteIdSchema = z.string().regex(/^SITE\d{3}$/)
 
@@ -30,6 +31,11 @@ export default defineEventHandler(async (event) => {
     if (err instanceof z.ZodError) {
       throw createError({ status: 422, statusText: 'Réponse source invalide', cause: err })
     }
-    throw err
+    logger.error('Lecture courante indisponible', {
+      route: event.path,
+      siteId: parsed.data,
+      message: err instanceof Error ? err.message : String(err),
+    })
+    throw createError({ status: 503, statusText: 'Lecture courante indisponible' })
   }
 })
