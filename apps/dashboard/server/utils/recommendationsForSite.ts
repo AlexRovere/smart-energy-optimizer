@@ -7,7 +7,7 @@ import { buildRecommendation } from './recommendationFromAlert'
 import type { AppDatabase } from './session'
 import type { Recommendation } from '../../shared/recommendationSchema'
 
-const HORIZON_PRÉVISION_HEURES = 24
+const HORIZON_PRÉVISION_HEURES = 168
 
 export async function recommendationsForSite(
   db: AppDatabase,

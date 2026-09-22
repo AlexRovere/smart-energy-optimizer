@@ -105,4 +105,11 @@ describe('recommendationsForSite', () => {
 
     expect(résultat.map(r => r.type).sort()).toEqual(['efficiency', 'load_balancing'])
   })
+
+  it('interroge les prédictions sur l\'horizon complet de 168h', async () => {
+    await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
+
+    expect(mockConsoPredictions).toHaveBeenCalledWith(DB, 'SITE001', RÉFÉRENCE, 168)
+    expect(mockSpikePredictions).toHaveBeenCalledWith(DB, 'SITE001', RÉFÉRENCE, 168)
+  })
 })

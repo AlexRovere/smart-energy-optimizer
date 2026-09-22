@@ -169,15 +169,6 @@ export type {
 } from '../../shared/recommendationSchema'
 
 export type UserRole = 'admin' | 'operator' | 'viewer'
-export type ThresholdState = 'enregistré' | 'modifié'
-
-export interface SiteThresholdEntry {
-  site_id: SiteId
-  site_name: string
-  capacity_kw: number
-  threshold_kw: number
-  state: ThresholdState
-}
 
 export interface NotificationPreferences {
   critical_alerts: boolean
