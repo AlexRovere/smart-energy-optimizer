@@ -23,6 +23,45 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # Outils d'administration ponctuels. Ils utilisent l'étape de construction
+  # du dashboard, qui contient les sources, Drizzle et pnpm, mais ne démarrent
+  # jamais avec la pile normale grâce au profil `admin`.
+  migrate:
+    image: enervision-dashboard-tools
+    build:
+      context: ./apps/dashboard
+      target: build
+    profiles: ["admin"]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-enervision}
+      POSTGRES_USER: ${POSTGRES_USER:-enervision}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?renseigner POSTGRES_PASSWORD via sops}
+    command: ["pnpm", "db:migrate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  seed:
+    image: enervision-dashboard-tools
+    build:
+      context: ./apps/dashboard
+      target: build
+    profiles: ["admin"]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-enervision}
+      POSTGRES_USER: ${POSTGRES_USER:-enervision}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?renseigner POSTGRES_PASSWORD via sops}
+      SEED_PASSWORD: ${SEED_PASSWORD:?renseigner SEED_PASSWORD via sops}
+      ETL_DB_PASSWORD: ${ETL_DB_PASSWORD:?renseigner ETL_DB_PASSWORD via sops}
+    command: ["pnpm", "db:seed"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   # Prometheus sert aussi à la dérive du modèle (C24), donc il reste prévu.
   # Commenté plutôt que retiré : le temps de l'activer sur le serveur n'est
   # pas garanti d'ici la fin du POC, et ce n'est pas la priorité. À

@@ -58,7 +58,11 @@ ne démarre sur une valeur oubliée, c'est voulu.
 
 ```bash
 cp .env.example .env      # renseigner les valeurs
-docker compose up -d      # la pile complète
+docker compose build etl ml dashboard migrate
+docker compose up -d --wait postgres
+docker compose run --rm migrate
+docker compose run --rm seed
+docker compose up -d --wait
 docker compose ps
 ```
 
@@ -67,12 +71,18 @@ docker compose ps
 
 ```bash
 cp .env.example .env      # ne renseigner que les RÉGLAGES
-sops exec-env secrets.enc.yaml 'docker compose up -d'
+sops exec-env secrets.enc.yaml 'docker compose build etl ml dashboard migrate'
+sops exec-env secrets.enc.yaml 'docker compose up -d --wait postgres'
+sops exec-env secrets.enc.yaml 'docker compose run --rm migrate'
+sops exec-env secrets.enc.yaml 'docker compose run --rm seed'
+sops exec-env secrets.enc.yaml 'docker compose up -d --wait'
 ```
 
 L'environnement prime sur le `.env`, donc les valeurs déchiffrées l'emportent
-sur ce que le fichier contiendrait. C'est aussi, mot pour mot, la commande du
-déploiement. Elle demande d'être destinataire des secrets :
+sur ce que le fichier contiendrait. Sur la VM, le playbook
+[`infra/ansible/playbook.yml`](./infra/ansible/playbook.yml) construit les
+images, applique les migrations puis démarre la pile avec ce même mécanisme. Il
+demande que la machine soit destinataire des secrets :
 [`docs/secrets.md`](./docs/secrets.md).
 
 Cette pile et celle de développement cohabitent sans se gêner : ni le même port,

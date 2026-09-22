@@ -222,3 +222,5 @@ __marimo__/
 /datas/
 /artifacts/
 catboost_info/
+mlruns/
+mlflow.db
