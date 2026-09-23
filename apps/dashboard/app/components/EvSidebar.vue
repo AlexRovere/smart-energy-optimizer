@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui'
 
 const { sites } = useSites()
