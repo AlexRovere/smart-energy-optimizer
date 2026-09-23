@@ -1,6 +1,7 @@
 # teste la comparaison seuils/mesures : le CSV Locust en entrée, les dépassements en sortie
 from pathlib import Path
 
+import pytest
 from check_thresholds import find_violations, read_p95
 
 STATS_HEADER = (
@@ -65,3 +66,14 @@ def test_find_violations_ignores_measures_without_a_configured_threshold():
     thresholds = {"predictions_1h": 500.0}
 
     assert find_violations(measured, thresholds) == []
+
+
+def test_main_refuses_a_csv_outside_the_repository(tmp_path, monkeypatch):
+    import check_thresholds
+
+    monkeypatch.setattr("sys.argv", ["check_thresholds.py", str(tmp_path / "stats.csv")])
+
+    with pytest.raises(SystemExit) as exit_info:
+        check_thresholds.main()
+
+    assert exit_info.value.code == 2

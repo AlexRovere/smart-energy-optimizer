@@ -22,7 +22,10 @@ def _prune_old_calls(now: float) -> None:
         _recent_calls.pop(0)
 
 
-@app.get("/api/v1/sites/{site_id}/current")
+@app.get(
+    "/api/v1/sites/{site_id}/current",
+    responses={429: {"description": "Quota horaire dépassé"}},
+)
 def get_current(site_id: str) -> dict[str, object]:
     now = time.monotonic()
     _prune_old_calls(now)

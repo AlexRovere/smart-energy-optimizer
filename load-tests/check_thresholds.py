@@ -5,6 +5,7 @@ import csv
 import sys
 from pathlib import Path
 
+from path_guard import resolve_within
 from thresholds import THRESHOLDS_MS
 
 AGGREGATED_ROW_NAME = "Aggregated"
@@ -35,7 +36,13 @@ def main() -> None:
         print("usage: python check_thresholds.py <préfixe>_stats.csv", file=sys.stderr)
         sys.exit(2)
 
-    measured = read_p95(Path(sys.argv[1]))
+    try:
+        csv_path = resolve_within(sys.argv[1])
+    except ValueError as error:
+        print(error, file=sys.stderr)
+        sys.exit(2)
+
+    measured = read_p95(csv_path)
     violations = find_violations(measured, THRESHOLDS_MS)
 
     for name, value_ms, threshold_ms in violations:

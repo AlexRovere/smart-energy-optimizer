@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 
 from locust import HttpUser, between, task
 
+PREDICTIONS_PATH = "/predictions"
 SITE_IDS = ["SITE001", "SITE002", "SITE003"]
 FIRST_PREDICTABLE_DATETIME = datetime(2025, 12, 31, 0, 0)
 
@@ -30,17 +31,17 @@ class PredictionsUser(HttpUser):
     @task(3)
     def predictions_1h(self) -> None:
         self.client.post(
-            "/predictions", json=_payload(1), name="predictions_1h"
+            PREDICTIONS_PATH, json=_payload(1), name="predictions_1h"
         )
 
     @task(2)
     def predictions_24h(self) -> None:
         self.client.post(
-            "/predictions", json=_payload(24), name="predictions_24h"
+            PREDICTIONS_PATH, json=_payload(24), name="predictions_24h"
         )
 
     @task(1)
     def predictions_168h(self) -> None:
         self.client.post(
-            "/predictions", json=_payload(168), name="predictions_168h"
+            PREDICTIONS_PATH, json=_payload(168), name="predictions_168h"
         )

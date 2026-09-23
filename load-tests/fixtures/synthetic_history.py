@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 import pandas as pd
+from path_guard import resolve_within
 
 DEFAULT_SITE_IDS = ["SITE001", "SITE002", "SITE003"]
 
@@ -52,13 +54,19 @@ def write_history(output_dir: Path, site_ids: list[str], years: int) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("output_dir", type=Path)
+    parser.add_argument("output_dir")
     parser.add_argument("--sites", type=int, default=len(DEFAULT_SITE_IDS))
     parser.add_argument("--years", type=int, default=2)
     args = parser.parse_args()
 
-    args.output_dir.mkdir(parents=True, exist_ok=True)
-    write_history(args.output_dir, DEFAULT_SITE_IDS[: args.sites], args.years)
+    try:
+        output_dir = resolve_within(args.output_dir)
+    except ValueError as error:
+        print(error, file=sys.stderr)
+        sys.exit(2)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    write_history(output_dir, DEFAULT_SITE_IDS[: args.sites], args.years)
 
 
 if __name__ == "__main__":

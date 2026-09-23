@@ -21,7 +21,7 @@ Mesures de charge et de performance pour le service ML (`/predictions` par horiz
 uv sync
 
 # Historique synthétique
-uv run python fixtures/synthetic_history.py ../data/loadtest-parquet
+uv run python -m fixtures.synthetic_history ../data/loadtest-parquet
 
 # Service ML (dans un autre terminal, apps/ml)
 cd ../apps/ml
