@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cron : comble les trous de l'historique Parquet sur les 2 dernières années ; main.py periods saute déjà les jours présents, site par site.
+# Ce script peut être utilisé pour surcharger l'appel à la commande "periods" avec les dates préconfigurées, pour combler les trous parquet sur derniers 2 ans
 set -euo pipefail
 
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
