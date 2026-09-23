@@ -13,12 +13,36 @@ export interface PredictionResponseItem {
   consumption_kwh: number
 }
 
+export interface ModelInfo {
+  name: string
+  version: string
+  alias: string
+}
+
+export async function fetchModelInfo(baseURL?: string): Promise<ModelInfo> {
+  const url = baseURL ?? (useRuntimeConfig().mlServiceUrl as string | undefined)
+  if (!url) throw new Error('NUXT_ML_SERVICE_URL n\'est pas configuré')
+  return $fetch('/model', { method: 'GET', baseURL: url })
+}
+
+export interface TrainingResponse {
+  status: string
+}
+
+export async function triggerTraining(baseURL?: string): Promise<TrainingResponse> {
+  const url = baseURL ?? (useRuntimeConfig().mlServiceUrl as string | undefined)
+  if (!url) throw new Error('NUXT_ML_SERVICE_URL n\'est pas configuré')
+  return $fetch('/training', { method: 'POST', baseURL: url })
+}
+
 export async function fetchPredictions(
   requests: PredictionRequestItem[],
-  baseUrl: string = useRuntimeConfig().mlServiceUrl as string
+  baseURL?: string
 ): Promise<PredictionResponseItem[]> {
+  const url = baseURL ?? (useRuntimeConfig().mlServiceUrl as string | undefined)
+  if (!url) throw new Error('NUXT_ML_SERVICE_URL n\'est pas configuré')
   return $fetch<PredictionResponseItem[]>('/predictions', {
-    baseURL: baseUrl,
+    baseURL: url,
     method: 'POST',
     body: requests
   })

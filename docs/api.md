@@ -51,7 +51,7 @@ La colonne « Rôle » décrit le mécanisme complet. **Un seul rôle est exploi
 | GET | `/api/stats/summary` | | `ParkSummary` | 401, 503 | tous |
 | GET | `/api/alerts` | `?site_id=&severity=` | `Alert[]` | 401, 422, 503 | tous |
 | GET | `/api/sensors/status` | | `SensorStatus` | 401, 503 | tous |
-| POST | `/api/sites/{id}/prediction` | `{ horizon_hours }`, 1 à 168, défaut 24 | `Prediction` | 401, 403, 422 | tous |
+| POST | `/api/sites/{id}/prediction` | `{ horizon_hours }`, 1 à 48, défaut 24 | `Prediction` | 401, 403, 422, 503 | tous |
 | GET | `/api/sites/{id}/recommendations` | | `Recommendation[]` | 401, 422, 503 | tous |
 | GET | `/api/alert-thresholds` | | `AlertThreshold[]` | 401, 503 | tous |
 | PUT | `/api/sites/{id}/alert-thresholds/{type}` | `{ duration, threshold }` | `AlertThreshold` | 401, 403, 422 | `ADMIN`, `OPERATOR` |
@@ -104,10 +104,13 @@ Réseau interne, pas d'authentification, non exposé par le proxy. Base : `ML_AP
 
 | Méthode | Route | Entrée | Sortie |
 | :--- | :--- | :--- | :--- |
-| POST | `/predictions` | `{ site_id, horizon_hours }`, 1 à 168, défaut 24 | `Prediction` |
-| GET | `/health` | | `{ status, model_version }` |
+| POST | `/predictions` | `[{ site_id, date, hour }]` | `[{ site_id, timestamp, consumption_kwh }]` |
+| GET | `/health` | | `{ status }` |
+| GET | `/model` | | `{ name, version, alias }` |
 
-**Au-delà de 168 heures (7 jours), `422`.** La prédiction est autorégressive : le modèle prévoit une heure puis réinjecte sa propre valeur, donc le coût croît avec la distance et les biais s'accumulent. Cet horizon a été vérifié en conditions réelles ; refuser au-delà vaut mieux que rendre une valeur à laquelle personne ne devrait croire.
+Le contrat réel du service ML est décrit dans `apps/ml/src/api/schemas.py` : l'appel attend un tableau d'items horaires, un par heure de l'horizon. La couche Nuxt construit ce tableau depuis `horizon_hours` via `hoursInHorizon` et le `mlClient`. Le champ `version` de `GET /model` est l'identifiant du registre MLflow, exposé dans la réponse `Prediction` sous `model_version`.
+
+**L'horizon est limité à 48 heures par la couche Nuxt** (décision du daily du 16 septembre 2026 — au-delà, la prévision n'est plus actionnable et les biais s'accumulent). Le service ML lui-même peut techniquement aller plus loin ; c'est le handler `/api/sites/{id}/prediction` qui impose le `422` au-delà de 48.
 
 Le service ML n'a **aucune notion d'utilisateur** : l'autorisation est résolue avant l'appel.
 

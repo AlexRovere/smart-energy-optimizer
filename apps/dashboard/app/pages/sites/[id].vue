@@ -3,6 +3,7 @@ import { useSiteCurrentReading } from '~/composables/useSiteCurrentReading';
 import type { SiteId } from '~/types/api'
 import { useSiteHistory } from '~/composables/useSiteHistory'
 import { useSiteRecommendations } from '~/composables/useSiteRecommendations'
+import { useSitePrediction } from '~/composables/useSitePrediction'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,7 +14,7 @@ const { getSite, getSiteSensors, getSiteAlerts, getSiteHealth, getSiteInfo } = u
 
 const { data: reading, pending: readingPending, error: readingError } = useSiteCurrentReading(id)
 
-const { recommendations } = useSiteRecommendations(id)
+const { recommendations, pending } = useSiteRecommendations(id)
 const popupFermée = ref(false)
 watch(id, () => { popupFermée.value = false })
 const popupOuverte = computed(() => recommendations.value.length > 0 && !popupFermée.value)
@@ -34,6 +35,8 @@ const health = computed(() => getSiteHealth(id.value))
 
 const chartWindow = ref<'24h' | '7j'>('24h')
 const { readings } = useSiteHistory(id, chartWindow)
+const horizonHeures = ref(24)
+const { forecastPoints, modelVersion, confidenceLevel, available: predictionDisponible } = useSitePrediction(id, computed(() => horizonHeures.value))
 
 // ── Formatters ──────────────────────────────────────────────────────
 
@@ -205,7 +208,6 @@ const chartData = computed(() => {
         <!-- Actions -->
         <div class="flex gap-3 shrink-0 mt-1">
           <EvButton variant="secondary">Configurer les seuils</EvButton>
-          <EvButton variant="primary" @click="router.push('/predictions')">Voir la prédiction</EvButton>
         </div>
       </header>
 
@@ -360,6 +362,50 @@ const chartData = computed(() => {
         </div>
       </EvCard>
 
+      <!-- Prévision de consommation -->
+      <EvCard>
+        <template #title>
+          <div class="flex items-center justify-between w-full">
+            <div>
+              <span class="font-ev text-base font-semibold">Prévision de consommation</span>
+              <div v-if="modelVersion" class="font-ev-mono text-[11px] text-ev-text-3 mt-0.5">
+                model_version · {{ modelVersion }}
+              </div>
+            </div>
+            <div class="flex gap-1">
+              <UButton
+                v-for="h in [24, 48]"
+                :key="h"
+                size="xs"
+                :variant="horizonHeures === h ? 'solid' : 'ghost'"
+                color="primary"
+                @click="horizonHeures = h"
+              >{{ h }}h</UButton>
+            </div>
+          </div>
+        </template>
+
+        <div
+          v-if="!predictionDisponible"
+          class="flex items-center gap-2.5 px-4 py-3 rounded-ev-md border text-sm font-ev"
+          style="border-color: var(--ev-amber-bd); background: var(--ev-amber-bg); color: var(--ev-amber)"
+        >
+          Service de prédiction indisponible — la prévision n'est pas affichée.
+        </div>
+
+        <EvPredictionChart
+          v-else-if="readings.length && forecastPoints.length"
+          :historical-points="readings"
+          :forecast-points="forecastPoints"
+          :threshold="info?.threshold_kw ?? 0"
+          :confidence-level="confidenceLevel"
+        />
+
+        <div v-else class="py-10 text-center font-ev text-sm text-ev-text-3">
+          Aucune donnée de prévision disponible
+        </div>
+      </EvCard>
+
       <!-- Bas de page : 2 colonnes -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-(--ev-gap-card)">
 
@@ -454,6 +500,45 @@ const chartData = computed(() => {
         </template>
         <div class="flex flex-col gap-3">
           <EvAlertCard v-for="a in alerts" :key="a.alert_id" :alert="a" />
+        </div>
+      </EvCard>
+
+      <!-- Recommandations -->
+      <EvCard>
+        <template #title>
+          <span class="font-ev text-base font-semibold">Recommandations</span>
+          <span class="font-ev-mono text-[11px] text-ev-text-3 ml-2">
+            GET /api/sites/{{ id }}/recommendations
+          </span>
+        </template>
+
+        <div v-if="pending" class="py-6 text-center font-ev text-sm text-ev-text-3">
+          Chargement des recommandations…
+        </div>
+
+        <div v-else-if="recommendations.length === 0" class="py-6 flex flex-col items-center gap-2 text-center">
+          <span class="font-ev text-sm font-semibold text-ev-text-3">Aucune recommandation active</span>
+          <span class="font-ev text-xs text-ev-text-4">Aucune anomalie de consommation ni pic prévu sur ce site.</span>
+        </div>
+
+        <div v-else class="flex flex-col divide-y" style="border-color: var(--ev-border)">
+          <div
+            v-for="rec in recommendations"
+            :key="rec.recommendation_id"
+            class="flex items-start gap-4 py-4"
+          >
+            <div class="pt-0.5 shrink-0">
+              <EvSeverityTag :severity="rec.priority" />
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="font-ev text-sm font-semibold text-ev-text">{{ rec.title }}</p>
+              <p class="font-ev text-xs text-ev-text-3 mt-0.5">{{ rec.description }}</p>
+              <p class="font-ev-mono text-[11px] text-ev-text-4 mt-1.5">
+                {{ rec.trigger.value_kw }} kW / seuil {{ rec.trigger.threshold_kw }} kW
+                · {{ rec.source === 'forecast' ? 'prévision' : 'seuil dépassé' }}
+              </p>
+            </div>
+          </div>
         </div>
       </EvCard>
 

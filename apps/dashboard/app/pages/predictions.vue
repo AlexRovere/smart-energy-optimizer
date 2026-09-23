@@ -92,7 +92,7 @@ function appliedGainTotal() {
         :historical-points="historicalPoints"
         :forecast-points="prediction.predictions"
         :threshold="thresholdKw"
-        :confidence-level="prediction.confidence_level"
+        :confidence-level="prediction.confidence_level ?? 0"
       />
     </EvCard>
 
