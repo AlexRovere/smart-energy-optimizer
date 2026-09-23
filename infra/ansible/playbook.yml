@@ -6,6 +6,7 @@
     SOPS_AGE_KEY_FILE: "{{ age_key_file }}"
     # Chemin des mesures sur la machine : la composition n'a qu'un défaut de poste.
     PARQUET_DIR_HOST: "{{ parquet_dir }}"
+    ETL_METRICS_DIR_HOST: "{{ metrics_dir }}"
 
   pre_tasks:
     - name: Vérifier Docker
@@ -97,6 +98,23 @@
           mode: "0755"
         - path: "{{ log_dir }}"
           mode: "0750"
+        - path: "{{ metrics_dir }}"
+          mode: "0755"
+
+    # L'ETL écrit en 1000 : une entrée posée par root le ferait échouer à chaque passage.
+    - name: Chercher les mesures qui n'appartiennent pas à l'ETL
+      ansible.builtin.command:
+        argv: [find, "{{ parquet_dir }}", "!", -uid, "1000", -print, -quit]
+      register: foreign_parquet
+      changed_when: false
+
+    - name: Refuser des mesures que l'ETL ne peut pas écrire
+      ansible.builtin.assert:
+        that:
+          - foreign_parquet.stdout | length == 0
+        fail_msg: >-
+          {{ foreign_parquet.stdout }} n'appartient pas à 1000. En root :
+          chown -R 1000:1000 {{ parquet_dir }}
 
     - name: Récupérer la version attendue du dépôt
       ansible.builtin.git:
@@ -119,6 +137,7 @@
         content: |
           # Écrit par infra/ansible/playbook.yml, ne pas modifier à la main.
           PARQUET_DIR_HOST={{ parquet_dir }}
+          ETL_METRICS_DIR_HOST={{ metrics_dir }}
           DOMAIN={{ resolved_domain }}
           # Caddy est le seul chemin vers le dashboard, aucun port ne lui est
           # publié à côté : X-Forwarded-For ne peut venir que du proxy.
@@ -211,6 +230,17 @@
       args:
         chdir: "{{ project_dir }}"
       changed_when: false
+
+    # `up -d` exclut le profil `cron` de l'ETL. Le nom évite les doublons.
+    - name: Planifier le passage horaire de l'ETL
+      ansible.builtin.cron:
+        name: "EnerVision : passage horaire de l'ETL"
+        minute: "5"
+        job: >-
+          ETL_METRICS_DIR={{ metrics_dir }}
+          {{ project_dir }}/etl_cron.sh
+          >> {{ log_dir }}/etl.jsonl
+          2>> {{ log_dir }}/etl.err
 
     - name: Afficher l'état de la pile
       ansible.builtin.command:

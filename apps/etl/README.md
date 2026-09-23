@@ -59,11 +59,7 @@ génèrent `apercu_sites_001_003.html`, `profils_consommation.html` et
 
 ## Journal d'exécution
 
-Chaque exécution émet **une ligne JSON par phase sur la sortie standard**, `--verbose` ou pas. L'ETL n'écrit aucun fichier de journal : la redirection et la rotation appartiennent à la ligne de cron du playbook (#47).
-
-```bash
-python main.py hour > /var/log/enervision/etl.jsonl
-```
+Chaque exécution émet **une ligne JSON par phase sur la sortie standard**, `--verbose` ou pas. L'ETL n'écrit aucun fichier de journal : sur la machine, la crontab redirige stdout vers `/var/log/enervision/etl.jsonl` et stderr vers `etl.err` ([`DEPLOIEMENT.md`](../../DEPLOIEMENT.md#passage-horaire-de-letl)).
 
 ```json
 {"run": "2026-09-18T13:38:51Z", "command": "periods", "phase": "extract", "status": "ok", "ts": "2026-09-18T13:38:56Z", "duration_s": 5.046, "rows": 336, "rows_by_site": {"SITE001": 48}, "period": ["2026-09-14T00:00:00Z", "2026-09-15T23:00:00Z"], "period_requested": ["2026-09-14T00:00:00Z", "2026-09-16T00:00:00Z"]}
