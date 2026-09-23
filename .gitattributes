@@ -1,2 +1,5 @@
 # Un hook en CRLF (checkout Windows avec autocrlf actif) ne s'exécute pas : on force LF.
 .githooks/* text eol=lf
+
+# Même piège pour les scripts joués sur la VM Linux (shebang, interpréteur) : LF forcé.
+*.sh text eol=lf

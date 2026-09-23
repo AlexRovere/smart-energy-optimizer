@@ -30,12 +30,16 @@ FROM node:22-bookworm-slim AS runtime
 # Le npm de l'image de base embarque en revanche sa propre copie de node-tar,
 # porteuse d'une CVE critique (CVE-2026-59873, PR #138). Les retirer supprime
 # la faille à la racine au lieu de la contourner, et réduit la surface d'une
-# image de production qui n'a aucune raison d'installer des paquets.
+# image de production qui n'a aucune raison d'installer des paquets. Yarn,
+# fourni aussi par l'image de base, part pour la même raison (#225).
 RUN rm -rf /usr/local/lib/node_modules/npm \
            /usr/local/lib/node_modules/corepack \
            /usr/local/bin/npm \
            /usr/local/bin/npx \
-           /usr/local/bin/corepack
+           /usr/local/bin/corepack \
+           /usr/local/bin/yarn \
+           /usr/local/bin/yarnpkg \
+           /opt/yarn-v*
 
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \

@@ -5,3 +5,7 @@ node_modules
 .env
 .env.*
 *.log
+
+# Tests et rapports : inutiles à la construction, absents de l'image finale.
+tests
+coverage
