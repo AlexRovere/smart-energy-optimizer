@@ -103,7 +103,14 @@ def get_model_info() -> dict[str, object]:
         version = client.get_model_version_by_alias(MLFLOW_MODEL_NAME, "champion")
     except mlflow.exceptions.MlflowException as error:
         raise HTTPException(status_code=503, detail=MODEL_UNAVAILABLE_DETAIL) from error
-    return {"name": MLFLOW_MODEL_NAME, "version": int(version.version), "alias": "champion"}
+    run = client.get_run(version.run_id)
+    return {
+        "name": MLFLOW_MODEL_NAME,
+        "version": int(version.version),
+        "alias": "champion",
+        "creation_timestamp": run.info.start_time,
+        "metriques": run.data.metrics,
+    }
 
 
 @app.get("/metrics", responses=SERVICE_UNAVAILABLE_RESPONSE)

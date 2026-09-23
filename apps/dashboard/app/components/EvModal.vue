@@ -24,7 +24,7 @@ watch(() => props.open, async (open) => {
     ref="dialog"
     class="fixed bg-ev-surface-2 border border-ev-border rounded-ev-md p-6 w-full max-w-md text-ev-text"
     @click.self="emit('close')"
-    @cancel.prevent="emit('close')"
+    @keydown.esc.stop.prevent="emit('close')"
   >
     <div class="flex flex-col gap-4">
       <slot />
