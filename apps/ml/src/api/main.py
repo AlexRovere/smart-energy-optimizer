@@ -1,10 +1,13 @@
 import os
+import time
 from functools import lru_cache
 from typing import Annotated
 
 import mlflow
 from catboost import CatBoostRegressor
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Response
+from monitoring import REPLAY_HISTORY_HOURS, compute_relative_mae_by_site
+from prometheus_client import CONTENT_TYPE_LATEST, Gauge, generate_latest
 from pydantic import Field
 
 from api.schemas import PredictionRequest, PredictionResponse, TrainingResponse
@@ -47,6 +50,30 @@ def get_site_schedules() -> SiteSchedules:
     return load_site_schedules(get_site_config_path())
 
 
+# Évite de rejouer ~4700 prédictions par site à chaque scrape (1 min).
+FORECAST_ERROR_CACHE_SECONDS = 600
+
+forecast_relative_mae_gauge = Gauge(
+    "ml_forecast_relative_mae_percent",
+    "Erreur de prévision moyenne relative (MAE / consommation moyenne), "
+    "rejouée sur les 7 derniers jours",
+    ["site_id"],
+)
+
+
+@lru_cache(maxsize=1)
+def _cached_relative_mae_by_site(cache_key: int) -> dict[str, float]:
+    schedules = get_site_schedules()
+    model = get_prediction_model()
+    history = read_recent_history(get_data_path(), list(schedules), hours=REPLAY_HISTORY_HOURS)
+    return compute_relative_mae_by_site(history, model, schedules)
+
+
+def get_relative_mae_by_site() -> dict[str, float]:
+    cache_key = int(time.time() // FORECAST_ERROR_CACHE_SECONDS)
+    return _cached_relative_mae_by_site(cache_key)
+
+
 # Une requête contient entre 1 et 168 prédictions horaires,
 # ce qui correspond à l'horizon maximal de 7 jours.
 PredictionRequests = Annotated[
@@ -74,6 +101,22 @@ def get_model_info() -> dict[str, object]:
     except mlflow.exceptions.MlflowException as error:
         raise HTTPException(status_code=503, detail="Aucun modèle champion disponible") from error
     return {"name": MLFLOW_MODEL_NAME, "version": int(version.version), "alias": "champion"}
+
+
+@app.get("/metrics")
+def metrics() -> Response:
+    try:
+        relative_mae_by_site = get_relative_mae_by_site()
+    except (FileNotFoundError, ValueError) as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    except mlflow.exceptions.MlflowException as error:
+        # Même dégradation que /model : pas de champion à évaluer.
+        raise HTTPException(status_code=503, detail="Aucun modèle champion disponible") from error
+
+    for site_id, relative_mae in relative_mae_by_site.items():
+        forecast_relative_mae_gauge.labels(site_id=site_id).set(relative_mae)
+
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.post("/training", response_model=TrainingResponse)

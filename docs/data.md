@@ -233,6 +233,8 @@ SCHEMA = pa.schema(
         ("humidity_percent_corrected", pa.float64()),
         ("data_quality", pa.string()),
         ("null_reasons", pa.list_(pa.string())),
+        ("consumption_lag_1h", pa.float64()),  # + lag_2h, lag_24h, lag_48h, lag_168h
+        ("rolling_mean_24h", pa.float64()),  # + rolling_mean_168h
         ("hour", pa.int32()),  # + day_of_week, month, is_weekend, is_working_hours
     ]
 )
