@@ -183,7 +183,7 @@ const confidencePct = computed(() => Math.round(props.confidenceLevel * 100))
       >{{ lbl.label }}</text>
     </svg>
 
-    <div v-else class="h-[260px] flex items-center justify-center text-sm" style="color: rgba(0,0,0,0.3)">
+    <div v-else class="h-65 flex items-center justify-center text-sm" style="color: rgba(0,0,0,0.3)">
       Données insuffisantes
     </div>
   </div>
