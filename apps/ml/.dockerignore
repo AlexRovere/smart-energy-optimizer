@@ -1,20 +1,18 @@
 .venv
-__pycache__
-*.pyc
+**/__pycache__
+**/*.pyc
 .git
 .env
 .env.*
 *.log
-mlruns
 .pytest_cache
 .ruff_cache
-
-.venv/
 dist/
-notebooks/
+
+# Tests, notebooks et sorties locales : l'image n'embarque que src et config.
 tests/
+notebooks/
 datas/
 artifacts/
-**/__pycache__/
-*.pyc
+mlruns
 *.cbm
