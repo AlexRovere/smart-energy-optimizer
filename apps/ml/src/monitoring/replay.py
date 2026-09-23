@@ -81,7 +81,7 @@ def _replay_origins(site_history: pd.DataFrame) -> list[pd.Timestamp]:
 
 
 def _relative_mae(pairs: list[tuple[float, float]]) -> float:
-    predicted, actual = zip(*pairs)
+    predicted, actual = zip(*pairs, strict=True)
     mean_actual = sum(actual) / len(actual)
     mae = sum(abs(p - a) for p, a in pairs) / len(pairs)
     return (mae / mean_actual) * 100

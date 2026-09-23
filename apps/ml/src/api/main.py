@@ -6,6 +6,7 @@ from typing import Annotated
 import mlflow
 from catboost import CatBoostRegressor
 from fastapi import Depends, FastAPI, HTTPException, Response
+from monitoring import REPLAY_HISTORY_HOURS, compute_relative_mae_by_site
 from prometheus_client import CONTENT_TYPE_LATEST, Gauge, generate_latest
 from pydantic import Field
 
@@ -14,7 +15,6 @@ from data import read_recent_history
 from env_loader import load_root_env
 from features import SiteSchedules, load_site_schedules
 from models import PredictionService, PredictionTarget, load_model
-from monitoring import REPLAY_HISTORY_HOURS, compute_relative_mae_by_site
 from training import MLFLOW_MODEL_NAME, train_model
 
 DEFAULT_SITE_CONFIG_PATH = "config/sites.json"
@@ -58,7 +58,8 @@ FORECAST_ERROR_CACHE_SECONDS = 600
 
 forecast_relative_mae_gauge = Gauge(
     "ml_forecast_relative_mae_percent",
-    "Erreur de prévision moyenne relative (MAE / consommation moyenne), rejouée sur les 7 derniers jours",
+    "Erreur de prévision moyenne relative (MAE / consommation moyenne), "
+    "rejouée sur les 7 derniers jours",
     ["site_id"],
 )
 

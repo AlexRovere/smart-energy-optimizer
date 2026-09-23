@@ -186,7 +186,9 @@ def test_metrics_endpoint_retourne_503_si_aucun_champion(monkeypatch):
         raise mlflow.exceptions.MlflowException("not found")
 
     monkeypatch.setattr(api_main, "get_prediction_model", raise_no_champion)
-    monkeypatch.setattr(api_main, "read_recent_history", lambda path, site_ids, hours: make_history())
+    monkeypatch.setattr(
+        api_main, "read_recent_history", lambda path, site_ids, hours: make_history()
+    )
     api_main._cached_relative_mae_by_site.cache_clear()
     client = TestClient(app)
 
@@ -200,9 +202,13 @@ def test_metrics_endpoint_exposes_relative_mae_per_site(monkeypatch):
     monkeypatch.setenv("PARQUET_DIR", "/data")
     monkeypatch.setattr(api_main, "get_site_schedules", lambda: SCHEDULES)
     monkeypatch.setattr(api_main, "get_prediction_model", lambda: ConstantModel())
-    monkeypatch.setattr(api_main, "read_recent_history", lambda path, site_ids, hours: make_history())
     monkeypatch.setattr(
-        api_main, "compute_relative_mae_by_site", lambda history, model, schedules: {"SITE001": 12.5}
+        api_main, "read_recent_history", lambda path, site_ids, hours: make_history()
+    )
+    monkeypatch.setattr(
+        api_main,
+        "compute_relative_mae_by_site",
+        lambda history, model, schedules: {"SITE001": 12.5},
     )
     api_main._cached_relative_mae_by_site.cache_clear()
     client = TestClient(app)
@@ -220,7 +226,9 @@ def test_metrics_endpoint_caches_the_computed_value(monkeypatch):
     monkeypatch.setenv("PARQUET_DIR", "/data")
     monkeypatch.setattr(api_main, "get_site_schedules", lambda: SCHEDULES)
     monkeypatch.setattr(api_main, "get_prediction_model", lambda: ConstantModel())
-    monkeypatch.setattr(api_main, "read_recent_history", lambda path, site_ids, hours: make_history())
+    monkeypatch.setattr(
+        api_main, "read_recent_history", lambda path, site_ids, hours: make_history()
+    )
     calls = {"count": 0}
 
     def fake_compute(history, model, schedules):
@@ -243,7 +251,9 @@ def test_metrics_endpoint_recomputes_once_the_cache_expires(monkeypatch):
     monkeypatch.setenv("PARQUET_DIR", "/data")
     monkeypatch.setattr(api_main, "get_site_schedules", lambda: SCHEDULES)
     monkeypatch.setattr(api_main, "get_prediction_model", lambda: ConstantModel())
-    monkeypatch.setattr(api_main, "read_recent_history", lambda path, site_ids, hours: make_history())
+    monkeypatch.setattr(
+        api_main, "read_recent_history", lambda path, site_ids, hours: make_history()
+    )
     calls = {"count": 0}
 
     def fake_compute(history, model, schedules):

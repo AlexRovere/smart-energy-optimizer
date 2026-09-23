@@ -25,8 +25,11 @@ scrape_configs:
   # les remplacent pas.
 
   # Erreur de prévision relative par site (#40), rejouée sur les 7 derniers
-  # jours. Voir docs/ml.md pour le calcul et le seuil.
+  # jours. Voir docs/ml.md pour le calcul et le seuil. La donnée ne bouge
+  # qu'au rythme de l'ETL (toutes les heures) : scraper toutes les 15 s comme
+  # le reste ne ferait que répéter la même valeur.
   - job_name: ml
+    scrape_interval: 1h
     static_configs:
       - targets: ["ml:8000"]
 

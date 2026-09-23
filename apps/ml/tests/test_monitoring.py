@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import pytest
-
 from monitoring import compute_relative_mae_by_site
 
 SCHEDULES = {
