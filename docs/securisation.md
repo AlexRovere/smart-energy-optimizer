@@ -11,7 +11,7 @@ tourne dans la chaîne d'intégration à chaque modification.
 
 > ⚠️ **À rejouer et à redater avant le dépôt.** Le produit est gelé le vendredi 25 septembre à
 > 09h00 ; les preuves se refont la veille au soir. Ce qui bouge : le compte de commits (§3), la
-> liste des destinataires (§1), et le tableau des limites (§8). La structure ne bouge pas.
+> liste des destinataires (§1), et le tableau des limites (§9). La structure ne bouge pas.
 
 ## 1. Secrets
 
@@ -164,7 +164,81 @@ jamais, et le jour où elle pourra être retirée, cela ne suffira pas, il faudr
 Plus généralement, sur un incident réel : changer les valeurs, redéployer, **puis** retirer la clé.
 La révocation est le geste d'hygiène, pas la réponse à l'incident.
 
-## 8. Limites connues et risques acceptés
+## 8. Dépendances de développement hors des images
+
+Une image de production n'embarque que ce qui sert à l'exécution : pas d'outil de test, pas de
+notebook, pas de gestionnaire de paquets. Chaque paquet de trop est une surface d'attaque et une
+alerte de scan qui ne nous concerne pas.
+
+**Ce qui était faux avant #225.** `pytest` figurait dans les dépendances de production de l'ETL. Le
+service ML y déclarait Jupyter, `prophet`, `statsmodels` et `ipywidgets`, que seuls les notebooks
+importent : 87 paquets partaient en production pour rien (ML passé de 182 à 95, ETL de 20 à 14).
+`zod`, à l'inverse, était rangé en `devDependencies` alors que le serveur du tableau de bord
+l'importe : l'image marchait parce que Nitro trace les imports, pas parce que la déclaration était
+juste. Enfin, l'image du tableau de bord retirait npm et corepack mais gardait yarn.
+
+**Comment c'est tenu.**
+
+| Brique | Mécanisme |
+|---|---|
+| ETL, ML | Outils de test et bibliothèques des notebooks dans le groupe `dev` de `pyproject.toml`, installation par `uv sync --frozen --no-dev` |
+| Dashboard | Construction en deux étapes, l'image finale ne reçoit que `.output` : aucun `node_modules` de construction. npm, corepack et yarn sont retirés |
+| Les trois | `.dockerignore` exclut tests, notebooks, scripts d'analyse locaux et leurs sorties |
+
+**Sans démon Docker**, ce que l'image installera se lit dans le verrou :
+
+```bash
+for a in etl ml; do
+  uv export --directory apps/$a --frozen --no-dev --no-hashes \
+    | grep -iE '^(pytest|ruff|jupyter|ipykernel|ipython|notebook|prophet|statsmodels|coverage)'
+done                                                   # aucune ligne attendue
+```
+
+**Sur les images construites** (sous Git Bash, préfixer par `MSYS_NO_PATHCONV=1`) :
+
+```bash
+docker build -t enervision-etl apps/etl
+docker build -t enervision-ml apps/ml
+docker build -t enervision-dashboard apps/dashboard
+
+# ETL et ML : les paquets que voit l'interpréteur de l'application.
+for a in etl ml; do
+  docker run --rm --entrypoint python enervision-$a -c \
+    'import importlib.metadata as m; print("\n".join(sorted({d.metadata["Name"].lower() for d in m.distributions()})))' \
+    | grep -iE 'pytest|ruff|jupyter|ipykernel|ipython|notebook|prophet|statsmodels|coverage'
+done                                                   # aucune ligne attendue
+docker run --rm --entrypoint ls enervision-etl -A /app # ni test/ ni insights/
+docker run --rm --entrypoint ls enervision-ml  -A /app # ni tests/ ni notebooks/
+
+# Dashboard : .output seul, et aucune devDependency parmi les modules tracés.
+docker run --rm --entrypoint ls enervision-dashboard -A /app
+docker run --rm --entrypoint sh enervision-dashboard \
+  -c 'cd /app/.output/server/node_modules && ls -d * @*/*' > traces.txt
+node -p 'Object.keys(require("./apps/dashboard/package.json").devDependencies).join("\n")' \
+  | grep -xFf traces.txt                               # aucune ligne attendue
+docker run --rm --entrypoint ls enervision-dashboard /usr/local/bin
+```
+
+Un `pip list` dans l'image **ne prouve rien** : il interroge le Python du système, où seul `pip`
+est installé, et non l'environnement virtuel `/app/.venv` de l'application. D'où la lecture par
+`importlib.metadata`, qui passe par l'interpréteur que l'application utilise.
+
+**Résultat du 23 septembre 2026**, rejoué sur la branche de #225 :
+
+| Image | Constat |
+|---|---|
+| ETL | 14 paquets, aucun outil de test ; `/app` sans `test/` ni `insights/` |
+| ML | 93 paquets, aucun outil de test ni de notebook ; `/app` réduit à `src`, `config` et l'environnement. L'API démarre et `/health` répond `ok` |
+| Dashboard | `/app` ne contient que `.output` ; 58 modules tracés, aucun issu des `devDependencies` ; `/usr/local/bin` réduit à `node` et au script d'entrée. Le serveur écoute sur 3000 |
+
+Témoin : la même recherche, groupe `dev` inclus, trouve bien `pytest`, et le contrôle des
+`devDependencies` trouvait `zod` avant sa correction. Les filtres ne sont pas aveugles.
+
+`matplotlib`, `plotly` et `scikit-learn` restent dans l'image ML. Ce ne sont pas des dépendances
+de développement : `catboost` et `mlflow` les exigent à l'exécution (`uv tree --no-dev --invert
+--package matplotlib`). Les retirer demanderait `mlflow-skinny`, un autre chantier.
+
+## 9. Limites connues et risques acceptés
 
 | Limite | Statut |
 |---|---|
@@ -177,6 +251,7 @@ La révocation est le geste d'hygiène, pas la réponse à l'incident.
 | Pas de politique de mise à jour des dépendances | **Hors périmètre** |
 | Pas de rotation de routine des secrets | **Accepté**, la pile ne vit que le temps du projet |
 | Pas de sauvegarde | **Risque connu, consigné, non traité** faute de temps |
+| `pip` reste dans le Python système des images ETL et ML | **Accepté** : l'application ne l'utilise pas et tourne sous un compte sans droit d'écriture sur le système. Le retirer est possible, comme npm côté tableau de bord (§8) |
 
 Les quatre dernières lignes sont volontairement inconfortables. Un risque accepté et consigné est un
 acte de pilotage ; un risque passé sous silence est une négligence.
@@ -196,3 +271,4 @@ acte de pilotage ; un risque passé sous silence est une négligence.
 | Ports publiés | **un seul**, `postgres` sur la boucle locale |
 | Vulnérabilités Trivy sur `main` (relevé du 21 septembre) | **0 critique, 0 haute** |
 | Scans Trivy d'image | dans la CI, non rejouables sans démon Docker |
+| Dépendances de développement dans les images (relevé du 23 septembre) | **aucune**, sur les trois images |
