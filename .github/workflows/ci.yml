@@ -519,6 +519,18 @@ jobs:
             enervision-dashboard:ci
           timeout 60 bash -c 'until curl -sf http://localhost:3000/ >/dev/null; do sleep 1; done'
 
+      # Le cookie de session est Secure (nuxt.config.ts, critère de #29) : un client HTTP standard
+      # ne le renvoie jamais en clair, donc Locust en HTTP direct se connecte sans jamais rester
+      # authentifié après /login. En production ce rôle est tenu par Caddy (443) ; ici un second
+      # conteneur Caddy fait la même chose, avec un certificat interne auto-signé.
+      - name: TLS devant le dashboard (cookie Secure)
+        run: |
+          docker run -d --rm --name dashboard-tls \
+            -p 3443:443 \
+            --add-host=host.docker.internal:host-gateway \
+            caddy:2-alpine caddy reverse-proxy --from :3443 --to host.docker.internal:3000 --internal-certs
+          timeout 30 bash -c 'until curl -sfk https://localhost:3443/ >/dev/null; do sleep 1; done'
+
       - name: Charge (historique, bloquant)
         env:
           LOAD_TEST_DASHBOARD_PASSWORD: mot-de-passe-de-demonstration-charge
@@ -527,7 +539,7 @@ jobs:
           uv run --directory load-tests locust \
             -f locustfiles/dashboard_history.py \
             --headless -u 5 -r 1 -t 30s \
-            --host http://localhost:3000 \
+            --host https://localhost:3443 --insecure \
             --csv="$GITHUB_WORKSPACE/rapport-qualite/loadtest-dashboard-history"
 
       # Jamais bloquant : le tiers (ou son stub) n'est pas sous notre contrôle.
@@ -540,7 +552,7 @@ jobs:
           uv run --directory load-tests locust \
             -f locustfiles/dashboard_mock.py \
             --headless -u 5 -r 1 -t 30s \
-            --host http://localhost:3000 \
+            --host https://localhost:3443 --insecure \
             --csv="$GITHUB_WORKSPACE/rapport-qualite/loadtest-dashboard-mock" || true
 
       - name: Résumé
@@ -568,5 +580,6 @@ jobs:
       - name: Arrêt des services
         if: always()
         run: |
+          docker stop dashboard-tls || true
           docker stop dashboard-under-test || true
           docker stop ml-under-test || true
