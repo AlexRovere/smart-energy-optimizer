@@ -12,8 +12,13 @@ import { allowedSites } from '../../utils/session'
 function restrictToSites(summary: ParkSummary, permittedIds: string[]): ParkSummary {
   const permitted = new Set(permittedIds)
   const sites = summary.sites.filter(s => permitted.has(s.site_id))
-  const excluded = summary.excluded_sites.filter(id => permitted.has(id))
-  const counted = sites.filter(s => !excluded.includes(s.site_id) && s.current_consumption_kw !== null)
+  // Un site sans mesure est exclu même si la source a omis de le nommer : sinon
+  // il sortirait des totaux sans que rien ne le dise.
+  const excluded = [...new Set([
+    ...summary.excluded_sites.filter(id => permitted.has(id)),
+    ...sites.filter(s => s.current_consumption_kw === null).map(s => s.site_id)
+  ])]
+  const counted = sites.filter(s => !excluded.includes(s.site_id))
 
   const totalCapacity = counted.reduce((sum, s) => sum + s.capacity_kw, 0)
   const totalConsumption = counted.length === 0

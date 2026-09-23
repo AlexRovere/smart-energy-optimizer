@@ -102,6 +102,23 @@ describe('GET /api/stats/summary', () => {
     })
   })
 
+  it('nomme comme exclu un site sans mesure que la source n\'a pas nommé', async () => {
+    mockFetchMockApi.mockResolvedValue({
+      ...summaryParc,
+      excluded_sites: [],
+      sites: [site('SITE001', 100, 200), site('SITE003', null, 500)]
+    })
+
+    const résultat = await handler(mockEvent)
+
+    expect(résultat).toMatchObject({
+      total_sites: 2,
+      excluded_sites: ['SITE003'],
+      total_consumption_kw: 100,
+      total_capacity_kw: 200
+    })
+  })
+
   it('rend une synthèse vide, sans total inventé, pour un compte sans site', async () => {
     mockAllowedSites.mockResolvedValue([])
     mockFetchMockApi.mockResolvedValue(summaryParc)
