@@ -20,10 +20,11 @@ if ! flock --nonblock 9; then
   exit 1
 fi
 
-# Trois essais contre une erreur passagère, espacés pour tenir dans l'heure.
-# -T garde stdout (le JSON) séparé de stderr.
+# Trois essais contre une erreur passagère. Chacun borné à 15 min : un passage
+# bloqué garderait le verrou et ferait sauter tous les suivants. Le tout tient
+# dans l'heure. -T garde stdout (le JSON) séparé de stderr.
 for attempt in 1 2 3; do
-  if sops exec-env secrets.enc.yaml 'docker compose run --rm -T etl python main.py hour'; then
+  if sops exec-env secrets.enc.yaml 'timeout 15m docker compose run --rm -T etl python main.py hour'; then
     break
   fi
   if [ "$attempt" -eq 3 ]; then
