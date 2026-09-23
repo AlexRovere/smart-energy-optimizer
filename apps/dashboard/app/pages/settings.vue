@@ -8,6 +8,13 @@ const {
   session,
 } = useSettings()
 
+const toast = useToast()
+
+function basculerNotification(key: keyof typeof notifications.value) {
+  updateNotification(key, !notifications.value[key])
+  toast.add({ title: 'Fonctionnalité non disponible dans cette version', color: 'warning' })
+}
+
 const ROLES: { id: UserRole; label: string }[] = [
   { id: 'admin',    label: 'Admin' },
   { id: 'operator', label: 'Opérateur' },
@@ -103,7 +110,7 @@ const NOTIFICATIONS: { key: keyof typeof notifications.value; label: string; des
               :style="notifications[notif.key]
                 ? 'background: var(--ev-green)'
                 : 'background: var(--ev-border)'"
-              @click="updateNotification(notif.key, !notifications[notif.key])"
+              @click="basculerNotification(notif.key)"
             >
               <span
                 class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"

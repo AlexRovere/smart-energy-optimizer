@@ -2,7 +2,11 @@
 import type { Recommendation } from '~/types/api'
 
 defineProps<{ recommendation: Recommendation }>()
-const emit = defineEmits<{ apply: [id: string] }>()
+const toast = useToast()
+
+function appliquer() {
+  toast.add({ title: 'Fonctionnalité non disponible dans cette version', color: 'warning' })
+}
 </script>
 
 <template>
@@ -22,7 +26,7 @@ const emit = defineEmits<{ apply: [id: string] }>()
     </div>
 
     <!-- Bouton -->
-    <div data-testid="apply-btn" class="shrink-0" @click="emit('apply', recommendation.recommendation_id)">
+    <div data-testid="apply-btn" class="shrink-0" @click="appliquer()">
       <EvButton variant="primary">Appliquer</EvButton>
     </div>
   </div>

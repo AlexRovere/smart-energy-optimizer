@@ -21,9 +21,10 @@ const SITES: { id: SiteId; label: string }[] = [
 ]
 
 const simulationDuration = ref(15)
+const toast = useToast()
 
-function appliedGainTotal() {
-  return 0
+function injecterPic() {
+  toast.add({ title: 'Fonctionnalité non disponible dans cette version', color: 'warning' })
 }
 </script>
 
@@ -104,11 +105,6 @@ function appliedGainTotal() {
         <template #title>
           <span class="font-ev text-base font-semibold">Actions correctives proposées</span>
         </template>
-        <template #actions>
-          <span class="font-ev-mono text-xs text-ev-text-3">
-            gain cumulé appliqué · {{ appliedGainTotal() }} kW
-          </span>
-        </template>
         <div>
           <EvCorrectionAction
             v-for="rec in recommendations"
@@ -142,9 +138,11 @@ function appliedGainTotal() {
           />
         </div>
 
-        <EvButton variant="accent" :block="true">
-          Injecter un pic sur {{ selectedSiteId }}
-        </EvButton>
+        <div data-testid="injecter-pic-btn" @click="injecterPic()">
+          <EvButton variant="accent" :block="true">
+            Injecter un pic sur {{ selectedSiteId }}
+          </EvButton>
+        </div>
 
         <p class="font-ev text-[11px] leading-relaxed text-ev-text-3">
           Le pic est appliqué aux 4 derniers points de la série et se propage au dashboard, aux jauges et à la prévision.

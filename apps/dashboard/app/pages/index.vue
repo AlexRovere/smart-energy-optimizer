@@ -28,6 +28,11 @@ const lastUpdate = computed(() => {
 type AlertFilter = 'all' | AlertSeverity
 
 const alertFilter = ref<AlertFilter>('all')
+const toast = useToast()
+
+function exporter() {
+  toast.add({ title: 'Fonctionnalité non disponible dans cette version', color: 'warning' })
+}
 
 const filteredAlerts = computed(() =>
   alertFilter.value === 'all'
@@ -51,7 +56,9 @@ const filteredAlerts = computed(() =>
         </div>
         <div class="flex gap-3 shrink-0 mt-1">
           <EvButton variant="secondary">Rafraîchir</EvButton>
-          <EvButton variant="primary">Exporter le relevé</EvButton>
+          <div data-testid="exporter-btn" @click="exporter()">
+            <EvButton variant="primary">Exporter le relevé</EvButton>
+          </div>
         </div>
       </header>
 

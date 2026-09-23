@@ -16,6 +16,11 @@ const state = reactive<LoginInput>({
 
 const loading = ref(false)
 const errorMessage = ref('')
+const toast = useToast()
+
+function motDePasseOublie() {
+  toast.add({ title: 'Fonctionnalité non disponible dans cette version', color: 'warning' })
+}
 
 async function onSubmit(event: FormSubmitEvent<LoginInput>) {
   errorMessage.value = ''
@@ -136,14 +141,18 @@ async function onSubmit(event: FormSubmitEvent<LoginInput>) {
             />
           </UFormField>
 
-          <!-- TODO: forgotten password -->
           <div class="flex items-center justify-between">
             <!-- La case « Maintenir la session 8 h » de la maquette est retirée :
                  data.md fixe la durée à deux heures, et elle n'est pas réglable
                  par l'utilisateur. Une case qui ne fait rien et annonce une
                  durée fausse vaut moins que la durée écrite. -->
             <span class="font-ev text-[13px] text-ev-text-3">Session valable 2 heures</span>
-            <a href="#" class="font-ev text-[13px] text-ev-green hover:text-ev-green-hover" @click.prevent>
+            <a
+              href="#"
+              data-testid="mot-de-passe-oublie"
+              class="font-ev text-[13px] text-ev-green hover:text-ev-green-hover"
+              @click.prevent="motDePasseOublie()"
+            >
               Mot de passe oublié ?
             </a>
           </div>

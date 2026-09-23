@@ -71,6 +71,12 @@ function tempColor(c: number | null): string {
   return 'var(--ev-green)'
 }
 
+const toast = useToast()
+
+function configurerSeuils() {
+  toast.add({ title: 'Fonctionnalité non disponible dans cette version', color: 'warning' })
+}
+
 function voltageColor(v: number | null): string {
   if (v == null) return 'rgba(255,255,255,0.15)'
   const dev = Math.abs(v - 400) / 400
@@ -207,7 +213,9 @@ const chartData = computed(() => {
 
         <!-- Actions -->
         <div class="flex gap-3 shrink-0 mt-1">
-          <EvButton variant="secondary">Configurer les seuils</EvButton>
+          <div data-testid="configurer-seuils-btn" @click="configurerSeuils()">
+            <EvButton variant="secondary">Configurer les seuils</EvButton>
+          </div>
         </div>
       </header>
 

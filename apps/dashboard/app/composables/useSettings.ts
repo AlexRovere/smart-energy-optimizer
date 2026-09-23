@@ -16,10 +16,6 @@ const ROLE_CAPABILITIES: Record<UserRole, string[]> = {
   ],
 }
 
-function mockNotifications(): NotificationPreferences {
-  return { critical_alerts: true, daily_summary: true, sensor_fault: false }
-}
-
 function mockSession(): SessionInfo {
   return {
     user_name: 'M. Deschamps',
@@ -33,7 +29,7 @@ export function useSettings() {
   const activeRole = ref<UserRole>('admin')
   const roleCapabilities = computed(() => ROLE_CAPABILITIES[activeRole.value])
 
-  const notifications = ref<NotificationPreferences>(mockNotifications())
+  const notifications = ref<NotificationPreferences>({ critical_alerts: true, daily_summary: true, sensor_fault: false })
 
   function updateNotification(key: keyof NotificationPreferences, value: boolean) {
     notifications.value[key] = value
