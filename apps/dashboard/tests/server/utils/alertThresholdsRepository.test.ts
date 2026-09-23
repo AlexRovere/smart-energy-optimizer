@@ -88,6 +88,42 @@ describe.skipIf(!baseDisponible())('listAlertThresholds', () => {
   })
 })
 
+describe.skipIf(!baseDisponible())('listAlertThresholds — isolation inter-sites', () => {
+  let testDb: BaseDeTest
+  let db: ReturnType<typeof drizzle<typeof schema>>
+
+  beforeAll(async () => {
+    testDb = await creerBaseDeTest()
+    db = drizzle(testDb.sql, { schema })
+
+    await testDb.sql`
+      INSERT INTO sites (id, name, type, capacity_kw, status)
+      VALUES
+        ('SITE001', 'Bureau Paris La Défense', 'office', 300, 'active'),
+        ('SITE002', 'Usine Lyon Vénissieux', 'industrial', 1000, 'active')
+    `
+    await testDb.sql`
+      INSERT INTO alert_thresholds (site_id, type, duration, threshold)
+      VALUES ('SITE001', 'conso', 12, 350)
+    `
+  })
+
+  afterAll(async () => {
+    await testDb.fermer()
+  })
+
+  it('n\'expose pas les seuils d\'un site hors du périmètre demandé', async () => {
+    // Les tests existants appellent listAlertThresholds avec les deux sites :
+    // ils vérifient la présence, jamais l'exclusion. Une régression qui
+    // supprimerait le filtre par siteId retournerait les seuils de SITE001
+    // à un utilisateur n'ayant accès qu'à SITE002.
+    const entrées = await listAlertThresholds(db, ['SITE002'])
+
+    expect(entrées.some(e => e.siteId === 'SITE001')).toBe(false)
+    expect(entrées.every(e => e.siteId === 'SITE002')).toBe(true)
+  })
+})
+
 describe.skipIf(!baseDisponible())('upsertAlertThreshold', () => {
   let testDb: BaseDeTest
   let db: ReturnType<typeof drizzle<typeof schema>>

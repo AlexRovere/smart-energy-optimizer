@@ -13,12 +13,12 @@ export default defineEventHandler(async (event) => {
   let réponse: unknown
   try {
     réponse = await fetchMockApi('/api/v1/alerts')
-  } catch (erreur) {
+  } catch (error_) {
     logger.error('Alertes indisponibles', {
       route: event.path,
-      message: erreur instanceof Error ? erreur.message : String(erreur),
+      message: error_ instanceof Error ? error_.message : String(error_),
     })
-    throw createError({ status: 503, statusText: 'Alertes indisponibles', cause: erreur })
+    throw createError({ status: 503, statusText: 'Alertes indisponibles', cause: error_ })
   }
 
   const parse = alertesSchema.safeParse(réponse)

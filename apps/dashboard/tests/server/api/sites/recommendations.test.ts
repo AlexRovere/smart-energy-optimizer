@@ -1,12 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import type { H3Event } from 'h3'
+import { createError, type H3Event } from 'h3'
 import handler from '../../../../server/api/sites/[id]/recommendations.get'
 
-const { mockRequireAccount, mockRecommendationsForSite, mockGetRouterParam } = vi.hoisted(() => {
-  const mockRequireAccount = vi.fn()
+const { mockRequireSiteAccess, mockRecommendationsForSite, mockGetRouterParam } = vi.hoisted(() => {
+  const mockRequireSiteAccess = vi.fn()
   const mockRecommendationsForSite = vi.fn()
   const mockGetRouterParam = vi.fn()
-  return { mockRequireAccount, mockRecommendationsForSite, mockGetRouterParam }
+  return { mockRequireSiteAccess, mockRecommendationsForSite, mockGetRouterParam }
 })
 
 vi.mock('h3', async (importOriginal) => {
@@ -18,7 +18,7 @@ vi.mock('h3', async (importOriginal) => {
 })
 
 vi.mock('../../../../server/utils/guard', () => ({
-  requireAccount: mockRequireAccount
+  requireSiteAccess: mockRequireSiteAccess
 }))
 
 vi.mock('../../../../server/utils/recommendationsForSite', () => ({
@@ -35,10 +35,10 @@ const mockEvent = {} as H3Event
 describe('GET /api/sites/[id]/recommendations', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockRequireAccount.mockResolvedValue(compteFixture)
+    mockRequireSiteAccess.mockImplementation(async (_event: unknown, id: string) => ({ account: compteFixture, siteId: id }))
   })
 
-  it('rend les recommandations calculées pour le site', async () => {
+  it('rend les recommandations calculées pour un site autorisé', async () => {
     mockGetRouterParam.mockReturnValue('SITE001')
     const recommandation = { recommendation_id: 'REC-SITE001-conso-2026-09-18T10:00:00.000Z' }
     mockRecommendationsForSite.mockResolvedValue([recommandation])
@@ -46,20 +46,24 @@ describe('GET /api/sites/[id]/recommendations', () => {
     const résultat = await handler(mockEvent)
 
     expect(résultat).toEqual([recommandation])
+    expect(mockRequireSiteAccess).toHaveBeenCalledWith(mockEvent, 'SITE001')
     expect(mockRecommendationsForSite).toHaveBeenCalledWith({}, 'SITE001', expect.any(Date))
   })
 
-  it('retourne 422 pour un identifiant de site invalide', async () => {
-    mockGetRouterParam.mockReturnValue('pas-un-site')
+  it('retourne 403 sans calculer pour un site hors périmètre', async () => {
+    mockGetRouterParam.mockReturnValue('SITE002')
+    mockRequireSiteAccess.mockRejectedValue(createError({ statusCode: 403 }))
 
-    await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 422 })
+    await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 403 })
+    expect(mockRecommendationsForSite).not.toHaveBeenCalled()
   })
 
-  it('retourne 401 quand requireAccount rejette', async () => {
-    mockGetRouterParam.mockReturnValue('SITE001')
-    mockRequireAccount.mockRejectedValue(Object.assign(new Error('Session invalide'), { statusCode: 401 }))
+  it('retourne 404 sans calculer pour un site inconnu', async () => {
+    mockGetRouterParam.mockReturnValue('SITE999')
+    mockRequireSiteAccess.mockRejectedValue(createError({ statusCode: 404 }))
 
-    await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 401 })
+    await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 404 })
+    expect(mockRecommendationsForSite).not.toHaveBeenCalled()
   })
 
   it('retourne 503 si le calcul des recommandations échoue', async () => {

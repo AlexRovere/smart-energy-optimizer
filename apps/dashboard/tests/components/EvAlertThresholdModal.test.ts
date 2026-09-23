@@ -64,4 +64,12 @@ describe('EvAlertThresholdModal', () => {
     await wrapper.find('.fixed').trigger('click')
     expect(wrapper.emitted('close')).toHaveLength(1)
   })
+
+  it('émet close avec la touche Échap', async () => {
+    const wrapper = await mountSuspended(EvAlertThresholdModal, {
+      props: { open: true, siteName: 'Bureau Paris', type: 'conso', initial: { duration: 5, threshold: 200 } }
+    })
+    await wrapper.find('dialog').trigger('keydown', { key: 'Escape' })
+    expect(wrapper.emitted('close')).toHaveLength(1)
+  })
 })

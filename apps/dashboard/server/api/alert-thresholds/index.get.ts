@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
       duration: entrée.duration,
       threshold: entrée.threshold
     }))
-  } catch (erreur) {
-    throw createError({ statusCode: 503, message: 'Règles d\'alerte indisponibles', cause: erreur })
+  } catch (error_) {
+    throw createError({ statusCode: 503, message: 'Règles d\'alerte indisponibles', cause: error_ })
   }
 })

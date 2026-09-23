@@ -46,5 +46,7 @@ def test_kpis_build_global_type_and_site_entities():
 
 
 def test_kpis_reject_missing_columns():
+    frame = pd.DataFrame({"site_id": ["SITE001"]})
+
     with pytest.raises(ValueError, match="Colonnes manquantes"):
-        build_kpis(pd.DataFrame({"site_id": ["SITE001"]}))
+        build_kpis(frame)

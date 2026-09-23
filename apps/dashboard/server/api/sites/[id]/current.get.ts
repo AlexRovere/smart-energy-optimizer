@@ -1,25 +1,15 @@
 import { createError, defineEventHandler, getRouterParam } from 'h3'
 import { z } from 'zod'
 import { energyReadingSchema } from '../../../../shared/energyReadingSchema'
-import { requireAccount } from '../../../utils/guard'
+import { requireSiteAccess } from '../../../utils/guard'
 import { fetchMockApi } from '../../../utils/mockApiClient'
 import { logger } from '../../../utils/logger'
 
-const siteIdSchema = z.string().regex(/^SITE\d{3}$/)
-
 export default defineEventHandler(async (event) => {
-  // La garde vient AVANT la validation de l'identifiant : un anonyme n'a pas à
-  // apprendre, par un 422, quelles formes d'identifiant existent.
-  await requireAccount(event)
-
-  const id = getRouterParam(event, 'id')
-  const parsed = siteIdSchema.safeParse(id)
-  if (!parsed.success) {
-    throw createError({ status: 422, statusText: 'Identifiant de site invalide' })
-  }
+  const { siteId } = await requireSiteAccess(event, getRouterParam(event, 'id'))
 
   try {
-    const raw = await fetchMockApi<unknown>(`/api/v1/sites/${parsed.data}/current`)
+    const raw = await fetchMockApi<unknown>(`/api/v1/sites/${siteId}/current`)
     return energyReadingSchema.parse(raw)
   }
   catch (err) {
@@ -28,7 +18,7 @@ export default defineEventHandler(async (event) => {
     }
     logger.error('Lecture courante indisponible', {
       route: event.path,
-      siteId: parsed.data,
+      siteId,
       message: err instanceof Error ? err.message : String(err),
     })
     throw createError({ status: 503, statusText: 'Lecture courante indisponible' })

@@ -1,23 +1,16 @@
 import { createError, defineEventHandler, getRouterParam, readValidatedBody } from 'h3'
 import { z } from 'zod'
-import { requireAccount } from '../../../utils/guard'
+import { requireSiteAccess } from '../../../utils/guard'
 import { logger } from '../../../utils/logger'
 import { fetchModelInfo, fetchPredictions } from '../../../utils/mlClient'
 import { hoursInHorizon } from '../../../utils/predictionHorizon'
 
-const siteIdSchema = z.string().regex(/^SITE\d{3}$/)
 const bodySchema = z.object({
   horizon_hours: z.number().int().min(1).max(48).default(24)
 })
 
 export default defineEventHandler(async (event) => {
-  await requireAccount(event)
-
-  const id = getRouterParam(event, 'id')
-  const parseId = siteIdSchema.safeParse(id)
-  if (!parseId.success) {
-    throw createError({ status: 422, statusText: 'Identifiant de site invalide' })
-  }
+  const { siteId } = await requireSiteAccess(event, getRouterParam(event, 'id'))
 
   const body = await readValidatedBody(event, (raw) => bodySchema.safeParse(raw ?? {}))
   if (!body.success) {
@@ -25,7 +18,6 @@ export default defineEventHandler(async (event) => {
   }
 
   const { horizon_hours } = body.data
-  const siteId = parseId.data
 
   try {
     const heures = hoursInHorizon(new Date(), horizon_hours)

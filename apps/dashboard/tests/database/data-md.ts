@@ -46,7 +46,9 @@ function sansAccentsGraves(valeur: string): string {
 }
 
 function estSeparateur(ligne: string): boolean {
-  return /^\|[\s:|-]+\|?\s*$/.test(ligne.trim())
+  const brut = ligne.trim()
+  const caractèresRestants = brut.replaceAll('|', '').replaceAll(':', '').replaceAll('-', '').trim()
+  return brut.startsWith('|') && brut.length > 1 && caractèresRestants === ''
 }
 
 function lireTable(lignes: string[], nom: string): TableDocumentee {

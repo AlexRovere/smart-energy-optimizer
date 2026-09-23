@@ -27,25 +27,15 @@ describe('EvAlertPopup', () => {
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
   })
 
-  it('affiche le site impacté', async () => {
+  it.each([
+    ['le site impacté', 'Bureau Paris'],
+    ['la sévérité de la règle déclenchée', 'HIGH'],
+    ['la recommandation associée', 'Lisser le pic de consommation'],
+  ])('affiche %s', async (_description, texteAttendu) => {
     const wrapper = await mountSuspended(EvAlertPopup, {
       props: { open: true, siteName: 'Bureau Paris', recommendations: [RECOMMANDATION] }
     })
-    expect(wrapper.text()).toContain('Bureau Paris')
-  })
-
-  it('affiche la sévérité de la règle déclenchée', async () => {
-    const wrapper = await mountSuspended(EvAlertPopup, {
-      props: { open: true, siteName: 'Bureau Paris', recommendations: [RECOMMANDATION] }
-    })
-    expect(wrapper.text()).toContain('HIGH')
-  })
-
-  it('affiche la recommandation associée', async () => {
-    const wrapper = await mountSuspended(EvAlertPopup, {
-      props: { open: true, siteName: 'Bureau Paris', recommendations: [RECOMMANDATION] }
-    })
-    expect(wrapper.text()).toContain('Lisser le pic de consommation')
+    expect(wrapper.text()).toContain(texteAttendu)
   })
 
   it('émet close au clic sur le bouton fermer', async () => {
