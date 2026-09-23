@@ -22,6 +22,7 @@ beforeAll(async () => {
   process.env.NUXT_DATABASE_URL = testDb.url
   process.env.NUXT_SESSION_PASSWORD = 'mot-de-passe-de-test-de-trente-deux-signes'
   process.env.NUXT_MOCK_API_URL = 'http://127.0.0.1:1'
+  process.env.NUXT_ML_SERVICE_URL = 'http://127.0.0.1:1'
 
   const digest = await hash(PASSWORD, PARAMETRES_ARGON2ID)
   await testDb.sql`INSERT INTO roles (name) VALUES ('ADMIN')`

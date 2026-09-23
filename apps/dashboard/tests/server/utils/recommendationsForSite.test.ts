@@ -123,4 +123,25 @@ describe('recommendationsForSite', () => {
     expect(mockConsoPredictions).toHaveBeenCalledWith(DB, 'SITE001', RÉFÉRENCE, 168)
     expect(mockSpikePredictions).toHaveBeenCalledWith(DB, 'SITE001', RÉFÉRENCE, 168)
   })
+
+  it('retourne les recommandations de seuil même quand le ML est indisponible', async () => {
+    mockConsoHistory.mockResolvedValue({ alert: true, average: 230, thresholdKwh: 200 })
+    mockSpikeHistory.mockResolvedValue({ alert: true, currentValue: 310, average: 200, thresholdKw: 300 })
+    mockConsoPredictions.mockRejectedValue(new Error('ML service unavailable'))
+    mockSpikePredictions.mockRejectedValue(new Error('ML service unavailable'))
+
+    const résultat = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
+
+    expect(résultat).toHaveLength(2)
+    expect(résultat.every(r => r.source === 'threshold')).toBe(true)
+  })
+
+  it('retourne un tableau vide quand ni l\'historique ni le ML ne sont disponibles', async () => {
+    mockConsoPredictions.mockRejectedValue(new Error('ML service unavailable'))
+    mockSpikePredictions.mockRejectedValue(new Error('ML service unavailable'))
+
+    const résultat = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
+
+    expect(résultat).toEqual([])
+  })
 })

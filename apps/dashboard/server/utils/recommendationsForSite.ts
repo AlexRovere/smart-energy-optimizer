@@ -42,15 +42,19 @@ async function recommendationConso(
     })
   }
 
-  const prévisions = await detectConsumptionAlertsFromPredictions(db, siteId, reference, HORIZON_PRÉVISION_HEURES)
-  const première = prévisions.find(heure => heure.alert)
-  if (!première) return null
+  try {
+    const prévisions = await detectConsumptionAlertsFromPredictions(db, siteId, reference, HORIZON_PRÉVISION_HEURES)
+    const première = prévisions.find(heure => heure.alert)
+    if (!première) return null
 
-  return buildRecommendation(siteId, 'conso', 'forecast', {
-    timestamp: première.timestamp,
-    valueKw: première.average!,
-    thresholdKw: première.thresholdKwh
-  })
+    return buildRecommendation(siteId, 'conso', 'forecast', {
+      timestamp: première.timestamp,
+      valueKw: première.average!,
+      thresholdKw: première.thresholdKwh
+    })
+  } catch {
+    return null
+  }
 }
 
 async function recommendationPic(
@@ -67,14 +71,18 @@ async function recommendationPic(
     })
   }
 
-  const prévisions = await detectSpikeAlertsFromPredictions(db, siteId, reference, HORIZON_PRÉVISION_HEURES)
-  const première = prévisions.find(heure => heure.alert)
-  if (!première) return null
+  try {
+    const prévisions = await detectSpikeAlertsFromPredictions(db, siteId, reference, HORIZON_PRÉVISION_HEURES)
+    const première = prévisions.find(heure => heure.alert)
+    if (!première) return null
 
-  return buildRecommendation(siteId, 'pic', 'forecast', {
-    timestamp: première.timestamp,
-    valueKw: première.currentValue!,
-    thresholdKw: première.thresholdKw!
-  })
+    return buildRecommendation(siteId, 'pic', 'forecast', {
+      timestamp: première.timestamp,
+      valueKw: première.currentValue!,
+      thresholdKw: première.thresholdKw!
+    })
+  } catch {
+    return null
+  }
 }
 
