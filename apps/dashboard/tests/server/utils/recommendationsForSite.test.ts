@@ -106,6 +106,17 @@ describe('recommendationsForSite', () => {
     expect(résultat.map(r => r.type).sort()).toEqual(['efficiency', 'load_balancing'])
   })
 
+  it('trie les recommandations par urgence décroissante (high avant medium)', async () => {
+    mockConsoHistory.mockResolvedValue({ alert: true, average: 230, thresholdKwh: 200 })
+    mockSpikeHistory.mockResolvedValue({ alert: true, currentValue: 310, average: 200, thresholdKw: 300 })
+
+    const résultat = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
+
+    expect(résultat).toHaveLength(2)
+    expect(résultat[0]!.priority).toBe('high')
+    expect(résultat[1]!.priority).toBe('medium')
+  })
+
   it('interroge les prédictions sur l\'horizon complet de 168h', async () => {
     await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
 

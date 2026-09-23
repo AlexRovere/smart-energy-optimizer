@@ -5,7 +5,7 @@ import { detectConsumptionAlertsFromPredictions } from './consumptionAlertFromPr
 import { detectSpikeAlertsFromPredictions } from './spikeAlertFromPredictions'
 import { buildRecommendation } from './recommendationFromAlert'
 import type { AppDatabase } from './session'
-import type { Recommendation } from '../../shared/recommendationSchema'
+import type { Recommendation, RecommendationPriority } from '../../shared/recommendationSchema'
 
 const HORIZON_PRÉVISION_HEURES = 168
 
@@ -21,6 +21,9 @@ export async function recommendationsForSite(
 
   const pic = await recommendationPic(db, siteId, reference)
   if (pic) recommandations.push(pic)
+
+  const ORDRE_PRIORITÉ: Record<RecommendationPriority, number> = { high: 0, medium: 1, low: 2 }
+  recommandations.sort((a, b) => ORDRE_PRIORITÉ[a.priority] - ORDRE_PRIORITÉ[b.priority])
 
   return recommandations
 }
