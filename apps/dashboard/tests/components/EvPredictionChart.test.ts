@@ -45,31 +45,15 @@ describe('EvPredictionChart', () => {
     expect(wrapper.text()).toContain('intervalle de confiance 90')
   })
 
-  it('rend la ligne historique', async () => {
+  it.each([
+    ['la ligne historique', 'historical-line'],
+    ['la ligne de prévision', 'forecast-line'],
+    ['la bande de confiance', 'confidence-band'],
+    ['la ligne de seuil', 'threshold-line'],
+  ])('rend %s', async (_description, testId) => {
     const wrapper = await mountSuspended(EvPredictionChart, {
       props: { historicalPoints: makeHistorical(), forecastPoints: makeForecast(), threshold: 240, confidenceLevel: 0.9 },
     })
-    expect(wrapper.find('[data-testid="historical-line"]').exists()).toBe(true)
-  })
-
-  it('rend la ligne de prévision', async () => {
-    const wrapper = await mountSuspended(EvPredictionChart, {
-      props: { historicalPoints: makeHistorical(), forecastPoints: makeForecast(), threshold: 240, confidenceLevel: 0.9 },
-    })
-    expect(wrapper.find('[data-testid="forecast-line"]').exists()).toBe(true)
-  })
-
-  it('rend la bande de confiance', async () => {
-    const wrapper = await mountSuspended(EvPredictionChart, {
-      props: { historicalPoints: makeHistorical(), forecastPoints: makeForecast(), threshold: 240, confidenceLevel: 0.9 },
-    })
-    expect(wrapper.find('[data-testid="confidence-band"]').exists()).toBe(true)
-  })
-
-  it('rend la ligne de seuil', async () => {
-    const wrapper = await mountSuspended(EvPredictionChart, {
-      props: { historicalPoints: makeHistorical(), forecastPoints: makeForecast(), threshold: 240, confidenceLevel: 0.9 },
-    })
-    expect(wrapper.find('[data-testid="threshold-line"]').exists()).toBe(true)
+    expect(wrapper.find(`[data-testid="${testId}"]`).exists()).toBe(true)
   })
 })

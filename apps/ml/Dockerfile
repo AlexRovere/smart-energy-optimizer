@@ -13,12 +13,12 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 # Cette couche sera réutilisée tant que les dépendances ne changent pas.
 COPY pyproject.toml uv.lock README.md ./
-RUN uv sync --frozen --no-install-project --no-dev
+RUN uv sync --frozen --no-build --no-install-project --no-dev
 
 COPY src ./src
 COPY config ./config
 
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-build --no-dev
 
 
 # ---- runtime ----
@@ -32,9 +32,8 @@ FROM python:3.12-slim AS runtime
 # entrer dans l'image le jour où il paraît, pas le jour où l'amont s'en occupe.
 RUN apt-get update \
     && apt-get upgrade -y --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN groupadd --system app \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system app \
     && useradd --system --gid app --home /app app
 
 WORKDIR /app

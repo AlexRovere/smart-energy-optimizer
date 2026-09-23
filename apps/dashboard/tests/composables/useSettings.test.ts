@@ -8,22 +8,14 @@ describe('useSettings', () => {
       expect(activeRole.value).toBe('admin')
     })
 
-    it('admin a 3 capacités', () => {
+    it.each([
+      ['admin', 3],
+      ['operator', 2],
+      ['viewer', 1],
+    ] as const)('%s a %i capacités', (role, nombreDeCapacités) => {
       const { activeRole, roleCapabilities } = useSettings()
-      activeRole.value = 'admin'
-      expect(roleCapabilities.value).toHaveLength(3)
-    })
-
-    it('operator a 2 capacités', () => {
-      const { activeRole, roleCapabilities } = useSettings()
-      activeRole.value = 'operator'
-      expect(roleCapabilities.value).toHaveLength(2)
-    })
-
-    it('viewer a 1 capacité', () => {
-      const { activeRole, roleCapabilities } = useSettings()
-      activeRole.value = 'viewer'
-      expect(roleCapabilities.value).toHaveLength(1)
+      activeRole.value = role
+      expect(roleCapabilities.value).toHaveLength(nombreDeCapacités)
     })
 
     it('changer le rôle met à jour les capacités', () => {

@@ -27,25 +27,26 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref_name }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   # Quality gate : ce job tourne sur TOUTE modification et bloque à la première
   # vulnérabilité critique. C'est le critère DevSecOps de l'épreuve EC03.
   security:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       # Historique complet, sans quoi gitleaks ne verrait que le dernier commit.
-      - uses: actions/checkout@v7
-        with: { fetch-depth: 0 }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: { fetch-depth: 0, persist-credentials: false }
 
       # Trivy couvre les trois angles en un passage : vulnérabilités des
       # dépendances, secrets versionnés, et mauvaises configurations (Terraform,
       # Dockerfile, Compose). exit-code 1 rend le job bloquant. Il ne voit que
       # l'arbre de travail : gitleaks, ci-dessous, couvre l'historique.
       - name: Scan de sécurité (Trivy)
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -66,7 +67,7 @@ jobs:
       # aussi simple à vérifier ici que là.
       - name: Scan de l'historique (gitleaks)
         run: |
-          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz -o gitleaks.tar.gz
+          curl --proto '=https' --proto-redir '=https' -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz -o gitleaks.tar.gz
           echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks.tar.gz" | sha256sum -c -
           tar -xz -C /usr/local/bin -f gitleaks.tar.gz gitleaks
           gitleaks git . --log-opts="--all -m --full-history" --redact --exit-code 1
@@ -75,8 +76,11 @@ jobs:
   # après rechiffrement perd un destinataire, invisible avant le déploiement.
   secrets:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: { persist-credentials: false }
 
       # Lu sans déchiffrer : SOPS ne chiffre que les valeurs, pas les clés.
       - name: Les destinataires du fichier sont ceux déclarés
@@ -89,7 +93,7 @@ jobs:
       # téléchargement épinglait la version, pas le contenu.
       - name: Installer sops
         run: |
-          curl -sSfL https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.amd64 -o /usr/local/bin/sops
+          curl --proto '=https' --proto-redir '=https' -sSfL https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.amd64 -o /usr/local/bin/sops
           echo "e5bec3346a873ae91d871550f3e698c1aad962aff462a080e40f25fde17fef6b  /usr/local/bin/sops" | sha256sum -c -
           chmod +x /usr/local/bin/sops
 

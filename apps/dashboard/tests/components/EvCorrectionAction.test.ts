@@ -20,25 +20,16 @@ const mockRec: Recommendation = {
 }
 
 describe('EvCorrectionAction', () => {
-  it('affiche le titre de la recommandation', async () => {
+  it.each([
+    ['le titre de la recommandation', ['Décaler la relance CVC de 45 min']],
+    ['la description (fenêtre + confiance)', ['fenêtre 14:30 → 15:15 · confiance haute']],
+    ['le gain en kW', ['-17', 'kW']],
+    ['le score de confiance', ['0,88']],
+  ])('affiche %s', async (_description, textesAttendus) => {
     const wrapper = await mountSuspended(EvCorrectionAction, { props: { recommendation: mockRec } })
-    expect(wrapper.text()).toContain('Décaler la relance CVC de 45 min')
-  })
-
-  it('affiche la description (fenêtre + confiance)', async () => {
-    const wrapper = await mountSuspended(EvCorrectionAction, { props: { recommendation: mockRec } })
-    expect(wrapper.text()).toContain('fenêtre 14:30 → 15:15 · confiance haute')
-  })
-
-  it('affiche le gain en kW', async () => {
-    const wrapper = await mountSuspended(EvCorrectionAction, { props: { recommendation: mockRec } })
-    expect(wrapper.text()).toContain('-17')
-    expect(wrapper.text()).toContain('kW')
-  })
-
-  it('affiche le score de confiance', async () => {
-    const wrapper = await mountSuspended(EvCorrectionAction, { props: { recommendation: mockRec } })
-    expect(wrapper.text()).toContain('0,88')
+    for (const texteAttendu of textesAttendus) {
+      expect(wrapper.text()).toContain(texteAttendu)
+    }
   })
 
   it('affiche le bouton Appliquer', async () => {

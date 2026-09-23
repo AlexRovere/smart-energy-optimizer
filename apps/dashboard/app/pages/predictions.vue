@@ -131,8 +131,9 @@ function appliedGainTotal() {
         </div>
 
         <div class="flex flex-col gap-1.5">
-          <label class="font-ev-mono text-xs text-ev-text-3">duration_minutes</label>
+          <label for="simulation-duration" class="font-ev-mono text-xs text-ev-text-3">duration_minutes</label>
           <UInput
+            id="simulation-duration"
             v-model.number="simulationDuration"
             type="number"
             min="1"
