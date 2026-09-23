@@ -172,7 +172,10 @@ alerte de scan qui ne nous concerne pas.
 
 **Ce qui était faux avant #225.** `pytest` figurait dans les dépendances de production de l'ETL. Le
 service ML y déclarait Jupyter, `prophet`, `statsmodels` et `ipywidgets`, que seuls les notebooks
-importent : 87 paquets partaient en production pour rien (ML passé de 182 à 95, ETL de 20 à 14).
+importent : 87 paquets partaient en production pour rien. Comptés dans le verrou par
+`uv export --no-dev`, le ML passe de 182 à 95 paquets et l'ETL de 20 à 14. L'image ML en compte 93 :
+le verrou liste aussi trois paquets propres à Windows (`pywin32`, `tzdata`, `waitress`), et l'image
+compte le projet `ml` lui-même.
 `zod`, à l'inverse, était rangé en `devDependencies` alors que le serveur du tableau de bord
 l'importe : l'image marchait parce que Nitro trace les imports, pas parce que la déclaration était
 juste. Enfin, l'image du tableau de bord retirait npm et corepack mais gardait yarn.
@@ -247,11 +250,11 @@ de développement : `catboost` et `mlflow` les exigent à l'exécution (`uv tree
 | Le fichier chiffré révèle sa structure | **Voulu** : c'est ce qui permet le contrôle sans clé |
 | Protection de branche indisponible | **Écart d'offre**, compensé par `CODEOWNERS` et la revue |
 | Pas de playbook Ansible, `infra/ansible/` n'a qu'un README | **Trou reconnu**, signalé jusque dans un `TODO` de la CI. La configuration de la machine **n'est pas rejouable** |
+| `pip` reste dans le Python système des images ETL et ML | **Accepté** : l'application ne l'utilise pas et tourne sous un compte sans droit d'écriture sur le système. Le retirer est possible, comme npm côté tableau de bord (§8) |
 | Aucun test d'intrusion, aucun scan dynamique | **Hors périmètre** d'un projet de dix jours |
 | Pas de politique de mise à jour des dépendances | **Hors périmètre** |
 | Pas de rotation de routine des secrets | **Accepté**, la pile ne vit que le temps du projet |
 | Pas de sauvegarde | **Risque connu, consigné, non traité** faute de temps |
-| `pip` reste dans le Python système des images ETL et ML | **Accepté** : l'application ne l'utilise pas et tourne sous un compte sans droit d'écriture sur le système. Le retirer est possible, comme npm côté tableau de bord (§8) |
 
 Les quatre dernières lignes sont volontairement inconfortables. Un risque accepté et consigné est un
 acte de pilotage ; un risque passé sous silence est une négligence.
