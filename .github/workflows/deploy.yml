@@ -10,8 +10,7 @@ on:
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: read
+permissions: {}
 
 # Deux commits rapprochés attendent leur tour : interrompre un déploiement au
 # milieu des migrations laisserait un état plus difficile à diagnostiquer.
@@ -24,17 +23,21 @@ jobs:
     name: Déployer sur la VM
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository)
     # Le label `enervision` désigne le runner de la VM. Sans lui, un autre
     # runner auto-hébergé capterait le job et déploierait ailleurs.
     runs-on: [self-hosted, linux, x64, enervision]
     timeout-minutes: 45
+    permissions:
+      contents: read
 
     steps:
-      - name: Récupérer main
-        uses: actions/checkout@v7
+      - name: Récupérer le commit à déployer
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: main
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'main' }}
+          persist-credentials: false
 
       - name: Vérifier les outils de déploiement
         run: |
@@ -49,6 +52,7 @@ jobs:
         # du contenu et meurt avec lui.
         env:
           GH_REPOSITORY_TOKEN: ${{ github.token }}
+          DEPLOY_VERSION: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'main' }}
         run: |
           # GitHub masque le jeton, pas l'en-tête qui en dérive : un journal
           # en mode bavard le montrerait en clair.
@@ -56,4 +60,5 @@ jobs:
           ansible-playbook \
             -i infra/ansible/inventory.ini \
             --connection local \
+            --extra-vars "repository_version=$DEPLOY_VERSION" \
             infra/ansible/playbook.yml

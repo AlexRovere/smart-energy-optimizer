@@ -43,7 +43,7 @@ function extractCredentials(baseUrl: string): MockApiTarget {
   return {
     baseUrl: url.toString(),
     headers: {
-      Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`,
+      Authorization: `Basic ${Buffer.from([username, password].join(':')).toString('base64')}`,
     },
     secrets,
   }

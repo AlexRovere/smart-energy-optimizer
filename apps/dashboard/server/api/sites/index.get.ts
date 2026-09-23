@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     return await querySitesList(db, permittedIds)
-  } catch (erreur) {
-    throw createError({ statusCode: 503, message: 'Référentiel des sites indisponible', cause: erreur })
+  } catch (error_) {
+    throw createError({ statusCode: 503, message: 'Référentiel des sites indisponible', cause: error_ })
   }
 })

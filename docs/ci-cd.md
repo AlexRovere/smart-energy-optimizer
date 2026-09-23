@@ -225,7 +225,7 @@ Chaque étape de la CI a un équivalent local. C'est volontaire : un échec qu'o
 | Construction de l'applicatif | `pnpm --dir apps/dashboard build` |
 | Validation de la composition | `docker compose config --quiet` |
 | Images | `docker build apps/etl`, puis `apps/ml` et `apps/dashboard` |
-| Tests ETL, ML | `uv run --locked --no-build --directory apps/etl pytest`, `uv run --locked --directory apps/ml pytest` (ML construit son propre paquet, `--no-build` l'en empêcherait) |
+| Tests ETL, ML | `uv run --directory apps/etl --frozen --no-build pytest`, `uv run --directory apps/ml --frozen --no-build pytest` |
 | Charge et performance | Voir [`load-tests/README.md`](../load-tests/README.md) : amorçage, lancement Locust, vérification des seuils |
 | Trivy | `docker run --rm -v "$PWD:/src" aquasec/trivy fs --scanners vuln,secret,misconfig --severity CRITICAL,HIGH --ignore-unfixed /src` |
 | gitleaks | `gitleaks git . --log-opts="--all -m --full-history" --redact` |
