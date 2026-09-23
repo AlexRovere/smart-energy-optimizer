@@ -2,39 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { useSettings } from '../../app/composables/useSettings'
 
 describe('useSettings', () => {
-  describe('rôle actif (RBAC)', () => {
-    it('le rôle par défaut est admin', () => {
-      const { activeRole } = useSettings()
-      expect(activeRole.value).toBe('admin')
-    })
-
-    it('admin a 3 capacités', () => {
-      const { activeRole, roleCapabilities } = useSettings()
-      activeRole.value = 'admin'
-      expect(roleCapabilities.value).toHaveLength(3)
-    })
-
-    it('operator a 2 capacités', () => {
-      const { activeRole, roleCapabilities } = useSettings()
-      activeRole.value = 'operator'
-      expect(roleCapabilities.value).toHaveLength(2)
-    })
-
-    it('viewer a 1 capacité', () => {
-      const { activeRole, roleCapabilities } = useSettings()
-      activeRole.value = 'viewer'
-      expect(roleCapabilities.value).toHaveLength(1)
-    })
-
-    it('changer le rôle met à jour les capacités', () => {
-      const { activeRole, roleCapabilities } = useSettings()
-      activeRole.value = 'viewer'
-      const viewerCount = roleCapabilities.value.length
-      activeRole.value = 'admin'
-      expect(roleCapabilities.value.length).toBeGreaterThan(viewerCount)
-    })
-  })
-
   describe('notifications', () => {
     it('critical_alerts est activé par défaut', () => {
       const { notifications } = useSettings()
@@ -62,29 +29,6 @@ describe('useSettings', () => {
       updateNotification('sensor_fault', true)
       expect(notifications.value.critical_alerts).toBe(true)
       expect(notifications.value.daily_summary).toBe(true)
-    })
-  })
-
-  describe('session', () => {
-    it('session.user_name est défini', () => {
-      const { session } = useSettings()
-      expect(session.value.user_name).toBeTruthy()
-    })
-
-    it('session.role est défini', () => {
-      const { session } = useSettings()
-      expect(session.value.role).toBeTruthy()
-    })
-
-    it('session.polling_interval_s est un entier positif', () => {
-      const { session } = useSettings()
-      expect(session.value.polling_interval_s).toBeGreaterThan(0)
-      expect(Number.isInteger(session.value.polling_interval_s)).toBe(true)
-    })
-
-    it('session.health_label est défini', () => {
-      const { session } = useSettings()
-      expect(session.value.health_label).toBeTruthy()
     })
   })
 })

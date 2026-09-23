@@ -176,12 +176,6 @@ export interface NotificationPreferences {
   sensor_fault: boolean
 }
 
-export interface SessionInfo {
-  user_name: string
-  role: string
-  polling_interval_s: number
-  health_label: string
-}
 
 export interface ModelInfo {
   name: string
