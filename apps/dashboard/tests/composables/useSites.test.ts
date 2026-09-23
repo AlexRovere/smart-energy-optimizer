@@ -3,6 +3,17 @@ import { ref } from 'vue'
 import type { StatsSummary, SiteId } from '../../app/types/api'
 import { useSites } from '../../app/composables/useSites'
 
+vi.mock('../../app/composables/useAlerts', () => ({
+  useAlerts: () => ({
+    alerts: ref([
+      { alert_id: 'ALT-001', site_id: 'SITE002', severity: 'critical', type: 'outage',  message: 'Test', timestamp: new Date().toISOString() },
+      { alert_id: 'ALT-002', site_id: 'SITE002', severity: 'high',     type: 'spike',   message: 'Test', timestamp: new Date().toISOString() },
+    ]),
+    pending: ref(false),
+    error: ref(null),
+  })
+}))
+
 vi.mock('../../app/composables/useSitesList', () => ({
   useSitesList: () => ({
     sites: ref([

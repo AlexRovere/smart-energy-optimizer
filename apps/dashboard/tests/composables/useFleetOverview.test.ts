@@ -1,7 +1,23 @@
 import { describe, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
-import type { StatsSummary } from '../../app/types/api'
+import { computed, ref } from 'vue'
+import type { Alert, StatsSummary } from '../../app/types/api'
 import { useFleetOverview } from '../../app/composables/useFleetOverview'
+
+const alertesFixture: Alert[] = [
+  { alert_id: 'ALT-001', site_id: 'SITE003', severity: 'critical', type: 'outage',    message: 'Capteur muet',    timestamp: new Date(Date.now() - 12 * 60_000).toISOString() },
+  { alert_id: 'ALT-002', site_id: 'SITE002', severity: 'critical', type: 'threshold', message: 'Seuil dépassé',   timestamp: new Date(Date.now() - 27 * 60_000).toISOString(), value: 781, threshold: 720 },
+  { alert_id: 'ALT-003', site_id: 'SITE005', severity: 'high',     type: 'spike',     message: 'Pic de charge',   timestamp: new Date(Date.now() - 48 * 60_000).toISOString() },
+  { alert_id: 'ALT-004', site_id: 'SITE002', severity: 'medium',   type: 'sensor',    message: 'Hygromètre KO',   timestamp: new Date(Date.now() - 96 * 60_000).toISOString() },
+  { alert_id: 'ALT-005', site_id: 'SITE007', severity: 'low',      type: 'anomaly',   message: 'Facteur baisse',  timestamp: new Date(Date.now() - 184 * 60_000).toISOString() },
+]
+
+vi.mock('../../app/composables/useAlerts', () => ({
+  useAlerts: () => ({
+    alerts: computed(() => alertesFixture),
+    pending: ref(false),
+    error: ref(null),
+  }),
+}))
 
 vi.mock('../../app/composables/useSitesList', () => ({
   useSitesList: () => ({

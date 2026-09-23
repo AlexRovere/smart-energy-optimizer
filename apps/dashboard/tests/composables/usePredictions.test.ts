@@ -27,6 +27,14 @@ const recommendationFixture: Recommendation = {
   window: 'N/A'
 }
 
+vi.mock('../../app/composables/useAlerts', () => ({
+  useAlerts: () => ({
+    alerts: ref([]),
+    pending: ref(false),
+    error: ref(null),
+  })
+}))
+
 vi.mock('../../app/composables/useSitesList', () => ({
   useSitesList: () => ({
     sites: ref([]),
