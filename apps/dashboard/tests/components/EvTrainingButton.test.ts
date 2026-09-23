@@ -49,4 +49,33 @@ describe('EvTrainingButton', () => {
     const wrapper = await mountSuspended(EvTrainingButton)
     expect(wrapper.find('[data-testid="training-trigger"]').exists()).toBe(true)
   })
+
+  it('affiche un badge « En cours » quand loading est true', async () => {
+    const wrapper = await mountSuspended(EvTrainingButton, {
+      props: { loading: true }
+    })
+    const badge = wrapper.find('[data-testid="training-badge"]')
+    expect(badge.exists()).toBe(true)
+    expect(badge.text()).toContain('En cours')
+  })
+
+  it('n\'affiche pas l\'heure dans le badge « En cours »', async () => {
+    const wrapper = await mountSuspended(EvTrainingButton, {
+      props: { loading: true }
+    })
+    const badge = wrapper.find('[data-testid="training-badge"]')
+    expect(badge.text()).not.toMatch(/\d{2}:\d{2}/)
+  })
+
+  it('affiche le badge succès et non « En cours » quand loading est false', async () => {
+    const wrapper = await mountSuspended(EvTrainingButton, {
+      props: {
+        loading: false,
+        dernierEntrainement: { statut: 'succès', à: new Date('2026-09-23T10:32:00Z') }
+      }
+    })
+    const badge = wrapper.find('[data-testid="training-badge"]')
+    expect(badge.text()).toContain('Succès')
+    expect(badge.text()).not.toContain('En cours')
+  })
 })
