@@ -176,6 +176,104 @@ def test_model_endpoint_retourne_la_version_champion(monkeypatch):
     fake_client.get_model_version_by_alias.assert_called_once_with(MLFLOW_MODEL_NAME, "champion")
 
 
+def test_metrics_endpoint_retourne_503_si_aucun_champion(monkeypatch):
+    import mlflow.exceptions
+
+    monkeypatch.setenv("PARQUET_DIR", "/data")
+    monkeypatch.setattr(api_main, "get_site_schedules", lambda: SCHEDULES)
+
+    def raise_no_champion():
+        raise mlflow.exceptions.MlflowException("not found")
+
+    monkeypatch.setattr(api_main, "get_prediction_model", raise_no_champion)
+    monkeypatch.setattr(
+        api_main, "read_recent_history", lambda path, site_ids, hours: make_history()
+    )
+    api_main._cached_relative_mae_by_site.cache_clear()
+    client = TestClient(app)
+
+    response = client.get("/metrics")
+    api_main._cached_relative_mae_by_site.cache_clear()
+
+    assert response.status_code == 503
+
+
+def test_metrics_endpoint_exposes_relative_mae_per_site(monkeypatch):
+    monkeypatch.setenv("PARQUET_DIR", "/data")
+    monkeypatch.setattr(api_main, "get_site_schedules", lambda: SCHEDULES)
+    monkeypatch.setattr(api_main, "get_prediction_model", lambda: ConstantModel())
+    monkeypatch.setattr(
+        api_main, "read_recent_history", lambda path, site_ids, hours: make_history()
+    )
+    monkeypatch.setattr(
+        api_main,
+        "compute_relative_mae_by_site",
+        lambda history, model, schedules: {"SITE001": 12.5},
+    )
+    api_main._cached_relative_mae_by_site.cache_clear()
+    client = TestClient(app)
+
+    response = client.get("/metrics")
+    api_main._cached_relative_mae_by_site.cache_clear()
+
+    assert response.status_code == 200
+    assert "ml_forecast_relative_mae_percent" in response.text
+    assert 'site_id="SITE001"' in response.text
+    assert "12.5" in response.text
+
+
+def test_metrics_endpoint_caches_the_computed_value(monkeypatch):
+    monkeypatch.setenv("PARQUET_DIR", "/data")
+    monkeypatch.setattr(api_main, "get_site_schedules", lambda: SCHEDULES)
+    monkeypatch.setattr(api_main, "get_prediction_model", lambda: ConstantModel())
+    monkeypatch.setattr(
+        api_main, "read_recent_history", lambda path, site_ids, hours: make_history()
+    )
+    calls = {"count": 0}
+
+    def fake_compute(history, model, schedules):
+        calls["count"] += 1
+        return {"SITE001": 12.5}
+
+    monkeypatch.setattr(api_main, "compute_relative_mae_by_site", fake_compute)
+    monkeypatch.setattr(api_main.time, "time", lambda: 1_000_000.0)
+    api_main._cached_relative_mae_by_site.cache_clear()
+    client = TestClient(app)
+
+    client.get("/metrics")
+    client.get("/metrics")
+    api_main._cached_relative_mae_by_site.cache_clear()
+
+    assert calls["count"] == 1
+
+
+def test_metrics_endpoint_recomputes_once_the_cache_expires(monkeypatch):
+    monkeypatch.setenv("PARQUET_DIR", "/data")
+    monkeypatch.setattr(api_main, "get_site_schedules", lambda: SCHEDULES)
+    monkeypatch.setattr(api_main, "get_prediction_model", lambda: ConstantModel())
+    monkeypatch.setattr(
+        api_main, "read_recent_history", lambda path, site_ids, hours: make_history()
+    )
+    calls = {"count": 0}
+
+    def fake_compute(history, model, schedules):
+        calls["count"] += 1
+        return {"SITE001": 12.5}
+
+    monkeypatch.setattr(api_main, "compute_relative_mae_by_site", fake_compute)
+    current_time = {"value": 1_000_000.0}
+    monkeypatch.setattr(api_main.time, "time", lambda: current_time["value"])
+    api_main._cached_relative_mae_by_site.cache_clear()
+    client = TestClient(app)
+
+    client.get("/metrics")
+    current_time["value"] += api_main.FORECAST_ERROR_CACHE_SECONDS
+    client.get("/metrics")
+    api_main._cached_relative_mae_by_site.cache_clear()
+
+    assert calls["count"] == 2
+
+
 def test_model_endpoint_retourne_503_si_aucun_champion(monkeypatch):
     import mlflow.exceptions
 

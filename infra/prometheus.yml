@@ -21,16 +21,17 @@ scrape_configs:
       - targets: ["cadvisor:8080"]
 
   # Les cibles applicatives s'ajoutent ici au fur et à mesure que les services
-  # exposent /metrics. Aucun ne le fait aujourd'hui ; la dérive du modèle est
-  # la première attendue (#40). Elles complètent les deux sources ci-dessus,
-  # elles ne les remplacent pas.
-  #
-  # Décommenter ne suffira pas : Prometheus vit sur le réseau `supervision`,
-  # `ml` et `dashboard` sur `data`. Sans réseau commun la cible passe DOWN sur
-  # « no such host », et rien dans le journal ne désigne la cause.
-  # - job_name: ml
-  #   static_configs:
-  #     - targets: ["ml:8000"]
+  # exposent /metrics. Elles complètent les deux sources ci-dessus, elles ne
+  # les remplacent pas.
+
+  # Erreur de prévision relative par site (#40). 1m et non 15s : au-delà de 5
+  # min sans scrape la série est périmée pour Prometheus (trous dans Grafana
+  # et les alertes) ; le cache de main.py (600s) absorbe le reste.
+  - job_name: ml
+    scrape_interval: 1m
+    static_configs:
+      - targets: ["ml:8000"]
+
   # - job_name: dashboard
   #   static_configs:
   #     - targets: ["dashboard:3000"]

@@ -1381,6 +1381,7 @@ dependencies = [
     { name = "mlflow" },
     { name = "pandas" },
     { name = "plotly" },
+    { name = "prometheus-client" },
     { name = "prophet" },
     { name = "pyarrow" },
     { name = "python-dotenv" },
@@ -1409,6 +1410,7 @@ requires-dist = [
     { name = "mlflow", specifier = ">=2.22.0" },
     { name = "pandas", specifier = ">=3.0.5" },
     { name = "plotly", specifier = ">=7.0.0" },
+    { name = "prometheus-client", specifier = ">=0.26.0" },
     { name = "prophet", specifier = ">=1.4.0" },
     { name = "pyarrow", specifier = ">=25.0.1" },
     { name = "python-dotenv", specifier = ">=1.2.3" },
@@ -1758,7 +1760,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "ptyprocess" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450, upload-time = "2023-11-25T09:07:26.339Z" }
 wheels = [

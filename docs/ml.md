@@ -1,6 +1,6 @@
 # Modèle de prévision
 
-Ce document est celui annoncé dans [`README.md`](./README.md) pour EC06. Il ne couvre pour l'instant que **l'impact métier du modèle** (#94). Le choix du modèle vit dans `apps/ml/notebooks/model_selection.ipynb`, le versionnement dans le registre MLflow posé par #37, et la surveillance de la dérive reste à venir avec #40.
+Ce document est celui annoncé dans [`README.md`](./README.md) pour EC06. Il couvre **l'impact métier du modèle** (#94) et **la surveillance de sa dérive** (#40). Le choix du modèle vit dans `apps/ml/notebooks/model_selection.ipynb`, le versionnement dans le registre MLflow posé par #37.
 
 Le carnet charge le modèle **depuis ce registre**, par son alias `champion` : il mesure donc la version que l'API sert, et non une copie posée à côté. Les chiffres ci-dessous portent sur la version 1.
 
@@ -58,6 +58,45 @@ La règle de recommandation simulée n'existe pas encore en code : elle appartie
 **Ce que cela coûte, et c'est mesuré.** Les fausses alertes passent de 40 % à 71 %, et la charge d'alertes est multipliée par dix, de 2,6 à 26,7 par semaine. L'arbitrage appartient à l'exploitant, pas au modèle.
 
 **Ce que ça dit pour #44.** Le déclencheur a besoin de deux réglages par site, pas d'un : le seuil de vigilance, que `warning_threshold_kw` porte déjà, et le coefficient de déclenchement, qui n'existe nulle part. Les deux doivent être mesurés site par site, un réglage global donnant 2,6 alertes par semaine ici et 168 là.
+
+## Surveillance de la dérive (#40)
+
+**Ce qui est mesuré.** L'erreur de prévision relative par site, `MAE / consommation moyenne`,
+exposée en continu par le service ML sur `/metrics` au format Prometheus
+(`ml_forecast_relative_mae_percent{site_id=...}`), scrapée par la cible `ml` de
+[`../infra/prometheus.yml`](../infra/prometheus.yml).
+
+**Comment elle est calculée, sans rien journaliser.** Le service ne garde aucune trace de ses
+prévisions passées. Il les rejoue à la place : pour plusieurs origines réparties sur les sept
+derniers jours, il prédit 24 heures comme le ferait un vrai appel à `/predictions`, sauf que ces
+heures sont déjà passées, donc déjà mesurées dans les Parquet. La comparaison porte sur
+`consumption_kwh` brut, jamais sur sa version corrigée par `ffill`, pour ne pas comparer le
+modèle à une valeur qu'il n'a pas eu à deviner. Le calcul est rejoué au plus toutes les dix
+minutes (`FORECAST_ERROR_CACHE_SECONDS` dans `api/main.py`) : à chaque scrape il rejouerait
+sans raison environ 4 700 prédictions par site pour une donnée qui ne bouge qu'au rythme de
+l'ETL.
+
+**Le seuil, 20 %, n'est pas nouveau.** C'est le critère d'acceptation déjà retenu pour le MVP
+dans `notebooks/model_selection.ipynb` : *« le critère d'acceptation retenu pour le MVP étant
+une erreur moyenne relative inférieure à 20 %»*, validé sur le jeu de test avec des erreurs
+observées de 11 à 20 % selon le site. La surveillance continue reprend ce seuil tel quel plutôt
+que d'en justifier un autre : un franchissement veut dire que le modèle sert désormais des
+prévisions plus mauvaises que celles qui ont validé sa mise en production.
+
+> **Écart avec le ticket.** #40 demandait aussi une détection de dérive de la distribution des
+> entrées, avec un second seuil justifié séparément. Elle a été écartée : elle aurait demandé de
+> figer une distribution de référence par version de modèle (un nouvel état à faire vivre, rien
+> de tel n'existe aujourd'hui) pour un signal plus indirect que l'erreur de sortie, qui elle-même
+> reprend un seuil déjà mesuré et déjà accepté. Le ticket est jugé antérieur aux décisions
+> d'architecture prises depuis (#37, #94, #55) ; l'alerte sur ce seuil, elle, est repoussée à une
+> itération suivante.
+
+**Ses limites, à ne pas lire comme un défaut d'implémentation.**
+
+- **Indicateur qui constate, pas qui prévient.** Le seuil dit que le modèle se trompe déjà plus
+  que d'habitude sur les sept derniers jours, pas qu'il va bientôt se tromper.
+- **Une fenêtre de sept jours est bruitée.** Un seul jour atypique (férié, évènement) peut suffire
+  à faire franchir le seuil à un site sans qu'il s'agisse d'une vraie dérive.
 
 ## Limites
 
