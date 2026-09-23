@@ -57,6 +57,7 @@ La VM doit disposer de :
 - Ansible ;
 - SOPS ;
 - age ;
+- jq, pour lire les journaux de l'ETL ;
 - un accès sortant à GitHub ;
 - l'utilisateur `apprenant`, UID et GID `1000` ;
 - un accès de `apprenant` au moteur Docker.
@@ -71,6 +72,7 @@ git --version
 ansible-playbook --version
 sops --version
 age --version
+jq --version
 id apprenant
 ```
 
