@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ref } from 'vue'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { ref, nextTick } from 'vue'
 import { useFleetSummary, POLLING_INTERVAL_MS } from '../../app/composables/useFleetSummary'
 
 const { mockUseFetch } = vi.hoisted(() => {
@@ -8,7 +8,8 @@ const { mockUseFetch } = vi.hoisted(() => {
 })
 
 vi.mock('nuxt/app', () => ({
-  useFetch: mockUseFetch
+  useFetch: mockUseFetch,
+  useRoute: () => ({ path: '/' })
 }))
 
 const parkSummaryFixture = {
@@ -101,5 +102,24 @@ describe('useFleetSummary', () => {
 
   it('POLLING_INTERVAL_MS vaut 30 000 ms', () => {
     expect(POLLING_INTERVAL_MS).toBe(30_000)
+  })
+
+  describe('journalisation des erreurs', () => {
+    afterEach(() => vi.restoreAllMocks())
+
+    it('loggue sur console.error quand error passe de null à une Error', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errorRef = ref<Error | null>(null)
+      mockUseFetch.mockReturnValue({ data: ref(null), pending: ref(false), error: errorRef, refresh: vi.fn() })
+
+      useFleetSummary()
+
+      errorRef.value = new Error('503 Source indisponible')
+      await nextTick()
+
+      expect(consoleSpy).toHaveBeenCalledOnce()
+      const [, données] = consoleSpy.mock.calls[0] as [string, Record<string, unknown>]
+      expect(données.message).toBe('503 Source indisponible')
+    })
   })
 })

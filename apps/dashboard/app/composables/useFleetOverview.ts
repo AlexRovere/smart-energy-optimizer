@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
-import type { Alert, AlertSeverity, CurrentReading, Reading, SensorHealth, SensorStatus, Site, SiteId, SiteType, SiteStatus } from '../types/api'
+import type { AlertSeverity, CurrentReading, Reading, SensorHealth, SensorStatus, Site, SiteId, SiteType, SiteStatus } from '../types/api'
 import { fmtNum, fmtPct } from '../utils/format'
+import { useAlerts } from './useAlerts'
 import { useFleetSummary } from './useFleetSummary'
 import { useSitesList } from './useSitesList'
 import type { SiteApiItem } from '~~/shared/siteSchema'
@@ -17,16 +18,6 @@ function siteApiItemToSite(item: SiteApiItem): Site {
   }
 }
 
-function mockAlerts(): Alert[] {
-  const now = Date.now()
-  return [
-    { alert_id: 'ALT-001', site_id: 'SITE003', severity: 'critical', type: 'outage',    message: 'Capteur de consommation muet depuis 12 min',      timestamp: new Date(now - 12  * 60_000).toISOString() },
-    { alert_id: 'ALT-002', site_id: 'SITE002', severity: 'critical', type: 'threshold', message: 'Seuil dépassé sur la ligne principale',             timestamp: new Date(now - 27  * 60_000).toISOString(), value: 781,  threshold: 720  },
-    { alert_id: 'ALT-003', site_id: 'SITE005', severity: 'high',     type: 'spike',     message: 'Pic de charge +34 % en 5 min',                     timestamp: new Date(now - 48  * 60_000).toISOString(), value: 402,  threshold: 480  },
-    { alert_id: 'ALT-004', site_id: 'SITE002', severity: 'medium',   type: 'sensor',    message: 'Hygromètre hors plage — mesure écartée',           timestamp: new Date(now - 96  * 60_000).toISOString() },
-    { alert_id: 'ALT-005', site_id: 'SITE007', severity: 'low',      type: 'anomaly',   message: 'Facteur de puissance en baisse continue',           timestamp: new Date(now - 184 * 60_000).toISOString(), value: 0.89, threshold: 0.92 },
-  ]
-}
 
 function mockSensors(): SensorStatus[] {
   const make = (id: SiteId, name: string, overall: SensorHealth): SensorStatus => ({
@@ -81,7 +72,7 @@ function mockReadings(siteId: SiteId): Reading[] {
 export function useFleetOverview() {
   const { summary: stats, pending } = useFleetSummary()
   const { sites: rawSites } = useSitesList()
-  const alerts = ref<Alert[]>(mockAlerts())
+  const { alerts } = useAlerts()
   const sensors = ref<SensorStatus[]>(mockSensors())
   const siteDetails = computed<Site[]>(() => rawSites.value.map(siteApiItemToSite))
   const currentReadings = ref<CurrentReading[]>(mockCurrentReadings())
@@ -182,7 +173,9 @@ export function useFleetOverview() {
 
   const alertsByLevel = computed(() => {
     const counts: Record<AlertSeverity, number> = { critical: 0, high: 0, medium: 0, low: 0 }
-    for (const a of alerts.value) counts[a.severity]++
+    for (const a of alerts.value) {
+      if (a.severity in counts) counts[a.severity as AlertSeverity]++
+    }
     return counts
   })
 

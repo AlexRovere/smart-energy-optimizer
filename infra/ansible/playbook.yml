@@ -4,18 +4,8 @@
   gather_facts: false
   environment:
     SOPS_AGE_KEY_FILE: "{{ age_key_file }}"
-
-  vars:
-    application_user: apprenant
-    application_group: apprenant
-    project_parent: /home/apprenant/Projet
-    project_dir: "{{ project_parent }}/enerVision"
-    repository_url: https://github.com/EADL-2026/enerVision.git
-    repository_version: main
-    parquet_dir: /data/output
-    log_dir: /var/log/enervision
-    age_key_file: /home/apprenant/.config/sops/age/keys.txt
-    run_database_seed: true
+    # Chemin des mesures sur la machine : la composition n'a qu'un défaut de poste.
+    PARQUET_DIR_HOST: "{{ parquet_dir }}"
 
   pre_tasks:
     - name: Vérifier Docker
@@ -37,6 +27,60 @@
     - name: Vérifier age
       ansible.builtin.command: age --version
       changed_when: false
+
+    - name: Relever la version de Git  # noqa: command-instead-of-module
+      ansible.builtin.command: git --version
+      changed_when: false
+      register: git_version
+
+    # Les variables GIT_CONFIG_* qui portent le jeton datent de Git 2.31. Plus
+    # ancien, git les ignore sans rien dire et redemande un identifiant.
+    - name: Refuser un Git trop ancien pour l'identifiant du dépôt
+      ansible.builtin.assert:
+        that:
+          - git_version.stdout.split()[2] is version('2.31', '>=')
+        fail_msg: >-
+          Git 2.31 au moins est nécessaire pour l'identifiant du dépôt privé,
+          version trouvée : {{ git_version.stdout }}.
+      when: git_version is not skipped
+
+    # Sans jeton, git repartirait demander un identifiant que la machine n'a
+    # pas, et l'erreur arriverait dix tâches plus loin sans dire laquelle.
+    - name: Refuser un déploiement sans jeton de dépôt
+      ansible.builtin.assert:
+        that:
+          - repository_token | length > 0
+        fail_msg: >-
+          Le dépôt est privé et la machine ne porte aucun identifiant git.
+          Exporter GH_REPOSITORY_TOKEN avant de lancer le playbook.
+
+    # Reprend le garde-fou que la composition portait par un `:?` : un chemin
+    # relatif créerait le répertoire des mesures dans le dépôt, sans rien dire.
+    - name: Refuser un chemin de mesures relatif
+      ansible.builtin.assert:
+        that:
+          - parquet_dir is defined
+          - parquet_dir is string
+          - parquet_dir.startswith('/')
+        fail_msg: >-
+          parquet_dir doit être un chemin absolu de la machine, valeur reçue :
+          {{ parquet_dir | default('(non définie)') }}.
+
+    - name: Retenir l'adresse servie par le proxy
+      ansible.builtin.set_fact:
+        resolved_domain: "{{ public_domain | default('') or ansible_host | default(inventory_hostname) }}"
+
+    # Servir un certificat pour un nom que personne ne résout ne se voit qu'au
+    # navigateur. Mieux vaut refuser avant d'avoir touché la machine.
+    - name: Refuser un déploiement sans adresse joignable
+      ansible.builtin.assert:
+        that:
+          - resolved_domain is match('^([0-9]{1,3}\.){3}[0-9]{1,3}$')
+            or resolved_domain is match('^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$')
+        fail_msg: >-
+          {{ resolved_domain }} n'est ni une adresse IPv4 ni un nom qualifié.
+          Renseigner public_domain dans infra/ansible/host_vars/, ou à défaut
+          ansible_host dans infra/ansible/inventory.ini.
 
   tasks:
     - name: Vérifier les répertoires applicatifs
@@ -61,6 +105,24 @@
         version: "{{ repository_version }}"
         update: true
         force: false
+      environment: "{{ repository_credential_env }}"
+
+    # Sans lui, un `docker compose up` lancé à la main sur la machine prendrait
+    # le défaut de la composition, qui vise un poste, et écrirait les mesures
+    # dans le dépôt. Aucun secret ici : ceux-là restent dans secrets.enc.yaml.
+    - name: Poser les réglages de la machine
+      ansible.builtin.copy:
+        dest: "{{ project_dir }}/.env"
+        owner: "{{ application_user }}"
+        group: "{{ application_group }}"
+        mode: "0640"
+        content: |
+          # Écrit par infra/ansible/playbook.yml, ne pas modifier à la main.
+          PARQUET_DIR_HOST={{ parquet_dir }}
+          DOMAIN={{ resolved_domain }}
+          # Caddy est le seul chemin vers le dashboard, aucun port ne lui est
+          # publié à côté : X-Forwarded-For ne peut venir que du proxy.
+          TRUST_PROXY=true
 
     - name: Vérifier la présence de la clé age de la VM
       ansible.builtin.stat:
@@ -100,7 +162,7 @@
           - sops
           - exec-env
           - secrets.enc.yaml
-          - docker compose build etl ml dashboard migrate
+          - docker compose --parallel 1 build etl ml dashboard migrate
       args:
         chdir: "{{ project_dir }}"
       changed_when: false
@@ -111,7 +173,7 @@
           - sops
           - exec-env
           - secrets.enc.yaml
-          - docker compose up -d --wait postgres
+          - docker compose up -d --wait --wait-timeout 180 postgres
       args:
         chdir: "{{ project_dir }}"
       changed_when: false
@@ -145,7 +207,7 @@
           - sops
           - exec-env
           - secrets.enc.yaml
-          - docker compose up -d --wait
+          - docker compose up -d --wait --wait-timeout 300
       args:
         chdir: "{{ project_dir }}"
       changed_when: false

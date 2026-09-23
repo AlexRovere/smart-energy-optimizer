@@ -1,5 +1,6 @@
 # teste la lecture de l'URL de base de l'API Mock depuis l'environnement
 import pytest
+
 from extract.config import get_base_url
 
 

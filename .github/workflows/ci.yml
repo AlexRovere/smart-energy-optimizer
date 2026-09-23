@@ -61,6 +61,7 @@ jobs:
               - 'docker-compose.yml'
               - 'docker-compose.dev.yml'
               - '.github/workflows/ci.yml'
+              - '.github/workflows/deploy.yml'
 
   etl:
     needs: changes
@@ -149,9 +150,10 @@ jobs:
           name: rapport-qualite-ml
           path: rapport-qualite/
 
-      # TODO : les tests arrivent avec #51.
-      # - run: uv run --directory apps/ml pytest
-      - run: echo "TODO ML - tests du contrat de l API de prediction"
+      # Le seuil de couverture (80 % sur src) est porté par pyproject.toml : pas
+      # de --cov-fail-under ici, une seule source de vérité.
+      - name: Tests (pytest)
+        run: uv run --directory apps/ml pytest
 
   dashboard:
     needs: changes
@@ -216,16 +218,16 @@ jobs:
         run: pipx install ansible-lint && ansible-lint infra/ansible
       # Les valeurs sont bidon et c'est voulu : `:?` refuse une variable vide
       # autant qu'absente, et la validation porte sur la structure du fichier,
-      # jamais sur ce que les variables contiennent.
-      - name: La composition est valide
+      # jamais sur ce que les variables contiennent. Seuls les secrets figurent
+      # ici : si un réglage devait être ajouté pour que l'étape passe, c'est
+      # qu'il a perdu son défaut dans la composition (#197).
+      - name: La composition est valide avec les seuls secrets
         env:
           POSTGRES_PASSWORD: ci
           ETL_DB_PASSWORD: ci
-          ETL_DB_USER : ci
           SEED_PASSWORD: ci
           SESSION_SECRET: ci
           MOCK_API_URL: http://ci
-          PARQUET_DIR_HOST: ./data/parquet
           GRAFANA_ADMIN_PASSWORD: ci
         run: docker compose config --quiet
       # Aucune variable, et c'est le contrôle : la composition de développement

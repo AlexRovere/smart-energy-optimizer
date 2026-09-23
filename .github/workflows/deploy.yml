@@ -1,0 +1,59 @@
+name: CD
+
+# La VM n'est pas joignable depuis un runner GitHub hébergé. Le déploiement
+# s'exécute donc sur le runner auto-hébergé installé sur la VM, après une CI
+# réussie sur main. workflow_dispatch conserve une sortie de secours manuelle.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Deux commits rapprochés attendent leur tour : interrompre un déploiement au
+# milieu des migrations laisserait un état plus difficile à diagnostiquer.
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Déployer sur la VM
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    # Le label `enervision` désigne le runner de la VM. Sans lui, un autre
+    # runner auto-hébergé capterait le job et déploierait ailleurs.
+    runs-on: [self-hosted, linux, x64, enervision]
+    timeout-minutes: 45
+
+    steps:
+      - name: Récupérer main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Vérifier les outils de déploiement
+        run: |
+          ansible-playbook --version
+          docker compose version
+          sops --version
+          age --version
+
+      - name: Déployer avec Ansible
+        # Le dépôt est privé : sans jeton, le clone de la VM demanderait un
+        # identifiant et s'arrêterait là. Celui du job est limité à la lecture
+        # du contenu et meurt avec lui.
+        env:
+          GH_REPOSITORY_TOKEN: ${{ github.token }}
+        run: |
+          # GitHub masque le jeton, pas l'en-tête qui en dérive : un journal
+          # en mode bavard le montrerait en clair.
+          echo "::add-mask::$(printf 'x-access-token:%s' "$GH_REPOSITORY_TOKEN" | base64 -w0)"
+          ansible-playbook \
+            -i infra/ansible/inventory.ini \
+            --connection local \
+            infra/ansible/playbook.yml

@@ -12,7 +12,7 @@ Rôle porteur : Cloud / DevOps. Épreuve : EC04. Issue : #55.
 | `prometheus` | Collecte toutes les 15 s, conserve les séries, interface sur `127.0.0.1:9090`. |
 | `node-exporter` | Mesure la **machine** : processeur, mémoire, disques, réseau. |
 | `cadvisor` | Mesure les **conteneurs** : consommation, redémarrages, dernière apparition. |
-| `grafana` | Restitue, interface sur `127.0.0.1:3001`. |
+| `grafana` | Restitue. Servi par Caddy sur `GRAFANA_PORT`, en TLS, et ne publie aucun port lui-même. |
 
 **Aucune des deux sources ne voit ce que voit l'autre.** Une machine saine peut héberger un
 conteneur qui redémarre en boucle ; des conteneurs sobres ne disent rien d'un disque que
@@ -52,16 +52,19 @@ sops exec-env secrets.enc.yaml 'docker compose up -d'
 curl -s http://127.0.0.1:9090/api/v1/targets | grep -o '"health":"[a-z]*"'   # trois "up"
 ```
 
-Grafana sur <http://127.0.0.1:3001>, compte `admin`. Source de données et tableaux sont
+Grafana sur <https://localhost:3001>, compte `admin`. Source de données et tableaux sont
 provisionnés depuis [`../infra/grafana/`](../infra/grafana/), rien à cliquer.
 
 **Sur la machine** : rien de spécifique non plus. Le playbook de #47 lance
 `docker compose up -d --wait` sans liste de services, donc les quatre conteneurs partent avec
 le reste ; ils portent `restart: unless-stopped` et reviennent après un redémarrage de la
-machine. Aucun port de supervision n'est publié sur le réseau, l'accès passe par un tunnel :
+machine. **Grafana se joint directement**, en TLS, sur <https://\<adresse-machine\>:3001> : c'est
+Caddy qui le sert, et c'est le seul service de supervision visible depuis le réseau (#39,
+[`architecture.md`](./architecture.md)). Prometheus, lui, reste sur la boucle locale et demande
+un tunnel :
 
 ```bash
-ssh -L 3001:127.0.0.1:3001 apprenant@<machine>
+ssh -L 9090:127.0.0.1:9090 apprenant@<machine>
 ```
 
 ## Le secret

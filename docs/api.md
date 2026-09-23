@@ -52,7 +52,9 @@ La colonne « Rôle » décrit le mécanisme complet. **Un seul rôle est exploi
 | GET | `/api/alerts` | `?site_id=&severity=` | `Alert[]` | 401, 422, 503 | tous |
 | GET | `/api/sensors/status` | | `SensorStatus` | 401, 503 | tous |
 | POST | `/api/sites/{id}/prediction` | `{ horizon_hours }`, 1 à 168, défaut 24 | `Prediction` | 401, 403, 422 | tous |
-| GET | `/api/recommendations` | `?site_id=` | `Recommendation[]` | 401, 422 | tous |
+| GET | `/api/sites/{id}/recommendations` | | `Recommendation[]` | 401, 422, 503 | tous |
+| GET | `/api/alert-thresholds` | | `AlertThreshold[]` | 401, 503 | tous |
+| PUT | `/api/sites/{id}/alert-thresholds/{type}` | `{ duration, threshold }` | `AlertThreshold` | 401, 403, 422 | `ADMIN`, `OPERATOR` |
 
 Trois règles que le tableau ne dit pas :
 
@@ -254,6 +256,19 @@ Les sites sans mesure sont **exclus des totaux et nommés** dans `excluded_sites
 
 `source` vaut `threshold` ou `forecast`. Les recommandations de seuil sont calculées par l'applicatif et ne dépendent pas du modèle ; celles de prévision s'ajoutent quand le service ML répond. `trigger` porte la mesure qui a déclenché.
 
+### `AlertThreshold`
+
+```json
+{
+  "site_id": "SITE001",
+  "type": "pic",
+  "duration": 5,
+  "threshold": 1.5
+}
+```
+
+`type` vaut `conso` ou `pic`. `duration` est le nombre d'heures de la fenêtre de moyenne glissante. `threshold` change de sens selon `type` : une valeur absolue en kWh pour `conso`, un facteur multiplicatif de la moyenne glissante pour `pic` (`1.5` pour 150 %). Tant qu'aucune ligne n'existe en base pour un site et un type donnés, `GET /api/alert-thresholds` rend les valeurs par défaut (`duration: 5`, `threshold: 200` pour `conso`, `threshold: 1.5` pour `pic`) plutôt qu'une absence.
+
 ---
 
 ## 7. Dégradation
@@ -279,7 +294,8 @@ Deux nommages coexistent volontairement : `.env` porte des noms neutres, la comp
 | `SESSION_SECRET` | applicatif | `NUXT_SESSION_PASSWORD`, nom lu par `nuxt-auth-utils` |
 | `TRUST_PROXY` | applicatif | `NUXT_TRUST_PROXY`, faux par défaut, vrai seulement derrière le proxy de #39 |
 | `MOCK_API_URL` | applicatif, ETL | `NUXT_MOCK_API_URL` / `MOCK_API_URL` |
-| `PARQUET_DIR_HOST` | composition seule | sert au montage |
+| `PARQUET_DIR_HOST` | composition seule | sert au montage, défaut `./data/parquet` |
+| `POSTGRES_PUBLISHED_PORT` | composition seule | port publié sur l'hôte, sans effet sur les conteneurs |
 | *(constante `/data`)* | applicatif, ETL, ML | `NUXT_PARQUET_DIR` / `PARQUET_DIR` |
 | `ML_API_URL` | applicatif | `NUXT_ML_SERVICE_URL`, la clé `mlServiceUrl` du `runtimeConfig` |
 | `LOG_LEVEL` | tous | `NUXT_LOG_LEVEL` / `LOG_LEVEL` |

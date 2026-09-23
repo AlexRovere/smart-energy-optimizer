@@ -136,6 +136,21 @@ Clé primaire composite `(user_id, site_id)`, qui interdit la double attribution
 
 `ON DELETE RESTRICT` sur `site_id` et non `CASCADE` : un site n'est de toute façon jamais supprimé (cf. `present_in_source`), et un `CASCADE` ferait disparaître des droits en silence si quelqu'un en supprimait un à la main.
 
+### `alert_thresholds`
+
+Les seuils d'alerte réglés par site, au plus une ligne « conso » et une ligne « pic ».
+
+| Colonne | Type | Contraintes | Description |
+| :--- | :--- | :--- | :--- |
+| `site_id` | VARCHAR(16) | NOT NULL, REFERENCES `sites(id)` ON DELETE RESTRICT | |
+| `type` | VARCHAR(10) | NOT NULL | `conso` ou `pic` |
+| `duration` | INTEGER | NOT NULL, DEFAULT 5 | Durée en heures de la fenêtre de moyenne glissante |
+| `threshold` | REAL | NOT NULL | Valeur à dépasser : moyenne glissante en kWh si `type = conso`, facteur multiplicatif de cette moyenne si `type = pic` |
+
+Clé primaire composite `(site_id, type)`, qui interdit plus d'une règle de chaque type par site.
+
+`ON DELETE RESTRICT` sur `site_id`, même raisonnement que pour `user_sites` : un site n'est jamais supprimé, et un `CASCADE` ferait disparaître des seuils réglés en silence.
+
 ### Index
 
 ```sql
@@ -237,7 +252,9 @@ table = pa.Table.from_pandas(
 
 **Stratégie d'imputation : report de la dernière valeur connue (forward-fill), par site, dans l'ordre chronologique** (`transform/readings.py::forward_fill_corrected`). Un `null` sur une valeur n'écrase jamais rien : la colonne brute garde le `null`, `data_quality` et `null_reasons` disent pourquoi, et `{champ}_corrected` reporte la dernière valeur observée pour ce site. Le risque assumé : sur une coupure longue, la valeur reportée reste constante jusqu'au retour de la donnée réelle, ce qui peut masquer une évolution réelle pendant l'absence (un site à l'arrêt prolongé apparaît plat, pas absent). Les colonnes brutes et `data_quality`/`null_reasons` restent la source de vérité pour distinguer une vraie mesure stable d'une valeur reportée.
 
-**Le lot de fonctionnalités dérivées** (lags de consommation `1h`/`2h`/`24h`/`48h`/`168h`, moyennes glissantes `24h`/`168h`, champs calendaires `hour`/`day_of_week`/`month`/`is_weekend`/`is_working_hours`) est calculé une fois pour toutes dans l'ETL, sur `consumption_kwh_corrected`, pour que le service ML n'ait pas à les recalculer à l'entraînement comme à l'inférence.
+**Les champs calendaires** (`hour`, `day_of_week`, `month`, `is_weekend`, `is_working_hours`) sont calculés par l'ETL sur `timestamp` (`transform/readings.py::add_calendar_features`). Ils sont universels, indépendants du modèle, et utilisés aussi bien par l'applicatif que par le service ML.
+
+**Les lags de consommation et les moyennes glissantes ne font pas partie du contrat Parquet.** Ce sont des constructions propres au modèle de prédiction, dont la définition (horizons, fenêtres, stratégie anti-leakage) appartient au service ML. Ils sont calculés par le service ML sur `consumption_kwh_corrected` : à l'entraînement via `features/forecast.py::add_training_features`, à l'inférence via `features/forecast.py::build_prediction_features`. L'ETL ne les calcule pas et ne les écrit pas.
 
 `site_id` est à la fois la clé de partition et une colonne. C'est redondant, la lecture en partitionnement Hive la reconstruit depuis le chemin, mais l'écrire rend le fichier lisible seul, sorti de son arborescence.
 
@@ -347,6 +364,7 @@ erDiagram
     users ||--o{ sessions : "ouvre"
     users ||--o{ user_sites : "accede a"
     sites ||--o{ user_sites : "est accessible a"
+    sites ||--o{ alert_thresholds : "regle"
 
     roles {
         int id PK
@@ -385,5 +403,11 @@ erDiagram
         uuid user_id PK,FK
         varchar site_id PK,FK
         timestamptz created_at
+    }
+    alert_thresholds {
+        varchar site_id PK,FK
+        varchar type PK
+        int duration
+        real threshold
     }
 ```

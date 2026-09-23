@@ -27,7 +27,7 @@ Application **Nuxt 4** fullstack : le même conteneur sert l'interface et l'API 
 │ roles, sites)│                           │ HTTPS
 └──────────────┘              ┌────────────▼─────────────┐
                               │     Reverse Proxy        │
-                              │    (Caddy / Traefik)     │
+                              │         (Caddy)          │
                               └────────────┬─────────────┘
                                            │ HTTPS
                                       Navigateur
@@ -62,7 +62,7 @@ Application **Nuxt 4** fullstack : le même conteneur sert l'interface et l'API 
 - Autorisation par rôle : `requireRole(event, 'ADMIN')` dans `server/utils/guard.ts` appelle `requireAccount` puis compare le rôle relu en base. Déclasser un compte prend effet à la prochaine requête, sans attendre l'expiration de la session (#95).
 - Validation entrées : Zod sur chaque route API. Les schémas des routes admin sont dans `shared/adminSchema.ts` : `createUserSchema` (création) et `updateUserSchema` (patch partiel). Les identifiants de sites y sont contraints au pattern `SITE\d{3}`, et les rôles à l'enum `ADMIN | OPERATOR | VIEWER`.
 - Rate limiting sur `/api/auth/login`.
-- Reverse proxy : TLS, CSP, HSTS, X-Frame-Options.
+- Reverse proxy : TLS, HSTS, X-Frame-Options, `X-Content-Type-Options`, `Referrer-Policy` (`infra/caddy/Caddyfile`). Pas de CSP : elle demande l'inventaire des origines du dashboard, qui n'est pas fait.
 
 ## Routes API
 

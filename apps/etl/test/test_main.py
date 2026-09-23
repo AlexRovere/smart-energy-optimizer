@@ -6,6 +6,7 @@ from unittest.mock import ANY, call, patch
 
 import pandas as pd
 import pytest
+
 from main import build_parser, main, run_hour, run_periods, run_sites
 
 
@@ -186,7 +187,7 @@ def test_run_periods_prepends_context_before_transform_and_strips_it_afterwards(
         [
             {
                 "site_id": "SITE001",
-                "timestamp": pd.Timestamp("2026-08-27", tz="UTC"),
+                "timestamp": pd.Timestamp("2026-09-02", tz="UTC"),
                 "consumption_kw": 1.0,
             }
         ]
@@ -206,7 +207,7 @@ def test_run_periods_prepends_context_before_transform_and_strips_it_afterwards(
         [
             {
                 "site_id": "SITE001",
-                "timestamp": pd.Timestamp("2026-08-27", tz="UTC"),
+                "timestamp": pd.Timestamp("2026-09-02", tz="UTC"),
                 "consumption_kw_corrected": 1.0,
             },
             {
@@ -228,19 +229,13 @@ def test_run_periods_prepends_context_before_transform_and_strips_it_afterwards(
     combined = mock_transform_readings.call_args.args[0]
     assert list(combined["consumption_kw"]) == [1.0, 2.0]
 
-    # le jour manquant (9/3) et les 7 jours avant sont demandes comme contexte : le jour lui-meme
-    # peut deja porter des heures ecrites par un run precedent (cron horaire)
+    # le jour manquant (9/3) et 1 jour de contexte avant sont demandes pour le forward-fill
+    # inter-journalier ; le jour lui-meme peut deja porter des heures ecrites par un run precedent
     mock_get_context_days.assert_called_once_with(
         "SITE001",
         {
             date(2026, 9, 3),
             date(2026, 9, 2),
-            date(2026, 9, 1),
-            date(2026, 8, 31),
-            date(2026, 8, 30),
-            date(2026, 8, 29),
-            date(2026, 8, 28),
-            date(2026, 8, 27),
         },
     )
 

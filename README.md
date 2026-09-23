@@ -17,6 +17,7 @@ Monorepo. La structure du dépôt n'est pas l'architecture de déploiement : les
 | `infra/grafana/`      | Supervision : source de données et tableaux, provisionnés depuis le dépôt   | `domain:cloud`               |
 | `.github/workflows/` | Pipeline build, test, scan, deploy                                       | `domain:cicd`                |
 | `docs/`              | Livrables et documentation technique                                     | `domain:doc`                 |
+| `DEPLOIEMENT.md`     | Procédure pas à pas de préparation de la VM, Ansible et runner GitHub    | `domain:cloud`, `domain:cicd` |
 | `docker-compose.yml` | La pile complète, à la racine pour un `docker compose up` direct         | `domain:cloud`               |
 | `docker-compose.dev.yml` | Le seul PostgreSQL, pour la boucle de développement locale           | `domain:cloud`               |
 
@@ -54,11 +55,16 @@ dashboard](./apps/dashboard/README.md).
 
 ### Déployer
 
-La pile complète, qui construit ses images et exige toutes ses variables. Rien
-ne démarre sur une valeur oubliée, c'est voulu.
+La procédure complète de la VM, depuis les répertoires et la clé age jusqu'au
+runner GitHub et à la CD automatique, est détaillée dans
+[`DEPLOIEMENT.md`](./DEPLOIEMENT.md).
+
+La pile complète, qui construit ses images. Les réglages ont leurs défauts dans
+la composition, les secrets n'en ont aucun : rien ne démarre sur un secret
+oublié, c'est voulu.
 
 ```bash
-cp .env.example .env      # renseigner les valeurs
+cp .env.example .env      # renseigner les secrets, et eux seuls
 docker compose build etl ml dashboard migrate
 docker compose up -d --wait postgres
 docker compose run --rm migrate
@@ -68,10 +74,11 @@ docker compose ps
 ```
 
 **La même pile sur son poste, sans écrire un seul secret dans un fichier** :
-`sops exec-env` les fournit, et le `.env` ne garde que la section RÉGLAGES.
+`sops exec-env` les fournit, et les réglages ont leurs défauts dans la
+composition. Il n'y a donc **rien à copier**, le `.env` n'est utile que pour
+surcharger un réglage.
 
 ```bash
-cp .env.example .env      # ne renseigner que les RÉGLAGES
 sops exec-env secrets.enc.yaml 'docker compose build etl ml dashboard migrate'
 sops exec-env secrets.enc.yaml 'docker compose up -d --wait postgres'
 sops exec-env secrets.enc.yaml 'docker compose run --rm migrate'
@@ -80,7 +87,10 @@ sops exec-env secrets.enc.yaml 'docker compose up -d --wait'
 ```
 
 L'environnement prime sur le `.env`, donc les valeurs déchiffrées l'emportent
-sur ce que le fichier contiendrait. Sur la VM, le playbook
+sur ce que le fichier contiendrait. C'est la raison pour laquelle
+`secrets.enc.yaml` ne porte **que** des secrets : un réglage qui s'y glisse ne
+peut plus être surchargé localement, et rien ne le signale (#197). Sur la VM, le
+playbook
 [`infra/ansible/playbook.yml`](./infra/ansible/playbook.yml) construit les
 images, applique les migrations puis démarre la pile avec ce même mécanisme. Il
 demande que la machine soit destinataire des secrets :
@@ -91,14 +101,16 @@ ni le même nom de projet Docker.
 
 Deux choses à savoir avant d'essayer. Si un PostgreSQL est déjà installé en
 service sur le poste, il tient 5432 et le lancement échoue sur `ports are not
-available` : poser `POSTGRES_PORT=15432` dans le `.env` suffit. Et aucun port
-n'est publié devant le dashboard, c'est le rôle du proxy de #39 : lancer la pile
-ici prouve qu'elle se construit et démarre, pas qu'on peut la parcourir au
-navigateur. Pour ça, la boucle de développement plus haut.
+available` : poser `POSTGRES_PUBLISHED_PORT=15432` dans le `.env` suffit. C'est
+bien ce nom-là, et pas `POSTGRES_PORT`, qui reste le port joint à l'intérieur du
+réseau Docker et n'a aucune raison de bouger. Et le dashboard ne publie aucun
+port : il se parcourt sur <https://localhost>, par Caddy, avec l'avertissement de
+certificat que produit sa CA interne ([`infra/caddy/README.md`](./infra/caddy/README.md)).
+Pour développer, la boucle plus haut reste plus rapide.
 
 **La supervision part avec la pile**, sans rien de plus à lancer : Grafana sur
-<http://127.0.0.1:3001> (compte `admin`, mot de passe `GRAFANA_ADMIN_PASSWORD`) et
-Prometheus sur <http://127.0.0.1:9090>. Le tableau est déjà là, il est provisionné
+<https://localhost:3001> (compte `admin`, mot de passe `GRAFANA_ADMIN_PASSWORD`), servi par
+Caddy comme le dashboard, et Prometheus sur <http://127.0.0.1:9090>. Le tableau est déjà là, il est provisionné
 depuis `infra/grafana/`. Les indicateurs et leur motif :
 [`docs/supervision.md`](./docs/supervision.md).
 
