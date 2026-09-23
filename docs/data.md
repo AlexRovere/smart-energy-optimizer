@@ -233,8 +233,6 @@ SCHEMA = pa.schema(
         ("humidity_percent_corrected", pa.float64()),
         ("data_quality", pa.string()),
         ("null_reasons", pa.list_(pa.string())),
-        ("consumption_lag_1h", pa.float64()),  # + lag_2h, lag_24h, lag_48h, lag_168h
-        ("rolling_mean_24h", pa.float64()),  # + rolling_mean_168h
         ("hour", pa.int32()),  # + day_of_week, month, is_weekend, is_working_hours
     ]
 )
@@ -252,7 +250,9 @@ table = pa.Table.from_pandas(
 
 **Stratégie d'imputation : report de la dernière valeur connue (forward-fill), par site, dans l'ordre chronologique** (`transform/readings.py::forward_fill_corrected`). Un `null` sur une valeur n'écrase jamais rien : la colonne brute garde le `null`, `data_quality` et `null_reasons` disent pourquoi, et `{champ}_corrected` reporte la dernière valeur observée pour ce site. Le risque assumé : sur une coupure longue, la valeur reportée reste constante jusqu'au retour de la donnée réelle, ce qui peut masquer une évolution réelle pendant l'absence (un site à l'arrêt prolongé apparaît plat, pas absent). Les colonnes brutes et `data_quality`/`null_reasons` restent la source de vérité pour distinguer une vraie mesure stable d'une valeur reportée.
 
-**Le lot de fonctionnalités dérivées** (lags de consommation `1h`/`2h`/`24h`/`48h`/`168h`, moyennes glissantes `24h`/`168h`, champs calendaires `hour`/`day_of_week`/`month`/`is_weekend`/`is_working_hours`) est calculé une fois pour toutes dans l'ETL, sur `consumption_kwh_corrected`, pour que le service ML n'ait pas à les recalculer à l'entraînement comme à l'inférence.
+**Les champs calendaires** (`hour`, `day_of_week`, `month`, `is_weekend`, `is_working_hours`) sont calculés par l'ETL sur `timestamp` (`transform/readings.py::add_calendar_features`). Ils sont universels, indépendants du modèle, et utilisés aussi bien par l'applicatif que par le service ML.
+
+**Les lags de consommation et les moyennes glissantes ne font pas partie du contrat Parquet.** Ce sont des constructions propres au modèle de prédiction, dont la définition (horizons, fenêtres, stratégie anti-leakage) appartient au service ML. Ils sont calculés par le service ML sur `consumption_kwh_corrected` : à l'entraînement via `features/forecast.py::add_training_features`, à l'inférence via `features/forecast.py::build_prediction_features`. L'ETL ne les calcule pas et ne les écrit pas.
 
 `site_id` est à la fois la clé de partition et une colonne. C'est redondant, la lecture en partitionnement Hive la reconstruit depuis le chemin, mais l'écrire rend le fichier lisible seul, sorti de son arborescence.
 
