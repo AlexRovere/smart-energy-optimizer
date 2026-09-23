@@ -60,7 +60,7 @@ export function usePredictions() {
     prediction.value.predictions.some(p => p.predicted_consumption_kw >= thresholdKw.value)
   )
   const modelConfidence = computed(() =>
-    Math.round(prediction.value.confidence_level * 100)
+    Math.round((prediction.value.confidence_level ?? 0) * 100)
   )
   const peakTime = computed(() => {
     const peak = prediction.value.predictions.find(

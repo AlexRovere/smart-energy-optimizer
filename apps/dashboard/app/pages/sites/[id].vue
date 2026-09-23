@@ -3,6 +3,7 @@ import { useSiteCurrentReading } from '~/composables/useSiteCurrentReading';
 import type { SiteId } from '~/types/api'
 import { useSiteHistory } from '~/composables/useSiteHistory'
 import { useSiteRecommendations } from '~/composables/useSiteRecommendations'
+import { useSitePrediction } from '~/composables/useSitePrediction'
 
 const route = useRoute()
 const router = useRouter()
@@ -34,6 +35,8 @@ const health = computed(() => getSiteHealth(id.value))
 
 const chartWindow = ref<'24h' | '7j'>('24h')
 const { readings } = useSiteHistory(id, chartWindow)
+const horizonHeures = ref(24)
+const { forecastPoints, modelVersion, confidenceLevel, available: predictionDisponible } = useSitePrediction(id, computed(() => horizonHeures.value))
 
 // ── Formatters ──────────────────────────────────────────────────────
 
@@ -205,7 +208,6 @@ const chartData = computed(() => {
         <!-- Actions -->
         <div class="flex gap-3 shrink-0 mt-1">
           <EvButton variant="secondary">Configurer les seuils</EvButton>
-          <EvButton variant="primary" @click="router.push('/predictions')">Voir la prédiction</EvButton>
         </div>
       </header>
 
@@ -357,6 +359,50 @@ const chartData = computed(() => {
         </div>
         <div v-else class="py-10 text-center font-ev text-sm text-ev-text-3">
           Aucune donnée historique disponible
+        </div>
+      </EvCard>
+
+      <!-- Prévision de consommation -->
+      <EvCard>
+        <template #title>
+          <div class="flex items-center justify-between w-full">
+            <div>
+              <span class="font-ev text-base font-semibold">Prévision de consommation</span>
+              <div v-if="modelVersion" class="font-ev-mono text-[11px] text-ev-text-3 mt-0.5">
+                model_version · {{ modelVersion }}
+              </div>
+            </div>
+            <div class="flex gap-1">
+              <UButton
+                v-for="h in [24, 48]"
+                :key="h"
+                size="xs"
+                :variant="horizonHeures === h ? 'solid' : 'ghost'"
+                color="primary"
+                @click="horizonHeures = h"
+              >{{ h }}h</UButton>
+            </div>
+          </div>
+        </template>
+
+        <div
+          v-if="!predictionDisponible"
+          class="flex items-center gap-2.5 px-4 py-3 rounded-ev-md border text-sm font-ev"
+          style="border-color: var(--ev-amber-bd); background: var(--ev-amber-bg); color: var(--ev-amber)"
+        >
+          Service de prédiction indisponible — la prévision n'est pas affichée.
+        </div>
+
+        <EvPredictionChart
+          v-else-if="readings.length && forecastPoints.length"
+          :historical-points="readings"
+          :forecast-points="forecastPoints"
+          :threshold="info?.threshold_kw ?? 0"
+          :confidence-level="confidenceLevel"
+        />
+
+        <div v-else class="py-10 text-center font-ev text-sm text-ev-text-3">
+          Aucune donnée de prévision disponible
         </div>
       </EvCard>
 
