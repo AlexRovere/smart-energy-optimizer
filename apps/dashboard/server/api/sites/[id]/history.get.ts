@@ -1,10 +1,8 @@
 import { createError, defineEventHandler, getQuery, getRouterParam } from 'h3'
 import { z } from 'zod'
 import { querySiteHistory } from '../../../utils/parquetReader'
-import { requireAccount } from '../../../utils/guard'
+import { requireSiteAccess } from '../../../utils/guard'
 import { logger } from '../../../utils/logger'
-
-const siteIdSchema = z.string().regex(/^SITE\d{3}$/)
 
 const querySchema = z.object({
   from: z.string().datetime({ message: 'from doit être un horodatage ISO 8601 valide' }),
@@ -13,13 +11,7 @@ const querySchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-  await requireAccount(event)
-
-  const id = getRouterParam(event, 'id')
-  const parsedId = siteIdSchema.safeParse(id)
-  if (!parsedId.success) {
-    throw createError({ status: 422, statusText: 'Identifiant de site invalide' })
-  }
+  const { siteId } = await requireSiteAccess(event, getRouterParam(event, 'id'))
 
   const query = getQuery(event)
   const parsedQuery = querySchema.safeParse(query)
@@ -30,11 +22,11 @@ export default defineEventHandler(async (event) => {
   const { from, to, limit } = parsedQuery.data
 
   try {
-    return await querySiteHistory(parsedId.data, from, to, limit)
+    return await querySiteHistory(siteId, from, to, limit)
   } catch (err) {
     logger.error('Échec lecture historique Parquet', {
       route: event.path,
-      siteId: parsedId.data,
+      siteId,
       message: err instanceof Error ? err.message : String(err),
     })
     throw createError({ status: 503, statusText: 'Historique indisponible' })
