@@ -95,27 +95,15 @@ describe.skipIf(!baseDisponible())('recommandations', async () => {
     expect(Array.isArray(body)).toBe(true)
   })
 
-  it('rend 200 à un opérateur sur un site de son périmètre', async () => {
+  it.each([
+    { siteId: 'SITE001', status: 200, cas: 'un site de son périmètre' },
+    { siteId: 'SITE002', status: 403, cas: 'un site hors de son périmètre' },
+    { siteId: 'SITE999', status: 404, cas: 'un site absent du référentiel' }
+  ])('rend $status à un opérateur sur $cas', async ({ siteId, status }) => {
     const cookie = await signIn(EMAIL_OPERATEUR)
 
-    const response = await fetch('/api/sites/SITE001/recommendations', { headers: { cookie } })
+    const response = await fetch(`/api/sites/${siteId}/recommendations`, { headers: { cookie } })
 
-    expect(response.status).toBe(200)
-  })
-
-  it('rend 403 à un opérateur sur un site hors de son périmètre', async () => {
-    const cookie = await signIn(EMAIL_OPERATEUR)
-
-    const response = await fetch('/api/sites/SITE002/recommendations', { headers: { cookie } })
-
-    expect(response.status).toBe(403)
-  })
-
-  it('rend 404 sur un site absent du référentiel', async () => {
-    const cookie = await signIn(EMAIL_OPERATEUR)
-
-    const response = await fetch('/api/sites/SITE999/recommendations', { headers: { cookie } })
-
-    expect(response.status).toBe(404)
+    expect(response.status).toBe(status)
   })
 })
