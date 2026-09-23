@@ -35,13 +35,6 @@ READING_SITE001_DAY1 = {
     "humidity_percent_corrected": 58.4,
     "data_quality": "good",
     "null_reasons": [],
-    "consumption_lag_1h": None,
-    "consumption_lag_2h": None,
-    "consumption_lag_24h": None,
-    "consumption_lag_48h": None,
-    "consumption_lag_168h": None,
-    "rolling_mean_24h": 87.34,
-    "rolling_mean_168h": 87.34,
     "hour": 10,
     "day_of_week": 1,
     "month": 9,
@@ -130,23 +123,13 @@ def test_write_readings_preserves_null_values_and_reasons(tmp_path):
     assert result.loc[0, "data_quality"] == "critical"
 
 
-def test_write_readings_includes_feature_columns(tmp_path):
+def test_write_readings_includes_calendar_columns(tmp_path):
     readings = pd.DataFrame([_reading()])
 
     written = write_readings(readings, str(tmp_path))
 
     result = pd.read_parquet(written[0])
-    for column in [
-        "hour",
-        "day_of_week",
-        "month",
-        "is_weekend",
-        "is_working_hours",
-        "consumption_lag_1h",
-        "consumption_lag_168h",
-        "rolling_mean_24h",
-        "rolling_mean_168h",
-    ]:
+    for column in ["hour", "day_of_week", "month", "is_weekend", "is_working_hours"]:
         assert column in result.columns
 
 

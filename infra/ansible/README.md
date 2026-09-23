@@ -29,7 +29,7 @@ Le mécanisme de chiffrement au repos est posé par #52, mais il ne sert à rien
 - **Un runner GitHub auto-hébergé**, enregistré sur le dépôt et lancé en service. Il appelle GitHub en HTTPS sortant et n'accepte aucune connexion entrante, ce qui est la seule forme possible ici : le réseau de l'école ne laisse rien joindre la machine depuis l'extérieur. Ses identifiants d'enregistrement restent au repos sur la machine, sur un compte mutualisé : à relever dans l'audit de #58.
 - **Un `docker image prune` périodique**, les déploiements reconstruisant les images sur place faute de registre.
 
-**Une clé age de machine depuis le 17 septembre 2026, pas de clé SSH de déploiement.** La décision du 16 disait l'inverse pour la première, le runner auto-hébergé devant porter le déchiffrement ; il n'a pas tenu, le déploiement se joue donc depuis la VM et la clé y dort. Ce qu'elle coûte, le compte `apprenant` étant mutualisé, est écrit dans [`../../docs/secrets.md`](../../docs/secrets.md). Le playbook la vérifie et refuse le déploiement sans elle. La seconde n'a toujours pas d'objet, le pipeline ne se connectant pas à la machine.
+**Une clé age de machine depuis le 17 septembre 2026, pas de clé SSH de déploiement.** La décision du 16 disait l'inverse pour la première, le runner auto-hébergé devant porter le déchiffrement ; il n'a pas tenu : le déchiffrement se joue sur la VM et la clé y dort. Ce qu'elle coûte, le compte `apprenant` étant mutualisé, est écrit dans [`../../docs/secrets.md`](../../docs/secrets.md). Le playbook la vérifie et refuse le déploiement sans elle. La seconde n'a toujours pas d'objet, le pipeline ne se connectant pas à la machine.
 
 ## Ce qui ne sort pas de la machine
 
@@ -40,6 +40,30 @@ Rien. Aucune donnée d'exploitation ne quitte le site, l'hybride ayant été éc
 **Rien n'est modifié à la main sur la machine.** Le pipeline est le seul chemin vers elle. L'exception admise est l'exploitation (lancer, lire des journaux, diagnostiquer), jamais l'édition de code ni du schéma de la base.
 
 **Aucun commit depuis la machine.** Le compte y est mutualisé : un commit émis depuis la machine porterait une identité qui n'est celle de personne, alors que l'historique doit rester nominatif.
+
+## Où vivent les valeurs
+
+Le playbook ne définit aucune variable. Il décrit la recette, les valeurs
+viennent de l'inventaire.
+
+```text
+infra/ansible/
+├── inventory.ini              groupe, hôte, adresse de pilotage
+├── group_vars/enervision.yml  vrai de toute machine EnerVision
+├── host_vars/vm.yml           propre à cette machine
+└── playbook.yml               la recette, sans valeur en dur
+```
+
+Deux adresses cohabitent et ne servent pas à la même chose. `ansible_host`, dans
+`inventory.ini`, dit par où Ansible **joint** la machine pour la piloter.
+`public_domain`, dans `host_vars/`, dit quelle adresse Caddy **sert** aux
+utilisateurs, et c'est elle que porte le certificat. Elles coïncident aujourd'hui,
+elles n'ont aucune raison de le rester : un jour de rebond ou d'interface
+d'administration séparée, les confondre servirait un certificat pour une adresse
+que personne ne joint.
+
+Une valeur se surcharge sans toucher au dépôt avec `-e`, qui l'emporte sur tout
+le reste.
 
 ## Playbook de déploiement
 
@@ -94,7 +118,10 @@ exit
 
 ### Prérequis de la VM
 
-La VM doit disposer de Docker, du plugin Compose, de Git, de SOPS et de age.
+La VM doit disposer de Docker, du plugin Compose, de Git 2.31 ou plus récent,
+de SOPS et de age. Les variables `GIT_CONFIG_*` qui portent l'identifiant du
+dépôt n'existent pas avant cette version, et un git plus ancien les ignore
+sans rien dire.
 Une seule préparation est réalisée par `root`, avant le premier déploiement :
 
 ```bash
@@ -122,12 +149,27 @@ playbook refuse de continuer si la clé privée manque et force ses permissions 
 
 ### Déployer
 
+Le dépôt est privé et la VM ne porte aucun identifiant git. Le playbook lit
+`GH_REPOSITORY_TOKEN` sur le poste de contrôle et refuse de démarrer sans lui.
+Le jeton n'a besoin que de la lecture du contenu, et ne vit que le temps du
+shell :
+
+```bash
+export GH_REPOSITORY_TOKEN="$(gh auth token)"
+```
+
+Cette forme suppose `gh` installé et authentifié sur le poste. Sinon, saisir le
+jeton avec `read -rs GH_REPOSITORY_TOKEN` plutôt que de le coller dans la ligne
+de commande, où l'historique du shell le garderait.
+
 ```bash
 ansible-playbook \
   -i infra/ansible/inventory.ini \
   infra/ansible/playbook.yml \
   --ask-pass
 ```
+
+Le workflow de déploiement, lui, passe le jeton du job, qui meurt avec celui-ci.
 
 La même commande sert au premier passage et aux suivants. Le module Git clone
 le dépôt s'il est absent et ne récupère que les nouveaux commits sinon. Une
@@ -163,11 +205,23 @@ exécute ce playbook après une CI réussie sur `main`, ou sur demande avec
 avec les labels `self-hosted`, `linux`, `x64` et `enervision`.
 
 Le runner doit être installé comme service sous l'utilisateur `apprenant`. Il
-utilise une connexion Ansible locale, sans SSH et sans sudo :
+lit le même inventaire que le déploiement manuel, et n'en change que la
+connexion, locale, sans SSH ni sudo :
 
 ```bash
-ansible-playbook -i 'enervision,' --connection local infra/ansible/playbook.yml
+ansible-playbook -i infra/ansible/inventory.ini --connection local infra/ansible/playbook.yml
 ```
+
+L'inventaire est la seule source de l'adresse de la machine. C'est
+`ansible_host` qui devient le `DOMAIN` servi par Caddy, donc l'adresse par
+laquelle on joint le dashboard. La connexion, elle, reste sur la ligne de
+commande et non dans l'inventaire : déclarée là, un déploiement lancé depuis un
+poste s'exécuterait sur le poste.
+
+Le runner doit être enregistré depuis un shell SSH ordinaire. Enregistré
+depuis un terminal VS Code Remote, son `.path` garde les chemins de
+`.vscode-server`, et l'environnement qu'il a capté ce jour-là n'a plus rien à
+voir avec celui du service.
 
 Docker, Compose, Git, Ansible, SOPS et age doivent être visibles dans le `PATH`
 du service. La clé age et les répertoires préparés plus haut doivent appartenir

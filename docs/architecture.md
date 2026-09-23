@@ -36,7 +36,7 @@ flowchart TB
 
 | Brique | Techno | Responsabilité | Exposition |
 |---|---|---|---|
-| Reverse proxy | Caddy ou Traefik, à confirmer | Terminaison TLS, porte d'entrée unique, en-têtes de sécurité, limitation de débit | Public, 443 |
+| Reverse proxy | Caddy | Terminaison TLS, porte d'entrée unique, en-têtes de sécurité | Public, 443 et 3001 |
 | Applicatif | Nuxt, Vue 3, TypeScript | Dashboard, BFF, authentification, autorisation, règles métier, recommandations. Architecture en couches en interne | Réseau interne |
 | ETL | Python | Extraction depuis l'API Mock, nettoyage, transformation, écriture Parquet, chargement du référentiel des sites en base | Réseau interne |
 | ML | Python, MLflow, FastAPI | Entraînement, registre de modèles, endpoint de prédiction | Réseau interne |
@@ -82,7 +82,7 @@ flowchart LR
 
 ## Déploiement
 
-Une machine, une composition Docker, **un seul port publié** : le 443 du reverse proxy. Aucun autre service n'est joignable depuis le réseau.
+Une machine, une composition Docker, **un seul point d'entrée** : le reverse proxy. Il sert le dashboard sur 443 et Grafana sur 3001, et ce sont les deux seuls ports ouverts sur le réseau. PostgreSQL, Prometheus et le service ML restent publiés sur la boucle locale, joignables par tunnel SSH et par personne d'autre.
 
 ```mermaid
 flowchart TB
@@ -160,12 +160,12 @@ Le jeton n'est jamais lisible par un script : il vit dans un cookie `httpOnly`, 
 
 ## Sécurité
 
-- **Un seul port public**, le 443 sur le reverse proxy. Aucun port des services internes n'est publié sur l'hôte.
+- **Tout le public passe par le reverse proxy**, 443 pour le dashboard et 3001 pour Grafana. Aucun service ne publie de port sur le réseau à côté de lui. Les ports d'administration (PostgreSQL, Prometheus, service ML) sont liés à la boucle locale et demandent un accès SSH à la machine.
 - **Session** : cookie httpOnly, Secure, SameSite. Le jeton n'est jamais lisible par un script.
 - **Cloisonnement par site** : le rôle et la liste des sites autorisés sont résolus côté serveur, à partir de la session, et **injectés** dans la requête de données. Un identifiant de site reçu du client est comparé au périmètre autorisé, il ne sert jamais de source. Une seule fonction rend cette liste et le filtre est toujours appliqué, y compris pour un administrateur, à qui elle rend la liste complète.
 - **Rôles** : trois au schéma, **`ADMIN`, `OPERATOR`, `VIEWER`**, et un seul vocabulaire dans tout le projet. La table existe et le mécanisme est en place, mais **un seul rôle est exploité au MVP**, `ADMIN`. Les rôles restreints sont montrés à l'oral et se lisent dans les tests, pas construits.
 - **Secrets** : SOPS et age pour ce qui est versionné, chaque membre et la CI ayant sa clé ; secrets de la forge pour la CI. Une procédure écrite permet à chacun de chiffrer et déchiffrer sans assistance.
-- **Machine** : accès SSH par clé, et **une clé de déchiffrement au repos depuis le 17 septembre 2026**. Le réseau de l'école n'autorise aucune connexion entrante : le déploiement devait passer par un runner auto-hébergé appelant GitHub en sortant, qui reçoit la clé de la CI le temps du job. Le runner ne tenant pas ses promesses, le déploiement se fait à la main depuis la VM, ce qui demande d'y déchiffrer. Le compte SSH étant mutualisé, cette clé est lisible par les cinq : c'est le prix assumé, et il se solde en changeant les valeurs le jour où elle est retirée, pas en la retirant seule (`secrets.md`). La décision du 16 septembre disait l'inverse et cette ligne la remplace. **Aucun commit depuis la VM**, l'historique devant rester nominatif.
+- **Machine** : accès SSH par clé, et **une clé de déchiffrement au repos depuis le 17 septembre 2026**. Le réseau de l'école n'autorise aucune connexion entrante : le déploiement passe par un runner auto-hébergé appelant GitHub en sortant. Le plan initial lui faisait recevoir la clé de la CI le temps du job ; il déchiffre en réalité sur place, avec la clé posée sur la VM, que le déploiement soit lancé par le pipeline ou à la main. Le compte SSH étant mutualisé, cette clé est lisible par les cinq : c'est le prix assumé, et il se solde en changeant les valeurs le jour où elle est retirée, pas en la retirant seule (`secrets.md`). La décision du 16 septembre disait l'inverse et cette ligne la remplace. **Aucun commit depuis la VM**, l'historique devant rester nominatif.
 
 ## Dépôt et conventions
 
@@ -196,9 +196,8 @@ Le jeton n'est jamais lisible par un script : il vit dans un cookie `httpOnly`, 
 
 ## Points ouverts
 
-1. **Reverse proxy** : acté, mais absent du schéma proposé en séance. À harmoniser.
-2. **Contrats d'interface** des trois services : séance prévue au J2, avant tout développement parallèle.
-3. **Protection de la branche principale** : impossible tant que le dépôt est privé sur une organisation en offre gratuite. Décision à prendre sur le passage en public.
+1. **Contrats d'interface** des trois services : séance prévue au J2, avant tout développement parallèle.
+2. **Protection de la branche principale** : impossible tant que le dépôt est privé sur une organisation en offre gratuite. Décision à prendre sur le passage en public.
 
 ## Points tranchés depuis
 
@@ -232,9 +231,17 @@ Le motif est qu'une table entreprise serait une dimension sans données : l'API 
 
 Cela ne revient pas sur le reste du cloisonnement : l'ETL n'a toujours aucune notion de compte, de rôle ou de session, n'appelle ni l'applicatif ni le service ML, et la table `sites` reste créée et administrée ailleurs (migration dédiée, hors périmètre ETL).
 
-**Supervision : deux sources de mesure, un tableau, aucun service exposé.** Tranché le lundi 21 septembre 2026, avec #55. Le point ouvert disait « Prometheus et Grafana prévus, pas encore positionnés ». Ils le sont : quatre conteneurs dans la même composition que le reste, un node exporter pour la machine et cAdvisor pour les conteneurs, Prometheus qui collecte, Grafana qui restitue. Aucun n'est publié ailleurs que sur la boucle locale, l'accès distant passant par un tunnel SSH : la supervision ne figure pas derrière le proxy de #39, qui reste le seul point d'entrée public.
+**Supervision : deux sources de mesure, un tableau, aucun service exposé.** Tranché le lundi 21 septembre 2026, avec #55. Le point ouvert disait « Prometheus et Grafana prévus, pas encore positionnés ». Ils le sont : quatre conteneurs dans la même composition que le reste, un node exporter pour la machine et cAdvisor pour les conteneurs, Prometheus qui collecte, Grafana qui restitue. Aucun n'est publié ailleurs que sur la boucle locale, l'accès distant passant par un tunnel SSH. **Ce dernier point a été revu avec #39**, voir ci-dessous.
 
 Deux sources et non une, parce qu'aucune ne voit ce que voit l'autre : une machine saine peut héberger un conteneur qui redémarre en boucle, et des conteneurs sobres ne disent rien d'un disque que remplissent les journaux. Les indicateurs retenus, leur motif et ce qui a été écarté sont dans [`supervision.md`](./supervision.md).
+
+**Caddy, et Grafana derrière lui sur un port dédié.** Tranché le mardi 22 septembre 2026, avec #39. Le point ouvert disait « reverse proxy acté, mais absent du schéma ». Il y est : Caddy, et non Traefik, pour sa CA interne, qui délivre un certificat sans nom de domaine public ni accès à internet. La machine n'en a pas : son nom Active Directory ne résout pas depuis les postes, `DOMAIN` vaut donc son adresse IP, ce qui exclut Let's Encrypt pour de bon.
+
+Grafana passe derrière le proxy, ce que l'arbitrage de #55 excluait. Le motif a changé : à l'époque la supervision n'était consultée que depuis la machine, et le tunnel SSH suffisait. Elle est maintenant montrée, et demander un tunnel à qui regarde n'a plus de sens. Le reste de la supervision ne bouge pas : Prometheus garde sa boucle locale, parce que lui ne se montre pas.
+
+**Un port dédié plutôt qu'un sous-chemin.** Sous une adresse IP, `grafana.<domaine>` n'existe pas : il faudrait un enregistrement dans l'AD de l'école. Restaient le sous-chemin `/grafana` et le port dédié. Le port l'emporte parce qu'il ne demande rien à Grafana, là où un service sous-chemin impose de lui déclarer sa racine et de faire correspondre les chemins de ses ressources. Il se referme aussi seul, sans toucher au site principal. Ce qu'il coûte : la phrase « un seul port publié » devient « deux ports publiés, tous deux servis par le proxy », et les ports d'administration restent sur la boucle locale.
+
+**La limitation de débit reste dans l'applicatif.** Elle figurait parmi les responsabilités du proxy dans la table des briques. Caddy ne la porte pas sans module tiers, et #29 l'implémente déjà côté Nuxt, indexée sur l'IP **et** sur le compte, ce qu'un proxy ne saurait pas faire. La ligne a donc été retirée de la table plutôt que promise deux fois.
 
 ## Où trouver le reste
 

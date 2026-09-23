@@ -8,7 +8,7 @@ const EDGE = {
   high: 'var(--ev-amber-dark)', critical: 'var(--ev-red)',
 } as const
 
-const edge = computed(() => EDGE[props.alert.severity])
+const edge = computed(() => EDGE[props.alert.severity] ?? 'var(--ev-text-2)')
 const time = computed(() =>
   new Date(props.alert.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }))
 const values = computed(() => {

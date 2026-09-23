@@ -120,25 +120,28 @@ grep -n ":/data:ro" docker-compose.yml
 
 ## 6. Réseau
 
-La machine peut sortir vers internet, **rien ne peut la joindre depuis l'extérieur**. C'est la règle
-de l'infrastructure fournie, et elle a dicté la conception du déploiement : aucun port à ouvrir,
-aucune clé d'accès à distribuer.
+Relevé du 21 septembre 2026, **rendu faux par #39**, qui met un reverse proxy devant la pile. La
+phrase d'alors disait « rien ne peut joindre la machine depuis l'extérieur » et le tableau ne
+comptait qu'un port, sur la boucle locale. Depuis, Caddy est la porte d'entrée et ouvre deux ports
+sur le réseau. Le constat à jour, à rejouer avant le dépôt :
 
-| Service | Port publié |
-|---|---|
-| `postgres` | `127.0.0.1:5432`, boucle locale seulement |
-| `ml` | aucun |
-| `dashboard` | aucun |
+| Service | Port publié | Portée |
+|---|---|---|
+| `caddy` | `443` (dashboard), `3001` (Grafana), `80` (redirection) | réseau |
+| `postgres` | `127.0.0.1:5432` | boucle locale |
+| `prometheus` | `127.0.0.1:9090` | boucle locale |
+| `ml` | `127.0.0.1:8000` | boucle locale |
+| `dashboard`, `grafana`, `etl` | aucun | réseau Docker interne |
 
 ```bash
 sops exec-env secrets.enc.yaml 'docker compose config --services'
-grep -n -A2 "ports:" docker-compose.yml
+grep -n -A4 "ports:" docker-compose.yml
 ```
 
-**Résultat.** Trois services actifs, un seul port publié, lié à la boucle locale. Prometheus et
-Grafana sont **commentés** : la limite signalée dans [`secrets.md`](./secrets.md) sur des ports
-ouverts trop largement ne s'applique plus, et redeviendra vraie le jour où ces services seront
-activés.
+**Résultat.** Deux ports servis au réseau, tous deux tenus par le proxy et terminés en TLS, plus une
+redirection sur 80. Les trois ports d'administration restent liés à la boucle locale et demandent un
+accès SSH à la machine. Le motif du choix, et celui d'y faire passer Grafana, sont dans
+[`architecture.md`](./architecture.md).
 
 ## 7. Accès au dépôt et à la machine
 
@@ -149,13 +152,13 @@ jeu de règles est prêt si le dépôt passe en public.
 
 **Machine** : le compte est **partagé par les cinq**, et depuis le **17 septembre 2026** une clé de
 déchiffrement y est posée. C'est un renversement explicite de la décision de la veille, motivé dans
-[`secrets.md`](./secrets.md) : l'exécuteur auto-hébergé ne tient pas ses promesses, le déploiement
-se fait à la main depuis la machine, et l'alternative était de recopier les valeurs dans un `.env`
-temporaire. Entre une clé assumée et des secrets recopiés à la main, la clé est le moindre mal.
+[`secrets.md`](./secrets.md) : l'exécuteur auto-hébergé ne reçoit pas la clé de la CI, le
+déchiffrement a donc lieu sur la machine, et l'alternative était de recopier les valeurs dans un
+`.env` temporaire. Entre une clé assumée et des secrets recopiés à la main, la clé est le moindre mal.
 
 Le prix, et il n'a pas disparu : la clé est lisible par les cinq, et elle ouvre les **versions
 passées** du fichier chiffré. D'où deux règles : elle est générée **sur** la machine et n'en sort
-jamais, et le jour où le déploiement automatisé fonctionnera, la retirer ne suffira pas, il faudra
+jamais, et le jour où elle pourra être retirée, cela ne suffira pas, il faudra
 **changer les valeurs**.
 
 Plus généralement, sur un incident réel : changer les valeurs, redéployer, **puis** retirer la clé.
