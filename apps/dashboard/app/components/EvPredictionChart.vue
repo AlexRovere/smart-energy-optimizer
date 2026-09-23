@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed } from 'vue'
 import type { PredictionPoint, Reading } from '~/types/api'
 
@@ -26,7 +26,7 @@ const chart = computed(() => {
   const total = hist.length + fore.length
   const allValues = [
     ...hist.map(r => r.consumption_kw!),
-    ...fore.flatMap(p => [p.confidence_upper]),
+    ...fore.flatMap(p => p.confidence_upper != null ? [p.confidence_upper] : [p.predicted_consumption_kw]),
     props.threshold,
   ]
   const maxVal = Math.max(...allValues) * 1.15
@@ -44,14 +44,15 @@ const chart = computed(() => {
   const forePoints = fore.map((p, i) => ({ x: sx(foreOffset + i), y: sy(p.predicted_consumption_kw) }))
   const forePath = forePoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')
 
-  // Confidence band (closed polygon: upper forward, lower backward)
-  const upper = fore.map((p, i) => ({ x: sx(foreOffset + i), y: sy(p.confidence_upper) }))
-  const lower = fore.map((p, i) => ({ x: sx(foreOffset + i), y: sy(p.confidence_lower) })).reverse()
-  const bandPath = [
+  // Confidence band (closed polygon: upper forward, lower backward) — optionnelle
+  const hasBand = fore.every(p => p.confidence_upper != null && p.confidence_lower != null)
+  const upper = fore.map((p, i) => ({ x: sx(foreOffset + i), y: sy(p.confidence_upper ?? 0) }))
+  const lower = fore.map((p, i) => ({ x: sx(foreOffset + i), y: sy(p.confidence_lower ?? 0) })).reverse()
+  const bandPath = hasBand ? [
     ...upper.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`),
     ...lower.map(p => `L ${p.x.toFixed(1)} ${p.y.toFixed(1)}`),
     'Z',
-  ].join(' ')
+  ].join(' ') : ''
 
   // Threshold line y
   const thrY = sy(props.threshold)
@@ -70,7 +71,7 @@ const chart = computed(() => {
 
   const baselineY = PAD_T + chartH
 
-  return { histPath, forePath, bandPath, thrY, sepX, xLabels, foreLabels, yTicks, sy, baselineY, chartW }
+  return { histPath, forePath, bandPath, hasBand, thrY, sepX, xLabels, foreLabels, yTicks, sy, baselineY, chartW }
 })
 
 const confidencePct = computed(() => Math.round(props.confidenceLevel * 100))
@@ -127,8 +128,9 @@ const confidencePct = computed(() => Math.round(props.confidenceLevel * 100))
         stroke="var(--ev-amber)" stroke-width="1.5" stroke-dasharray="6 4" opacity="0.7"
       />
 
-      <!-- Confidence band -->
+      <!-- Confidence band (uniquement si les bornes sont présentes) -->
       <path
+        v-if="chart.hasBand"
         data-testid="confidence-band"
         :d="chart.bandPath"
         fill="rgba(245,158,11,0.15)"

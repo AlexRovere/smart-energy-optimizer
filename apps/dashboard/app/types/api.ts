@@ -147,8 +147,8 @@ export interface HealthResponse {
 export interface PredictionPoint {
   timestamp: string
   predicted_consumption_kw: number
-  confidence_lower: number
-  confidence_upper: number
+  confidence_lower?: number
+  confidence_upper?: number
 }
 
 export interface Prediction {
@@ -157,7 +157,7 @@ export interface Prediction {
   horizon_hours: number
   granularity: 'hour'
   model_version: string
-  confidence_level: number // ex: 0.90
+  confidence_level?: number // ex: 0.90
   predictions: PredictionPoint[]
 }
 
