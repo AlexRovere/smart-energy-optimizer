@@ -108,6 +108,9 @@ def metrics() -> Response:
         relative_mae_by_site = get_relative_mae_by_site()
     except (FileNotFoundError, ValueError) as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
+    except mlflow.exceptions.MlflowException as error:
+        # Même dégradation que /model : pas de champion à évaluer.
+        raise HTTPException(status_code=503, detail="Aucun modèle champion disponible") from error
 
     for site_id, relative_mae in relative_mae_by_site.items():
         forecast_relative_mae_gauge.labels(site_id=site_id).set(relative_mae)
