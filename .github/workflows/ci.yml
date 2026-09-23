@@ -526,9 +526,9 @@ jobs:
       - name: TLS devant le dashboard (cookie Secure)
         run: |
           docker run -d --rm --name dashboard-tls \
-            -p 3443:443 \
+            -p 3443:3443 \
             --add-host=host.docker.internal:host-gateway \
-            caddy:2-alpine caddy reverse-proxy --from :3443 --to host.docker.internal:3000 --internal-certs
+            caddy:2-alpine caddy reverse-proxy --from localhost:3443 --to host.docker.internal:3000 --internal-certs
           timeout 30 bash -c 'until curl -sfk https://localhost:3443/ >/dev/null; do sleep 1; done'
 
       - name: Charge (historique, bloquant)
