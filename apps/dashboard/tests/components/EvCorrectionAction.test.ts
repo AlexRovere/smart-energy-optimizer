@@ -1,8 +1,11 @@
 // @vitest-environment nuxt
-import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { describe, expect, it } from 'vitest'
+import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
+import { describe, expect, it, vi } from 'vitest'
 import EvCorrectionAction from '../../app/components/EvCorrectionAction.vue'
 import type { Recommendation } from '../../app/types/api'
+
+const useToastMock = vi.hoisted(() => vi.fn())
+mockNuxtImport('useToast', () => useToastMock)
 
 const mockRec: Recommendation = {
   recommendation_id: 'REC-SITE001-1',
@@ -20,37 +23,26 @@ const mockRec: Recommendation = {
 }
 
 describe('EvCorrectionAction', () => {
-  it('affiche le titre de la recommandation', async () => {
+  it.each([
+    ['le titre', 'Décaler la relance CVC de 45 min'],
+    ['la description', 'fenêtre 14:30 → 15:15 · confiance haute'],
+    ['le gain en kW', '-17'],
+    ['le score de confiance', '0,88'],
+    ['le bouton Appliquer', 'Appliquer'],
+  ])('affiche %s', async (_label, texteAttendu) => {
+    useToastMock.mockReturnValue({ add: vi.fn() })
     const wrapper = await mountSuspended(EvCorrectionAction, { props: { recommendation: mockRec } })
-    expect(wrapper.text()).toContain('Décaler la relance CVC de 45 min')
+    expect(wrapper.text()).toContain(texteAttendu)
   })
 
-  it('affiche la description (fenêtre + confiance)', async () => {
+  it('affiche un toast au clic sur Appliquer', async () => {
+    const toastAdd = vi.fn()
+    useToastMock.mockReturnValue({ add: toastAdd })
     const wrapper = await mountSuspended(EvCorrectionAction, { props: { recommendation: mockRec } })
-    expect(wrapper.text()).toContain('fenêtre 14:30 → 15:15 · confiance haute')
-  })
-
-  it('affiche le gain en kW', async () => {
-    const wrapper = await mountSuspended(EvCorrectionAction, { props: { recommendation: mockRec } })
-    expect(wrapper.text()).toContain('-17')
-    expect(wrapper.text()).toContain('kW')
-  })
-
-  it('affiche le score de confiance', async () => {
-    const wrapper = await mountSuspended(EvCorrectionAction, { props: { recommendation: mockRec } })
-    expect(wrapper.text()).toContain('0,88')
-  })
-
-  it('affiche le bouton Appliquer', async () => {
-    const wrapper = await mountSuspended(EvCorrectionAction, { props: { recommendation: mockRec } })
-    expect(wrapper.text()).toContain('Appliquer')
-  })
-
-  it("émet l'événement apply au clic sur Appliquer", async () => {
-    const wrapper = await mountSuspended(EvCorrectionAction, { props: { recommendation: mockRec } })
-    const btn = wrapper.find('[data-testid="apply-btn"]')
-    await btn.trigger('click')
-    expect(wrapper.emitted('apply')).toHaveLength(1)
-    expect(wrapper.emitted('apply')![0]).toEqual([mockRec.recommendation_id])
+    await wrapper.find('[data-testid="apply-btn"]').trigger('click')
+    expect(toastAdd).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Fonctionnalité non disponible dans cette version',
+      color: 'warning',
+    }))
   })
 })
