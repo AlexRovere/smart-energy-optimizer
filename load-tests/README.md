@@ -13,7 +13,7 @@ Mesures de charge et de performance pour le service ML (`/predictions` par horiz
 | `locustfiles/dashboard_history.py` | Connexion puis `GET /sites/{id}/history` (Parquet direct) |
 | `locustfiles/dashboard_mock.py` | Connexion puis `GET /sites/{id}/current` (API Mock ou son stub) |
 | `thresholds.py` | Seuils de 95e percentile (ms) par requête nommée, une seule source |
-| `check_thresholds.py` | Lit le CSV `--csv` de Locust, compare à `thresholds.py`, sort en erreur sur dépassement |
+| `check_thresholds.py` | Lit le CSV `--csv` de Locust d'un rapport nommé (`ml` ou `dashboard-history`, dans `rapport-qualite/`), compare à `thresholds.py`, sort en erreur sur dépassement |
 
 ## Lancer un run en local
 
@@ -21,7 +21,7 @@ Mesures de charge et de performance pour le service ML (`/predictions` par horiz
 uv sync
 
 # Historique synthétique
-uv run python -m fixtures.synthetic_history ../data/loadtest-parquet
+uv run python -m fixtures.synthetic_history   # écrit toujours dans ../data/loadtest-parquet
 
 # Service ML (dans un autre terminal, apps/ml)
 cd ../apps/ml

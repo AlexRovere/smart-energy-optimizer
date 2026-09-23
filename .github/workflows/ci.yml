@@ -400,14 +400,13 @@ jobs:
       - name: Historique synthétique
         run: >
           uv run --directory load-tests --frozen --no-build python -m fixtures.synthetic_history
-          "$GITHUB_WORKSPACE/fixture-parquet"
 
       - name: Démarrage du service ML
         run: |
           docker run -d --rm --name ml-under-test \
             -p 8000:8000 \
             -e PARQUET_DIR="$PARQUET_DIR" \
-            -v "$GITHUB_WORKSPACE/fixture-parquet:$PARQUET_DIR:ro" \
+            -v "$GITHUB_WORKSPACE/data/loadtest-parquet:$PARQUET_DIR:ro" \
             enervision-ml:ci
           timeout 60 bash -c 'until curl -sf http://localhost:8000/health >/dev/null; do sleep 1; done'
 
@@ -445,8 +444,7 @@ jobs:
       # l'artefact existent même quand cette étape fait échouer le job.
       - name: Seuils de performance
         run: >
-          uv run --directory load-tests --frozen --no-build python check_thresholds.py
-          "$GITHUB_WORKSPACE/rapport-qualite/loadtest-ml_stats.csv"
+          uv run --directory load-tests --frozen --no-build python check_thresholds.py ml
 
       - name: Arrêt du service
         if: always()
@@ -502,7 +500,6 @@ jobs:
       - name: Historique synthétique
         run: >
           uv run --directory load-tests --frozen --no-build python -m fixtures.synthetic_history
-          "$GITHUB_WORKSPACE/fixture-parquet"
 
       # Rejoue la forme et le plafond de l'API Mock réelle, jamais la source elle-même.
       - name: Démarrage du stub API Mock
@@ -517,7 +514,7 @@ jobs:
           docker run -d --rm --name ml-under-test \
             -p 8000:8000 \
             -e PARQUET_DIR="$PARQUET_DIR" \
-            -v "$GITHUB_WORKSPACE/fixture-parquet:$PARQUET_DIR:ro" \
+            -v "$GITHUB_WORKSPACE/data/loadtest-parquet:$PARQUET_DIR:ro" \
             enervision-ml:ci
           timeout 60 bash -c 'until curl -sf http://localhost:8000/health >/dev/null; do sleep 1; done'
           curl -sf -X POST http://localhost:8000/training
@@ -545,7 +542,7 @@ jobs:
             -e NUXT_MOCK_API_URL=http://host.docker.internal:9999 \
             -e NUXT_SESSION_PASSWORD=secret-de-session-de-charge-au-moins-32-caracteres \
             -e NUXT_TRUST_PROXY=false \
-            -v "$GITHUB_WORKSPACE/fixture-parquet:$PARQUET_DIR:ro" \
+            -v "$GITHUB_WORKSPACE/data/loadtest-parquet:$PARQUET_DIR:ro" \
             enervision-dashboard:ci
           timeout 60 bash -c 'until curl -sf http://localhost:3000/ >/dev/null; do sleep 1; done'
 
@@ -604,8 +601,7 @@ jobs:
 
       - name: Seuils de performance (historique uniquement)
         run: >
-          uv run --directory load-tests --frozen --no-build python check_thresholds.py
-          "$GITHUB_WORKSPACE/rapport-qualite/loadtest-dashboard-history_stats.csv"
+          uv run --directory load-tests --frozen --no-build python check_thresholds.py dashboard-history
 
       - name: Arrêt des services
         if: always()

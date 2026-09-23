@@ -1,14 +1,18 @@
-# lit le CSV --csv de Locust et échoue si une requête nommée dépasse son seuil (thresholds.py)
+# lit le CSV Locust d'un rapport nommé, échoue si une requête dépasse son seuil (thresholds.py)
 from __future__ import annotations
 
 import csv
 import sys
 from pathlib import Path
 
-from path_guard import resolve_within
+from paths import REPORTS_DIR
 from thresholds import THRESHOLDS_MS
 
 AGGREGATED_ROW_NAME = "Aggregated"
+STATS_CSV_BY_REPORT = {
+    "ml": REPORTS_DIR / "loadtest-ml_stats.csv",
+    "dashboard-history": REPORTS_DIR / "loadtest-dashboard-history_stats.csv",
+}
 
 
 def read_p95(csv_path: Path) -> dict[str, float]:
@@ -32,17 +36,12 @@ def find_violations(
 
 
 def main() -> None:
-    if len(sys.argv) != 2:
-        print("usage: python check_thresholds.py <préfixe>_stats.csv", file=sys.stderr)
+    if len(sys.argv) != 2 or sys.argv[1] not in STATS_CSV_BY_REPORT:
+        reports = " | ".join(STATS_CSV_BY_REPORT)
+        print(f"usage: python check_thresholds.py <{reports}>", file=sys.stderr)
         sys.exit(2)
 
-    try:
-        csv_path = resolve_within(sys.argv[1])
-    except ValueError as error:
-        print(error, file=sys.stderr)
-        sys.exit(2)
-
-    measured = read_p95(csv_path)
+    measured = read_p95(STATS_CSV_BY_REPORT[sys.argv[1]])
     violations = find_violations(measured, THRESHOLDS_MS)
 
     for name, value_ms, threshold_ms in violations:

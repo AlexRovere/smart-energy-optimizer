@@ -68,12 +68,37 @@ def test_find_violations_ignores_measures_without_a_configured_threshold():
     assert find_violations(measured, thresholds) == []
 
 
-def test_main_refuses_a_csv_outside_the_repository(tmp_path, monkeypatch):
+def test_each_report_name_points_to_its_locust_csv_in_the_report_directory():
+    import check_thresholds
+    from paths import REPORTS_DIR
+
+    assert check_thresholds.STATS_CSV_BY_REPORT == {
+        "ml": REPORTS_DIR / "loadtest-ml_stats.csv",
+        "dashboard-history": REPORTS_DIR / "loadtest-dashboard-history_stats.csv",
+    }
+
+
+def test_main_refuses_an_unknown_report_name(monkeypatch):
     import check_thresholds
 
-    monkeypatch.setattr("sys.argv", ["check_thresholds.py", str(tmp_path / "stats.csv")])
+    monkeypatch.setattr("sys.argv", ["check_thresholds.py", "../../etc/passwd"])
 
     with pytest.raises(SystemExit) as exit_info:
         check_thresholds.main()
 
     assert exit_info.value.code == 2
+
+
+def test_main_checks_the_csv_of_the_named_report(tmp_path, monkeypatch, capsys):
+    import check_thresholds
+
+    csv_path = _write_stats_csv(
+        tmp_path,
+        ["POST,predictions_1h,100,0,120,130,90,600,200,10,0,110,115,120,125,140,180,200,250,300,400,600"],
+    )
+    monkeypatch.setitem(check_thresholds.STATS_CSV_BY_REPORT, "ml", csv_path)
+    monkeypatch.setattr("sys.argv", ["check_thresholds.py", "ml"])
+
+    check_thresholds.main()
+
+    assert "respectés" in capsys.readouterr().out
