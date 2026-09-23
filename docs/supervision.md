@@ -31,7 +31,7 @@ vraiment occupe l'écran où on cherchera l'information utile le jour de l'incid
 |---|---|---|
 | Cibles de collecte | La collecte tient-elle ? Une cible tombée rend tout le reste muet sans prévenir : les courbes s'arrêtent, elles ne rougissent pas. | hors ligne = rouge |
 | Redémarrages sur 24 h | Une brique redémarre-t-elle en boucle ? `unless-stopped` relance un service qui tombe : la pile paraît saine. Seul endroit où ça se voit. | 3 orange, 10 rouge |
-| Dernier passage de l'ETL | Le cron a-t-il tourné ? L'ETL est le seul service sans politique de redémarrage : son absence est **normale**, donc son oubli invisible ailleurs. | 26 h orange, 48 h rouge |
+| Dernier passage de l'ETL | Le cron a-t-il tourné avec succès ? L'ETL est le seul service sans politique de redémarrage : son absence est **normale**, donc son oubli invisible ailleurs. Un passage horaire manqué laisse un trou d'une heure. Lu par node-exporter : un passage dure 3 s, trop peu pour cAdvisor. | 2 h orange, 26 h rouge |
 | Part libre la plus faible | Combien de temps avant que le disque ne bloque l'ETL ? Les Parquet grossissent et rien ne purge. En part et non en octets : la petite partition de démarrage gagnerait sinon le classement en permanence. | 20 % orange, 10 % rouge |
 | Processeur de la machine | La machine tient-elle la charge ? Se lit pendant un passage de l'ETL et un entraînement, les deux seuls moments qui la sollicitent. | 75 % / 90 % |
 | Mémoire de la machine | Reste-t-il de la place pour une brique de plus ? | 80 % / 92 % |

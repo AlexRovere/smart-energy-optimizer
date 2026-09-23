@@ -57,6 +57,7 @@ La VM doit disposer de :
 - Ansible ;
 - SOPS ;
 - age ;
+- jq, pour lire les journaux de l'ETL ;
 - un accès sortant à GitHub ;
 - l'utilisateur `apprenant`, UID et GID `1000` ;
 - un accès de `apprenant` au moteur Docker.
@@ -71,6 +72,7 @@ git --version
 ansible-playbook --version
 sops --version
 age --version
+jq --version
 id apprenant
 ```
 
@@ -91,6 +93,7 @@ Depuis un terminal `root` :
 install -d -o apprenant -g apprenant -m 0755 /home/apprenant/Projet
 install -d -o apprenant -g apprenant -m 0755 /data/output
 install -d -o apprenant -g apprenant -m 0750 /var/log/enervision
+install -d -o apprenant -g apprenant -m 0755 /var/lib/enervision/metrics
 install -d -o apprenant -g apprenant -m 0700 /home/apprenant/.config/sops/age
 ```
 
@@ -102,6 +105,9 @@ Rôle des répertoires :
 ML.
 
 **`/var/log/enervision`** : journaux des tâches d'exploitation.
+
+**`/var/lib/enervision/metrics`** : horodatage du dernier passage réussi de
+l'ETL, lu par node-exporter.
 
 **`/home/apprenant/.config/sops/age`** : clé privée age de la VM.
 
@@ -204,6 +210,15 @@ du -sh /data/output
 
 Les redéploiements conservent ce répertoire.
 
+Tout doit y appartenir à `1000:1000`, sinon l'ETL ne peut plus écrire. Copier
+comme `apprenant`, jamais en `root`, ou corriger ensuite en `root` :
+
+```bash
+chown -R 1000:1000 /data/output
+```
+
+Le playbook refuse de déployer tant qu'une entrée n'appartient pas à `1000`.
+
 ## Premier déploiement manuel avec Ansible
 
 Le test est exécuté directement sur la VM comme `apprenant`. L'inventaire du
@@ -252,11 +267,40 @@ Le playbook exécute dans cet ordre :
 7. démarrage de PostgreSQL ;
 8. exécution du conteneur temporaire `migrate` ;
 9. exécution optionnelle du conteneur temporaire `seed` ;
-10. démarrage de la pile complète.
+10. démarrage de la pile complète ;
+11. pose de l'entrée de crontab qui lance l'ETL toutes les heures.
 
 `migrate` et `seed` sont des services du profil Compose `admin`. Ils sont lancés
 avec `docker compose run --rm`, puis leurs conteneurs sont supprimés. Leurs
 images restent disponibles.
+
+## Passage horaire de l'ETL
+
+Le service `etl` porte le profil `cron` : `docker compose up -d` ne le lance
+pas. La crontab de `apprenant` exécute [`etl_cron.sh`](./etl_cron.sh) toutes
+les heures, qui lance `python main.py hour` avec les secrets de SOPS. En cas
+d'échec, il fait jusqu'à trois essais, espacés de 2 min.
+
+Le playbook pose l'entrée, sans doublon s'il est rejoué. Pour l'activer à la
+main, `crontab -e` et ajouter la même ligne. Vérifier avec `crontab -l` :
+
+```text
+#Ansible: EnerVision : passage horaire de l'ETL
+5 * * * * ETL_METRICS_DIR=/var/lib/enervision/metrics /home/apprenant/Projet/enerVision/etl_cron.sh >> /var/log/enervision/etl.jsonl 2>> /var/log/enervision/etl.err
+```
+
+Pour un passage immédiat, lancer cette même commande à la main.
+
+`etl.jsonl` ne contient que le JSON de l'ETL, lisible par `jq` même en échec.
+`etl.err` contient le reste : messages de Compose et de SOPS, tracebacks.
+
+```bash
+jq -r 'select(.phase == "run") | [.run, .status, .rows] | @tsv' /var/log/enervision/etl.jsonl | tail
+```
+
+Chaque passage réussi écrit son horodatage dans
+`/var/lib/enervision/metrics/etl.prom`, que node-exporter publie. Le panneau
+« Dernier passage de l'ETL » de Grafana le lit.
 
 ## Vérifier le déploiement
 

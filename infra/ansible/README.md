@@ -71,15 +71,18 @@ le reste.
 la VM déjà préparée :
 
 - vérification de Docker, Docker Compose, SOPS et age ;
-- vérification de `/home/apprenant/Projet`, `/data/output` et
-  `/var/log/enervision` avec les droits préparés sur la VM ;
+- vérification de `/home/apprenant/Projet`, `/data/output`,
+  `/var/log/enervision` et `/var/lib/enervision/metrics` avec les droits
+  préparés sur la VM ;
 - clonage ou mise à jour de `main` dans
   `/home/apprenant/Projet/enerVision` ;
 - dépôt du `.env` des réglages de la machine, sans aucun secret ;
 - vérification de la clé age propre à la VM ;
 - construction des images et démarrage de PostgreSQL ;
 - migrations Drizzle et amorçage idempotent dans des conteneurs ponctuels ;
-- démarrage de la pile complète avec les secrets déchiffrés en mémoire.
+- démarrage de la pile complète avec les secrets déchiffrés en mémoire ;
+- entrée de crontab qui lance l'ETL toutes les heures, décrite dans
+  [`../../DEPLOIEMENT.md`](../../DEPLOIEMENT.md#passage-horaire-de-letl).
 
 Node, npm et pnpm ne sont pas requis sur la VM. L'étape `build` du Dockerfile du
 dashboard contient les outils nécessaires aux services Compose `migrate` et
@@ -127,6 +130,7 @@ Une seule préparation est réalisée par `root`, avant le premier déploiement 
 ```bash
 install -d -o apprenant -g apprenant -m 0755 /data/output
 install -d -o apprenant -g apprenant -m 0750 /var/log/enervision
+install -d -o apprenant -g apprenant -m 0755 /var/lib/enervision/metrics
 install -d -o apprenant -g apprenant -m 0700 /home/apprenant/.config/sops/age
 install -o apprenant -g apprenant -m 0600 \
   /root/.config/sops/age/keys.txt \

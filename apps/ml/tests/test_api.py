@@ -161,19 +161,50 @@ def test_predictions_reload_history_but_reuse_model_and_schedules(monkeypatch):
     api_main.get_site_schedules.cache_clear()
 
 
-def test_model_endpoint_retourne_la_version_champion(monkeypatch):
+def _fake_model_client(version_str: str = "1", run_id: str = "run-abc") -> MagicMock:
     fake_version = MagicMock()
-    fake_version.version = "1"
+    fake_version.version = version_str
+    fake_version.run_id = run_id
+    fake_run = MagicMock()
+    fake_run.info.start_time = 1_700_000_000_000
+    fake_run.data.metrics = {"training_rows": 5000.0}
     fake_client = MagicMock()
     fake_client.get_model_version_by_alias.return_value = fake_version
-    monkeypatch.setattr(api_main.mlflow, "MlflowClient", lambda: fake_client)
+    fake_client.get_run.return_value = fake_run
+    return fake_client
+
+
+def test_model_endpoint_retourne_la_version_champion(monkeypatch):
+    monkeypatch.setattr(api_main.mlflow, "MlflowClient", lambda: _fake_model_client())
     client = TestClient(app)
 
     response = client.get("/model")
 
     assert response.status_code == 200
-    assert response.json() == {"name": MLFLOW_MODEL_NAME, "version": 1, "alias": "champion"}
-    fake_client.get_model_version_by_alias.assert_called_once_with(MLFLOW_MODEL_NAME, "champion")
+    data = response.json()
+    assert data["name"] == MLFLOW_MODEL_NAME
+    assert data["version"] == 1
+    assert data["alias"] == "champion"
+
+
+def test_model_endpoint_retourne_creation_timestamp(monkeypatch):
+    monkeypatch.setattr(api_main.mlflow, "MlflowClient", lambda: _fake_model_client())
+    client = TestClient(app)
+
+    response = client.get("/model")
+
+    assert response.status_code == 200
+    assert response.json()["creation_timestamp"] == 1_700_000_000_000
+
+
+def test_model_endpoint_retourne_les_metriques(monkeypatch):
+    monkeypatch.setattr(api_main.mlflow, "MlflowClient", lambda: _fake_model_client())
+    client = TestClient(app)
+
+    response = client.get("/model")
+
+    assert response.status_code == 200
+    assert response.json()["metriques"] == {"training_rows": 5000.0}
 
 
 def test_metrics_endpoint_retourne_503_si_aucun_champion(monkeypatch):

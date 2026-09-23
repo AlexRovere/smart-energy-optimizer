@@ -158,6 +158,8 @@ services:
       # filtre, les couches du moteur de conteneurs noient la seule mesure qui
       # nous intéresse, celle du disque où grossissent les Parquet.
       - "--collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker/.+)($$|/)"
+      # Dernier passage réussi de l'ETL, écrit par etl_cron.sh.
+      - "--collector.textfile.directory=/textfile"
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
@@ -168,6 +170,7 @@ services:
       # démarrage du conteneur n'apparaît qu'au prochain remplacement de
       # celui-ci. Les points de montage de la machine sont posés au démarrage.
       - /:/host/root:ro
+      - ${ETL_METRICS_DIR_HOST:-./data/metrics}:/textfile:ro
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:9100/"]
       interval: 10s

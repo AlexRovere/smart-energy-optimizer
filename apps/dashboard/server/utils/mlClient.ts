@@ -17,6 +17,8 @@ export interface ModelInfo {
   name: string
   version: string
   alias: string
+  creation_timestamp?: number
+  metriques?: Record<string, number>
 }
 
 export async function fetchModelInfo(baseURL?: string): Promise<ModelInfo> {

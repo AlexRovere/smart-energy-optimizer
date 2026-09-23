@@ -107,14 +107,14 @@
       "id": 3,
       "type": "stat",
       "title": "Dernier passage de l'ETL",
-      "description": "Le cron a-t-il tourné ? L'ETL est le seul service sans politique de redémarrage : il est lancé, il finit, il disparaît. Son absence est donc normale, et son oubli invisible partout ailleurs. Au-delà de 26 h sans passage, l'historique Parquet a un trou.",
+      "description": "Le cron a-t-il tourné avec succès ? L'ETL est lancé, il finit en quelques secondes, il disparaît : son oubli est invisible partout ailleurs. etl_cron.sh horodate chaque passage réussi, node-exporter le relève. Chaque passage ne relève que l'heure écoulée : au-delà de 2 h, l'historique Parquet a un trou.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 5, "w": 6, "x": 12, "y": 1 },
       "targets": [
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "time() - max(container_last_seen{name=~\".*etl.*\"})",
+          "expr": "time() - max(enervision_etl_last_success_timestamp_seconds)",
           "legendFormat": "écoulé",
           "instant": true
         }
@@ -135,8 +135,8 @@
             "mode": "absolute",
             "steps": [
               { "color": "green", "value": null },
-              { "color": "yellow", "value": 93600 },
-              { "color": "red", "value": 172800 }
+              { "color": "yellow", "value": 7200 },
+              { "color": "red", "value": 93600 }
             ]
           }
         },
