@@ -559,16 +559,18 @@ jobs:
             --add-host=host.docker.internal:host-gateway \
             caddy:2-alpine caddy reverse-proxy --from localhost:3443 --to host.docker.internal:3000 --internal-certs
           timeout 30 bash -c 'until curl -sfk https://localhost:3443/ >/dev/null; do sleep 1; done'
+          docker cp dashboard-tls:/data/caddy/pki/authorities/local/root.crt "$RUNNER_TEMP/caddy-root.crt"
 
       - name: Charge (historique, bloquant)
         env:
           LOAD_TEST_DASHBOARD_PASSWORD: mot-de-passe-de-demonstration-charge
+          LOAD_TEST_CA_BUNDLE: ${{ runner.temp }}/caddy-root.crt
         run: |
           mkdir -p rapport-qualite
           uv run --directory load-tests --frozen --no-build locust \
             -f locustfiles/dashboard_history.py \
             --headless -u 5 -r 1 -t 30s \
-            --host https://localhost:3443 --insecure \
+            --host https://localhost:3443 \
             --csv="$GITHUB_WORKSPACE/rapport-qualite/loadtest-dashboard-history"
 
       # Jamais bloquant : le tiers (ou son stub) n'est pas sous notre contrôle.
@@ -576,12 +578,13 @@ jobs:
         if: always()
         env:
           LOAD_TEST_DASHBOARD_PASSWORD: mot-de-passe-de-demonstration-charge
+          LOAD_TEST_CA_BUNDLE: ${{ runner.temp }}/caddy-root.crt
         run: |
           mkdir -p rapport-qualite
           uv run --directory load-tests --frozen --no-build locust \
             -f locustfiles/dashboard_mock.py \
             --headless -u 5 -r 1 -t 30s \
-            --host https://localhost:3443 --insecure \
+            --host https://localhost:3443 \
             --csv="$GITHUB_WORKSPACE/rapport-qualite/loadtest-dashboard-mock" || true
 
       - name: Résumé

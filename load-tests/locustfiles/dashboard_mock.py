@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import random
 
+from _tls import tls_verify
 from locust import HttpUser, between, task
 
 SITE_IDS = ["SITE001", "SITE002", "SITE003"]
@@ -15,6 +16,7 @@ class DashboardMockUser(HttpUser):
     wait_time = between(1, 3)
 
     def on_start(self) -> None:
+        self.client.verify = tls_verify()
         self.client.post(
             "/api/auth/login",
             json={"email": DEMO_EMAIL, "password": DEMO_PASSWORD},

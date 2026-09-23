@@ -41,6 +41,8 @@ uv run locust -f locustfiles/dashboard_history.py -f locustfiles/dashboard_mock.
 
 `LOAD_TEST_DASHBOARD_EMAIL` (défaut `admin@enervision.local`) et `LOAD_TEST_DASHBOARD_PASSWORD` (défaut vide, à renseigner : le mot de passe des comptes de démonstration, `SEED_PASSWORD` au moment de l'amorçage) contrôlent la connexion.
 
+`LOAD_TEST_CA_BUNDLE` donne le certificat racine à croire quand le dashboard est servi en HTTPS par un Caddy à certificats internes (le cookie de session est `Secure`). Le récupérer avec `docker cp <conteneur caddy>:/data/caddy/pki/authorities/local/root.crt caddy-root.crt`. Sans la variable, la vérification TLS par défaut s'applique, elle n'est jamais désactivée.
+
 ## Étalonner les seuils
 
 `thresholds.py` démarre avec des valeurs volontairement larges : personne n'avait encore mesuré de run réel au moment où ce fichier a été écrit. Après un premier passage de `ci.yml` (ou un run local), lire le CSV `_stats.csv` produit, et resserrer les seuils sur cette mesure, jamais sur une estimation.
