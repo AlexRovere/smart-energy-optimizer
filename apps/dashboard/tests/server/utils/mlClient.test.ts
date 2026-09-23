@@ -69,6 +69,22 @@ describe('fetchModelInfo', () => {
     expect(résultat).toEqual(réponse)
   })
 
+  it('transmet les champs enrichis creation_timestamp et metriques', async () => {
+    const réponse = {
+      name: 'enervision',
+      version: '3',
+      alias: 'champion',
+      creation_timestamp: 1_700_000_000_000,
+      metriques: { training_rows: 5000 },
+    }
+    mocked$fetch.mockResolvedValueOnce(réponse)
+
+    const résultat = await fetchModelInfo(BASE_URL)
+
+    expect(résultat.creation_timestamp).toBe(1_700_000_000_000)
+    expect(résultat.metriques).toEqual({ training_rows: 5000 })
+  })
+
   it("propage l'erreur si le service ML est indisponible", async () => {
     mocked$fetch.mockRejectedValueOnce(new Error('connect ECONNREFUSED'))
 
