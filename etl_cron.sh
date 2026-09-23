@@ -27,7 +27,7 @@ for attempt in 1 2 3; do
   if sops exec-env secrets.enc.yaml 'timeout 15m docker compose run --rm -T etl python main.py hour'; then
     break
   fi
-  if [ "$attempt" -eq 3 ]; then
+  if [[ "$attempt" -eq 3 ]]; then
     echo "etl_cron: échec après 3 essais" >&2
     exit 1
   fi
