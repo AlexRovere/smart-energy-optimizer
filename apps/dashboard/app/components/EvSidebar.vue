@@ -5,13 +5,20 @@ const { sites } = useSites()
 const { account } = useAccountSession()
 const toast = useToast()
 const { pending, dernierEntrainement, déclencher } = useTraining()
+const { modele, rafraichirModele, disponible: modeleDisponible } = useModeleML()
+
+watch(dernierEntrainement, (val) => {
+  if (val?.statut === 'succès') rafraichirModele()
+})
 
 async function lancerEntrainement() {
-  await déclencher()
-  if (dernierEntrainement.value?.statut === 'succès') {
-    toast.add({ title: 'Entraînement demandé', description: 'La demande a été transmise au service ML.', color: 'success' })
-  } else {
-    toast.add({ title: 'Échec du déclenchement', description: 'Le service ML est indisponible.', color: 'error' })
+  try {
+    await déclencher()
+    toast.add({ title: 'Entraînement déclenché', description: 'La demande a été transmise au service ML.', color: 'success' })
+  } catch (err: unknown) {
+    const code = (err as { statusCode?: number }).statusCode
+    const description = code === 409 ? 'Un entraînement est déjà en cours.' : 'Le service ML est indisponible.'
+    toast.add({ title: 'Échec du déclenchement', description, color: 'error' })
   }
 }
 
@@ -103,18 +110,15 @@ const systemeItems: NavigationMenuItem[] = [
 
     <template #footer="{ collapsed }">
       <div class="flex flex-col gap-3 px-2">
-        <!-- Entraînement ML — ADMIN uniquement -->
-        <div
-          v-if="!collapsed && account?.role === 'ADMIN'"
-          class="border border-ev-border rounded-ev-btn p-3 flex flex-col gap-2"
-        >
-          <span class="font-ev-mono text-[10px] font-medium tracking-[0.16em] text-ev-text-muted">MODÈLE ML</span>
+        <!-- Modèle actif + entraînement — ADMIN uniquement -->
+        <template v-if="!collapsed && account?.role === 'ADMIN'">
+          <EvModelCard :modele="modele" :disponible="modeleDisponible" />
           <EvTrainingButton
             :dernier-entrainement="dernierEntrainement"
             :loading="pending"
             @déclencher="lancerEntrainement"
           />
-        </div>
+        </template>
 
         <!-- Status API -->
         <div
