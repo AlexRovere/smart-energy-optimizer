@@ -29,6 +29,12 @@ permissions:
   contents: read
   pull-requests: read
 
+# Chemin CONTENEUR attendu par l'app (docker-compose.yml, ml.environment.PARQUET_DIR) : une
+# seule définition, reprise dans load-test-ml et load-test-dashboard plutôt que redupliquée.
+# Sans lien avec PARQUET_DIR_HOST (/data/output), qui est le chemin HÔTE sur la VM (infra/ansible).
+env:
+  PARQUET_DIR: /data
+
 jobs:
   # Détermine quels domaines ont changé : les jobs suivants s'y conditionnent.
   changes:
@@ -373,7 +379,8 @@ jobs:
         run: |
           docker run -d --rm --name ml-under-test \
             -p 8000:8000 \
-            -v "$GITHUB_WORKSPACE/fixture-parquet:/data:ro" \
+            -e PARQUET_DIR="$PARQUET_DIR" \
+            -v "$GITHUB_WORKSPACE/fixture-parquet:$PARQUET_DIR:ro" \
             enervision-ml:ci
           timeout 60 bash -c 'until curl -sf http://localhost:8000/health >/dev/null; do sleep 1; done'
 
@@ -479,7 +486,8 @@ jobs:
         run: |
           docker run -d --rm --name ml-under-test \
             -p 8000:8000 \
-            -v "$GITHUB_WORKSPACE/fixture-parquet:/data:ro" \
+            -e PARQUET_DIR="$PARQUET_DIR" \
+            -v "$GITHUB_WORKSPACE/fixture-parquet:$PARQUET_DIR:ro" \
             enervision-ml:ci
           timeout 60 bash -c 'until curl -sf http://localhost:8000/health >/dev/null; do sleep 1; done'
           curl -sf -X POST http://localhost:8000/training
@@ -502,12 +510,12 @@ jobs:
             -e NUXT_POSTGRES_DATABASE=enervision \
             -e NUXT_POSTGRES_USER=enervision \
             -e NUXT_POSTGRES_PASSWORD=mot-de-passe-de-charge-local \
-            -e NUXT_PARQUET_DIR=/data \
+            -e NUXT_PARQUET_DIR="$PARQUET_DIR" \
             -e NUXT_ML_SERVICE_URL=http://host.docker.internal:8000 \
             -e NUXT_MOCK_API_URL=http://host.docker.internal:9999 \
             -e NUXT_SESSION_PASSWORD=secret-de-session-de-charge-au-moins-32-caracteres \
             -e NUXT_TRUST_PROXY=false \
-            -v "$GITHUB_WORKSPACE/fixture-parquet:/data:ro" \
+            -v "$GITHUB_WORKSPACE/fixture-parquet:$PARQUET_DIR:ro" \
             enervision-dashboard:ci
           timeout 60 bash -c 'until curl -sf http://localhost:3000/ >/dev/null; do sleep 1; done'
 
