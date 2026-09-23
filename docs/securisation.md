@@ -101,6 +101,17 @@ sont silencieuses.
 Session : cookie `httpOnly`, `secure`, `sameSite: lax`, deux heures. Secret de session issu de
 `sops`. Sessions expirées purgées à chaque connexion, compte désactivé refusé.
 
+**Contrôle d'accès par site.** Un compte ne voit que les sites de `user_sites`. Avant #230, les
+routes `sites/{id}/*` ne vérifiaient que la session, et `stats/summary` rendait tout le parc. Un
+opérateur pouvait lire n'importe quel site et en modifier les seuils. Depuis, `requireSiteAccess`
+garde les cinq routes (`401`, puis `422`, `404`, `403`) et la synthèse est recalculée sur le
+périmètre.
+
+```bash
+cd apps/dashboard
+pnpm vitest run tests/server/utils/guard.test.ts tests/server/api/sites tests/server/api/stats
+```
+
 ## 5. Moindre privilège
 
 | Mesure | Ce que ça borne |

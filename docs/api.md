@@ -45,22 +45,23 @@ La colonne « Rôle » décrit le mécanisme complet. **Un seul rôle est exploi
 | PUT | `/api/admin/users/{id}` | `{ email?, role?, sites?, is_active? }` | `User` | 401, 403, 404, 422 | `ADMIN` |
 | DELETE | `/api/admin/users/{id}` | | `{ success: true }` | 401, 403, 404 | `ADMIN` |
 | GET | `/api/sites` | | `Site[]` | 401 | tous |
-| GET | `/api/sites/{id}/current` | | `EnergyReading` | 401, 403, 404, 503 | tous |
+| GET | `/api/sites/{id}/current` | | `EnergyReading` | 401, 403, 404, 422, 503 | tous |
 | GET | `/api/sites/{id}/history` | `?from=&to=&limit=` | `EnergyReading[]` | 401, 403, 404, 422 | tous |
 | PUT | `/api/sites/{id}/settings` | `{ warning_threshold_kw }` | `Site` | 401, 403, 404, 422 | `ADMIN`, `OPERATOR` |
 | GET | `/api/stats/summary` | | `ParkSummary` | 401, 503 | tous |
 | GET | `/api/alerts` | `?site_id=&severity=` | `Alert[]` | 401, 422, 503 | tous |
 | GET | `/api/sensors/status` | | `SensorStatus` | 401, 503 | tous |
-| POST | `/api/sites/{id}/prediction` | `{ horizon_hours }`, 1 à 48, défaut 24 | `Prediction` | 401, 403, 422, 503 | tous |
-| GET | `/api/sites/{id}/recommendations` | | `Recommendation[]` | 401, 422, 503 | tous |
+| POST | `/api/sites/{id}/prediction` | `{ horizon_hours }`, 1 à 48, défaut 24 | `Prediction` | 401, 403, 404, 422, 503 | tous |
+| GET | `/api/sites/{id}/recommendations` | | `Recommendation[]` | 401, 403, 404, 422, 503 | tous |
 | GET | `/api/alert-thresholds` | | `AlertThreshold[]` | 401, 503 | tous |
-| PUT | `/api/sites/{id}/alert-thresholds/{type}` | `{ duration, threshold }` | `AlertThreshold` | 401, 403, 422 | `ADMIN`, `OPERATOR` |
+| PUT | `/api/sites/{id}/alert-thresholds/{type}` | `{ duration, threshold }` | `AlertThreshold` | 401, 403, 404, 422 | `ADMIN`, `OPERATOR` |
 
-Trois règles que le tableau ne dit pas :
+Ce que le tableau ne dit pas :
 
 - **`403` et non `404`** sur un site hors périmètre : distinguer « n'existe pas » de « pas pour vous » est nécessaire au diagnostic.
 - **`401` et non `404`** sur un compte inconnu, avec le message d'un mot de passe faux : distinguer les deux ferait de `/api/auth/login` un annuaire des comptes. Pour la même raison, une adresse absente est tout de même confrontée à une empreinte leurre, sinon le temps de réponse rétablit la distinction.
-- Un identifiant de site reçu du client est **comparé** au périmètre autorisé, il ne sert jamais de source.
+- Un identifiant de site reçu du client est **comparé** au périmètre autorisé, il ne sert jamais de source. Toutes les routes `sites/{id}/*` passent par `requireSiteAccess`, dans cet ordre : `401` sans session, `422` si le format est faux, `404` si le site n'existe pas, `403` s'il est hors périmètre. Pour le `PUT` de seuil, le rôle est vérifié ensuite.
+- `stats/summary` est **recalculé sur le périmètre** : `sites` et `excluded_sites` sont filtrés, puis `total_sites`, les deux totaux et `average_load_percent` sont refaits sur les sites restants. Un compte sans site reçoit des totaux vides, pas ceux du parc.
 - Le `POST` de prédiction **ne modifie rien** : un rejeu après timeout est sans risque. L'applicatif garde le résultat quelques secondes, le proxy ne pouvant pas le mettre en cache.
 
 **Le `429` de `/api/auth/login`.** Cinq tentatives par fenêtre de quinze minutes, comptées sur **deux** clés à la fois, l'adresse et le compte visé, la plus restrictive l'emportant. L'adresse seule ne suffirait pas : un client industriel est derrière un NAT, donc tout un site partage une adresse et l'erreur d'un poste verrouillerait ses collègues. Le compte seul laisserait passer un balayage de comptes depuis une adresse unique. La réponse porte `Retry-After`, en secondes.

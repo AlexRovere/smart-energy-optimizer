@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import type { H3Event } from 'h3'
+import { createError, type H3Event } from 'h3'
 import handler from '../../../../server/api/sites/[id]/prediction.post'
 
 // vi.hoisted s'exécute AVANT les imports ES : définit defineEventHandler comme global
@@ -10,7 +10,7 @@ vi.hoisted(() => {
 
 
 const {
-  mockRequireAccount,
+  mockRequireSiteAccess,
   mockGetRouterParam,
   mockReadValidatedBody,
   mockFetchPredictions,
@@ -18,7 +18,7 @@ const {
   mockHoursInHorizon,
   mockLoggerError,
 } = vi.hoisted(() => ({
-  mockRequireAccount: vi.fn(),
+  mockRequireSiteAccess: vi.fn(),
   mockGetRouterParam: vi.fn(),
   mockReadValidatedBody: vi.fn(),
   mockFetchPredictions: vi.fn(),
@@ -28,7 +28,7 @@ const {
 }))
 
 vi.mock('../../../../server/utils/guard', () => ({
-  requireAccount: mockRequireAccount,
+  requireSiteAccess: mockRequireSiteAccess,
 }))
 
 vi.mock('h3', async (importOriginal) => {
@@ -62,7 +62,7 @@ const mockEvent = {} as H3Event
 describe('POST /api/sites/[id]/prediction', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockRequireAccount.mockResolvedValue(compteFixture)
+    mockRequireSiteAccess.mockImplementation(async (_event: unknown, id: string) => ({ account: compteFixture, siteId: id }))
     mockGetRouterParam.mockReturnValue('SITE001')
     mockReadValidatedBody.mockResolvedValue({ success: true, data: { horizon_hours: 24 } })
     mockHoursInHorizon.mockReturnValue([heure1, heure2])
@@ -73,16 +73,26 @@ describe('POST /api/sites/[id]/prediction', () => {
     ])
   })
 
-  it('retourne 401 quand requireAccount rejette', async () => {
-    mockRequireAccount.mockRejectedValue(Object.assign(new Error('Session invalide'), { statusCode: 401 }))
+  it('passe l\'identifiant de la route à la garde de périmètre', async () => {
+    await handler(mockEvent)
 
-    await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 401 })
+    expect(mockRequireSiteAccess).toHaveBeenCalledWith(mockEvent, 'SITE001')
   })
 
-  it('retourne 422 pour un identifiant de site invalide', async () => {
-    mockGetRouterParam.mockReturnValue('pas-un-site')
+  it('retourne 403 sans solliciter le service ML pour un site hors périmètre', async () => {
+    mockGetRouterParam.mockReturnValue('SITE002')
+    mockRequireSiteAccess.mockRejectedValue(createError({ statusCode: 403 }))
 
-    await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 422 })
+    await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 403 })
+    expect(mockFetchPredictions).not.toHaveBeenCalled()
+  })
+
+  it('retourne 404 sans solliciter le service ML pour un site inconnu', async () => {
+    mockGetRouterParam.mockReturnValue('SITE999')
+    mockRequireSiteAccess.mockRejectedValue(createError({ statusCode: 404 }))
+
+    await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 404 })
+    expect(mockFetchPredictions).not.toHaveBeenCalled()
   })
 
   it('retourne 422 si le body est invalide', async () => {

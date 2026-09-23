@@ -1,7 +1,12 @@
-import { inArray } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import type { SiteApiItem } from '../../shared/siteSchema'
 import { sites } from '../database/schema'
 import type { AppDatabase } from './session'
+
+export async function siteExists(db: AppDatabase, siteId: string): Promise<boolean> {
+  const rows = await db.select({ id: sites.id }).from(sites).where(eq(sites.id, siteId)).limit(1)
+  return rows.length > 0
+}
 
 export async function querySitesList(
   db: AppDatabase,
