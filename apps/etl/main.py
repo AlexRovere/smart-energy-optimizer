@@ -104,7 +104,7 @@ def run_periods(
             combined = pd.concat([context, raw], ignore_index=True) if not context.empty else raw
             transformed_all = transform_readings(combined)
             new_days_by_site = {
-                site_id: {window[0].date() for window in windows}
+                site_id: {day for window in windows for day in _days_spanned(*window)}
                 for site_id, windows in fetch_plans.items()
             }
             transformed = _keep_newly_fetched_days(transformed_all, new_days_by_site)
@@ -123,10 +123,12 @@ def run_periods(
     return {"parquet_files": parquet_files}
 
 
-def run_hour(now: datetime | None = None, verbose: bool = False) -> dict[str, object]:
+def run_hour(
+    now: datetime | None = None, verbose: bool = False, hours: int = 1
+) -> dict[str, object]:
     now = now or datetime.now(timezone.utc)
     return run_periods(
-        start_time=now - timedelta(minutes=60),
+        start_time=now - timedelta(hours=hours),
         end_time=now,
         verbose=verbose,
         skip_coverage_check=True,
@@ -154,6 +156,18 @@ def _read_context(fetch_plans: dict[str, list[tuple[datetime, datetime]]]) -> pd
     return pd.concat(frames, ignore_index=True)
 
 
+def _days_spanned(start: datetime, end: datetime) -> set[date]:
+    # une fenetre peut franchir minuit (cas de hour --hours 24) : ses deux jours sont extraits.
+    # La borne de fin est exclue, une fenetre qui finit a minuit ne deborde pas sur le lendemain
+    last_day = (end - timedelta(microseconds=1)).date()
+    day = start.date()
+    days = set()
+    while day <= last_day:
+        days.add(day)
+        day += timedelta(days=1)
+    return days
+
+
 def _keep_newly_fetched_days(
     transformed: pd.DataFrame, new_days_by_site: dict[str, set[date]]
 ) -> pd.DataFrame:
@@ -171,6 +185,16 @@ def _parse_datetime(value: str) -> datetime:
     parsed = datetime.fromisoformat(value)
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _positive_int(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(f"entier attendu, reçu {value!r}") from error
+    if parsed < 1:
+        raise argparse.ArgumentTypeError(f"au moins 1 attendu, reçu {parsed}")
     return parsed
 
 
@@ -213,9 +237,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     hour_parser = subparsers.add_parser(
         "hour",
-        help="Extract, transform and load the readings history for the last 60 minutes "
-        "up to now (suited for an hourly cron, keeps the datalake current for the "
-        "predictive model)",
+        help="Extract, transform and load the readings history for the last hours up to "
+        "now (suited for an hourly cron, keeps the datalake current for the predictive "
+        "model)",
+    )
+    hour_parser.add_argument(
+        "--hours",
+        type=_positive_int,
+        default=1,
+        help="Number of hours to refetch up to now (default: 1). A wider window fills "
+        "any gap left by a missed run, the writer deduplicates on timestamp",
     )
     hour_parser.add_argument(
         "--verbose",
@@ -248,7 +279,7 @@ def main() -> None:
                 file=sys.stderr,
             )
     elif args.command == "hour":
-        result = run_hour(verbose=args.verbose)
+        result = run_hour(hours=args.hours, verbose=args.verbose)
         if args.verbose:
             print(
                 f"{len(result['parquet_files'])} Parquet file(s) written for the readings history",
