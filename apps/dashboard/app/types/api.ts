@@ -182,3 +182,11 @@ export interface SessionInfo {
   polling_interval_s: number
   health_label: string
 }
+
+export interface ModelInfo {
+  name: string
+  version: string
+  alias: string
+  creation_timestamp?: number
+  metriques?: Record<string, number>
+}
