@@ -1,9 +1,15 @@
 .venv
-__pycache__
-*.pyc
+**/__pycache__
+**/*.pyc
 .git
 .env
 .env.*
 *.log
 .pytest_cache
 .ruff_cache
+
+# Tests et outils locaux : l'image n'exécute que main.py et ses modules.
+test/
+pytest.ini
+# Scripts d'analyse lancés depuis un poste, et les HTML qu'ils y écrivent.
+insights/

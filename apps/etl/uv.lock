@@ -69,9 +69,13 @@ dependencies = [
     { name = "pandas" },
     { name = "psycopg2-binary" },
     { name = "pyarrow" },
-    { name = "pytest" },
     { name = "python-dotenv" },
     { name = "requests" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
 ]
 
 [package.metadata]
@@ -79,10 +83,12 @@ requires-dist = [
     { name = "pandas", specifier = "==2.2.3" },
     { name = "psycopg2-binary", specifier = "==2.9.10" },
     { name = "pyarrow", specifier = "==23.0.1" },
-    { name = "pytest", specifier = ">=8.0.0" },
     { name = "python-dotenv", specifier = "==1.2.2" },
     { name = "requests", specifier = "==2.34.2" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=8.0.0" }]
 
 [[package]]
 name = "idna"
