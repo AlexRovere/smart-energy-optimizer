@@ -67,11 +67,11 @@ describe('EvAlertThresholdSettings', () => {
     const wrapper = await mountSuspended(EvAlertThresholdSettings)
 
     await wrapper.findAll('[data-testid="editer-btn"]')[0]!.trigger('click')
-    expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
+    expect(wrapper.find('dialog').exists()).toBe(true)
 
     await wrapper.find('[data-testid="valider-btn"]').trigger('click')
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    expect(wrapper.find('dialog').exists()).toBe(false)
   })
 })

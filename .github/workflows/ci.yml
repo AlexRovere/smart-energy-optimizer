@@ -25,22 +25,24 @@ concurrency:
 # est une pull request, d'où pull-requests: read. Sans cette ligne le job
 # changes échoue en « Resource not accessible by integration », et comme il
 # conditionne tous les autres, c'est tout le pipeline qui ne tourne pas.
-permissions:
-  contents: read
-  pull-requests: read
+permissions: {}
 
 jobs:
   # Détermine quels domaines ont changé : les jobs suivants s'y conditionnent.
   changes:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       etl: ${{ steps.filter.outputs.etl }}
       ml: ${{ steps.filter.outputs.ml }}
       dashboard: ${{ steps.filter.outputs.dashboard }}
       infra: ${{ steps.filter.outputs.infra }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: dorny/paths-filter@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: { persist-credentials: false }
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         id: filter
         with:
           # Chaque domaine écoute aussi ce fichier : une modification du
@@ -67,9 +69,12 @@ jobs:
     needs: changes
     if: needs.changes.outputs.etl == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: { persist-credentials: false }
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
         with: { enable-cache: true, cache-dependency-glob: apps/etl/uv.lock }
 
       # Bloquant, comme le service ML. #140 est fusionnée et son code est passé
@@ -78,40 +83,42 @@ jobs:
       #
       # Voir le job ml pour le motif de l'épinglage de version.
       - name: Lint (ruff)
-        run: uvx ruff@0.16.8 check apps/etl --output-format github
+        run: uvx --no-build ruff@0.16.8 check apps/etl --output-format github
 
       - name: Formatage (ruff)
-        run: uvx ruff@0.16.8 format --check apps/etl
+        run: uvx --no-build ruff@0.16.8 format --check apps/etl
 
       - name: Rapport qualité
         if: always()
         run: |
           mkdir -p rapport-qualite
-          uvx ruff@0.16.8 check apps/etl --output-format json --output-file rapport-qualite/etl-lint.json || true
+          uvx --no-build ruff@0.16.8 check apps/etl --output-format json --output-file rapport-qualite/etl-lint.json || true
           {
             echo "### ETL, lint Python"
             echo '```'
-            uvx ruff@0.16.8 check apps/etl --statistics || true
+            uvx --no-build ruff@0.16.8 check apps/etl --statistics || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         if: always()
         with:
           name: rapport-qualite-etl
           path: rapport-qualite/
 
-      # TODO : les tests arrivent avec #51.
-      # - run: uv run --directory apps/etl pytest
-      - run: echo "TODO ETL - tests unitaires, dont la gestion des null et de data_quality"
+      - name: Tests (pytest)
+        run: uv run --directory apps/etl --frozen --no-build pytest
 
   ml:
     needs: changes
     if: needs.changes.outputs.ml == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: { persist-credentials: false }
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
         with: { enable-cache: true, cache-dependency-glob: apps/ml/uv.lock }
 
       # Bloquant ici, contrairement à l'ETL : rien n'est en vol sur ce
@@ -125,10 +132,10 @@ jobs:
       # l'onglet « Files changed » de la pull request, au lieu d'obliger à
       # ouvrir le log pour savoir où regarder.
       - name: Lint (ruff)
-        run: uvx ruff@0.16.8 check apps/ml --output-format github
+        run: uvx --no-build ruff@0.16.8 check apps/ml --output-format github
 
       - name: Formatage (ruff)
-        run: uvx ruff@0.16.8 format --check apps/ml
+        run: uvx --no-build ruff@0.16.8 format --check apps/ml
 
       # if: always() pour que le rapport existe surtout quand le lint a échoué,
       # qui est le moment où on a besoin de le lire.
@@ -136,15 +143,15 @@ jobs:
         if: always()
         run: |
           mkdir -p rapport-qualite
-          uvx ruff@0.16.8 check apps/ml --output-format json --output-file rapport-qualite/ml-lint.json || true
+          uvx --no-build ruff@0.16.8 check apps/ml --output-format json --output-file rapport-qualite/ml-lint.json || true
           {
             echo "### Service ML, lint Python"
             echo '```'
-            uvx ruff@0.16.8 check apps/ml --statistics || true
+            uvx --no-build ruff@0.16.8 check apps/ml --statistics || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         if: always()
         with:
           name: rapport-qualite-ml
@@ -153,23 +160,26 @@ jobs:
       # Le seuil de couverture (80 % sur src) est porté par pyproject.toml : pas
       # de --cov-fail-under ici, une seule source de vérité.
       - name: Tests (pytest)
-        run: uv run --directory apps/ml pytest
+        run: uv run --directory apps/ml --frozen --no-build pytest
 
   dashboard:
     needs: changes
     if: needs.changes.outputs.dashboard == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: { persist-credentials: false }
       # pnpm s'installe AVANT setup-node : c'est setup-node qui calcule la clé
       # du cache pnpm, et il lui faut le gestionnaire déjà présent. La version
       # est épinglée parce que la 9 ne lit pas ce lockfile, et que la dernière
       # refuse un pnpm-workspace.yaml sans champ packages.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
         with: { version: 10.11.0 }
       # Node 22 et non 20 : Vitest 5 demande 20.19 au minimum, et `node-version: 20`
       # résout à la dernière 20.x du moment, ce qui est un pari inutile.
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
           cache: pnpm
@@ -189,7 +199,7 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         if: always()
         with:
           name: rapport-qualite-dashboard
@@ -209,8 +219,11 @@ jobs:
     needs: changes
     if: needs.changes.outputs.infra == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: { persist-credentials: false }
       # Terraform est passé hors périmètre au J1 : plus de ressource de
       # fournisseur à créer, la machine est fournie. Ansible décrit désormais
       # la configuration reproductible de cette machine.
@@ -261,11 +274,14 @@ jobs:
     needs: [changes, etl]
     if: needs.changes.outputs.etl == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: { persist-credentials: false }
       - run: docker build --tag enervision-etl:ci apps/etl
       - name: Vulnérabilités de l'image (signalement)
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
           scan-type: image
           image-ref: enervision-etl:ci
@@ -275,7 +291,7 @@ jobs:
       # skip-setup-trivy : le binaire et la base sont déjà là depuis l'étape
       # précédente, les retélécharger coûterait une minute pour rien.
       - name: Aucune vulnérabilité critique
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
           scan-type: image
           image-ref: enervision-etl:ci
@@ -289,11 +305,14 @@ jobs:
     needs: [changes, ml]
     if: needs.changes.outputs.ml == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: { persist-credentials: false }
       - run: docker build --tag enervision-ml:ci apps/ml
       - name: Vulnérabilités de l'image (signalement)
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
           scan-type: image
           image-ref: enervision-ml:ci
@@ -303,7 +322,7 @@ jobs:
       # skip-setup-trivy : le binaire et la base sont déjà là depuis l'étape
       # précédente, les retélécharger coûterait une minute pour rien.
       - name: Aucune vulnérabilité critique
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
           scan-type: image
           image-ref: enervision-ml:ci
@@ -317,11 +336,14 @@ jobs:
     needs: [changes, dashboard]
     if: needs.changes.outputs.dashboard == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: { persist-credentials: false }
       - run: docker build --tag enervision-dashboard:ci apps/dashboard
       - name: Vulnérabilités de l'image (signalement)
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
           scan-type: image
           image-ref: enervision-dashboard:ci
@@ -331,7 +353,7 @@ jobs:
       # skip-setup-trivy : le binaire et la base sont déjà là depuis l'étape
       # précédente, les retélécharger coûterait une minute pour rien.
       - name: Aucune vulnérabilité critique
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
           scan-type: image
           image-ref: enervision-dashboard:ci

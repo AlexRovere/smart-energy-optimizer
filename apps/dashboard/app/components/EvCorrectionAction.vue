@@ -22,8 +22,11 @@ const emit = defineEmits<{ apply: [id: string] }>()
     </div>
 
     <!-- Bouton -->
-    <div data-testid="apply-btn" class="shrink-0" @click="emit('apply', recommendation.recommendation_id)">
-      <EvButton variant="primary">Appliquer</EvButton>
-    </div>
+    <EvButton
+      data-testid="apply-btn"
+      class="shrink-0"
+      variant="primary"
+      @click="emit('apply', recommendation.recommendation_id)"
+    >Appliquer</EvButton>
   </div>
 </template>

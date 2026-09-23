@@ -178,10 +178,8 @@ def _peak_analysis(frame: pd.DataFrame) -> dict[str, list[dict[str, object]]]:
                 "threshold_kwh": _number(threshold_kwh),
                 "count": count,
                 "rate_percent": _number(count / len(group) * 100, 2),
-                "maximum_kwh": _number(peak_values.max()) if count else None,
-                "average_excess_kwh": (
-                    _number((peak_values - threshold_kwh).mean()) if count else None
-                ),
+                "maximum_kwh": _number(peak_values.max()),
+                "average_excess_kwh": _number((peak_values - threshold_kwh).mean()),
                 "peak_hour": int(peak_rows["hour"].mode().iloc[0]) if count else None,
                 "peak_day_of_week": (
                     int(peak_rows["day_of_week"].mode().iloc[0]) if count else None

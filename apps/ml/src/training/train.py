@@ -58,15 +58,15 @@ def train_model(data_path: str | Path) -> TrainingResult:
     if training_data.empty:
         raise ValueError("Not enough complete history to train the model")
 
-    params = dict(
-        iterations=1000,
-        depth=8,
-        learning_rate=0.10,
-        loss_function="RMSE",
-        random_seed=42,
-        verbose=False,
-        allow_writing_files=False,
-    )
+    params = {
+        "iterations": 1000,
+        "depth": 8,
+        "learning_rate": 0.10,
+        "loss_function": "RMSE",
+        "random_seed": 42,
+        "verbose": False,
+        "allow_writing_files": False,
+    }
 
     model = CatBoostRegressor(**params)
 

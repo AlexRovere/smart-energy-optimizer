@@ -82,7 +82,7 @@ def _replay_origins(site_history: pd.DataFrame) -> list[pd.Timestamp]:
 
 
 def _relative_mae(pairs: list[tuple[float, float]]) -> float | None:
-    predicted, actual = zip(*pairs, strict=True)
+    _, actual = zip(*pairs, strict=True)
     mean_actual = sum(actual) / len(actual)
     if mean_actual == 0:
         return None  # rien à rapporter à une moyenne nulle
