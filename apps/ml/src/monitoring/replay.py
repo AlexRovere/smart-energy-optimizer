@@ -30,8 +30,9 @@ def compute_relative_mae_by_site(
     for site_id, site_history in history.groupby("site_id", sort=False):
         site_history = site_history.sort_values("timestamp").reset_index(drop=True)
         pairs = _replay_site(site_id, site_history, model, schedules)
-        if pairs:
-            result[site_id] = _relative_mae(pairs)
+        relative_mae = _relative_mae(pairs) if pairs else None
+        if relative_mae is not None:
+            result[site_id] = relative_mae
     return result
 
 
@@ -80,8 +81,11 @@ def _replay_origins(site_history: pd.DataFrame) -> list[pd.Timestamp]:
     return list(pd.date_range(earliest_origin, latest_origin, freq=f"{REPLAY_STEP_HOURS}h"))
 
 
-def _relative_mae(pairs: list[tuple[float, float]]) -> float:
+def _relative_mae(pairs: list[tuple[float, float]]) -> float | None:
     predicted, actual = zip(*pairs, strict=True)
     mean_actual = sum(actual) / len(actual)
+    if mean_actual == 0:
+        return None  # rien à rapporter à une moyenne nulle
+
     mae = sum(abs(p - a) for p, a in pairs) / len(pairs)
     return (mae / mean_actual) * 100

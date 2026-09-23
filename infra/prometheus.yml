@@ -24,12 +24,11 @@ scrape_configs:
   # exposent /metrics. Elles complètent les deux sources ci-dessus, elles ne
   # les remplacent pas.
 
-  # Erreur de prévision relative par site (#40), rejouée sur les 7 derniers
-  # jours. Voir docs/ml.md pour le calcul et le seuil. La donnée ne bouge
-  # qu'au rythme de l'ETL (toutes les heures) : scraper toutes les 15 s comme
-  # le reste ne ferait que répéter la même valeur.
+  # Erreur de prévision relative par site (#40). 1m et non 15s : au-delà de 5
+  # min sans scrape la série est périmée pour Prometheus (trous dans Grafana
+  # et les alertes) ; le cache de main.py (600s) absorbe le reste.
   - job_name: ml
-    scrape_interval: 1h
+    scrape_interval: 1m
     static_configs:
       - targets: ["ml:8000"]
 

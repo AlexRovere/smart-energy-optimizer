@@ -85,3 +85,18 @@ def test_relative_mae_skips_a_site_without_enough_history():
     result = compute_relative_mae_by_site(history, ConstantModel(value=100.0), SCHEDULES)
 
     assert result == {}
+
+
+def test_relative_mae_skips_a_site_with_zero_mean_consumption_without_crashing():
+    history = pd.concat(
+        [
+            make_history("SITE001", hours=360, consumption=0.0),
+            make_history("SITE002", hours=360, consumption=80.0),
+        ],
+        ignore_index=True,
+    )
+
+    result = compute_relative_mae_by_site(history, ConstantModel(value=100.0), SCHEDULES)
+
+    assert "SITE001" not in result
+    assert result["SITE002"] == pytest.approx(25.0)

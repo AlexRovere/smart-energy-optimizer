@@ -281,8 +281,10 @@ services:
       - ml_artifacts:/app/artifacts
 
     restart: unless-stopped
+    # supervision : pour que prometheus le scrape (#40), comme grafana.
     networks:
       - data
+      - supervision
 
   dashboard:
     build: ./apps/dashboard

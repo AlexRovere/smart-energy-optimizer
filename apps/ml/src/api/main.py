@@ -50,10 +50,7 @@ def get_site_schedules() -> SiteSchedules:
     return load_site_schedules(get_site_config_path())
 
 
-# Prometheus scrape ml:8000/metrics every 15 s (infra/prometheus.yml), mais la
-# donnée sous-jacente ne bouge qu'au rythme de l'ETL : recalculer le rejeu à
-# chaque scrape rejouerait inutilement ~4700 prédictions par site. Le calcul
-# n'est donc rafraîchi qu'au plus une fois toutes les dix minutes.
+# Évite de rejouer ~4700 prédictions par site à chaque scrape (1 min).
 FORECAST_ERROR_CACHE_SECONDS = 600
 
 forecast_relative_mae_gauge = Gauge(
