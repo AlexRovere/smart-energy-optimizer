@@ -20,8 +20,19 @@ if ! flock --nonblock 9; then
   exit 1
 fi
 
+# Trois essais contre une erreur passagère, espacés pour tenir dans l'heure.
 # -T garde stdout (le JSON) séparé de stderr.
-sops exec-env secrets.enc.yaml 'docker compose run --rm -T etl python main.py hour'
+for attempt in 1 2 3; do
+  if sops exec-env secrets.enc.yaml 'docker compose run --rm -T etl python main.py hour'; then
+    break
+  fi
+  if [ "$attempt" -eq 3 ]; then
+    echo "etl_cron: échec après 3 essais" >&2
+    exit 1
+  fi
+  echo "etl_cron: essai $attempt en échec, nouvel essai dans 2 min" >&2
+  sleep 120
+done
 
 # Horodatage du passage réussi pour node-exporter, renommé pour n'être jamais lu à moitié.
 metrics_file="$ETL_METRICS_DIR/etl.prom"
