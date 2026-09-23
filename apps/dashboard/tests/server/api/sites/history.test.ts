@@ -1,13 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import type { H3Event } from 'h3'
+import { createError, type H3Event } from 'h3'
 import handler from '../../../../server/api/sites/[id]/history.get'
 
-const { mockQuerySiteHistory, mockGetQuery, mockGetRouterParam, mockLoggerError } = vi.hoisted(() => {
+const { mockQuerySiteHistory, mockGetQuery, mockGetRouterParam, mockLoggerError, mockRequireSiteAccess } = vi.hoisted(() => {
   const mockQuerySiteHistory = vi.fn()
   const mockGetQuery = vi.fn()
   const mockGetRouterParam = vi.fn()
   const mockLoggerError = vi.fn()
-  return { mockQuerySiteHistory, mockGetQuery, mockGetRouterParam, mockLoggerError }
+  const mockRequireSiteAccess = vi.fn()
+  return { mockQuerySiteHistory, mockGetQuery, mockGetRouterParam, mockLoggerError, mockRequireSiteAccess }
 })
 
 vi.mock('../../../../server/utils/parquetReader', () => ({
@@ -24,7 +25,7 @@ vi.mock('h3', async (importOriginal) => {
 })
 
 vi.mock('../../../../server/utils/guard', () => ({
-  requireAccount: vi.fn().mockResolvedValue(undefined)
+  requireSiteAccess: mockRequireSiteAccess
 }))
 
 vi.mock('../../../../server/utils/logger', () => ({
@@ -48,9 +49,12 @@ const mesureFixture = {
 }
 
 describe('GET /api/sites/[id]/history', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockRequireSiteAccess.mockImplementation(async (_event: unknown, id: string) => ({ account: {}, siteId: id }))
+  })
 
-  it('retourne les mesures pour un id et une période valides', async () => {
+  it('retourne les mesures pour un site autorisé et une période valide', async () => {
     mockQuerySiteHistory.mockResolvedValue([mesureFixture])
     configurerÉvénement('SITE001', {
       from: '2026-09-16T00:00:00Z',
@@ -58,7 +62,24 @@ describe('GET /api/sites/[id]/history', () => {
     })
     const résultat = await handler(mockEvent)
     expect(résultat).toHaveLength(1)
+    expect(mockRequireSiteAccess).toHaveBeenCalledWith(mockEvent, 'SITE001')
     expect(mockQuerySiteHistory).toHaveBeenCalledWith('SITE001', '2026-09-16T00:00:00Z', '2026-09-17T00:00:00Z', 500)
+  })
+
+  it('retourne 403 sans lire l\'historique pour un site hors périmètre', async () => {
+    configurerÉvénement('SITE002', { from: '2026-09-16T00:00:00Z', to: '2026-09-17T00:00:00Z' })
+    mockRequireSiteAccess.mockRejectedValue(createError({ statusCode: 403 }))
+
+    await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 403 })
+    expect(mockQuerySiteHistory).not.toHaveBeenCalled()
+  })
+
+  it('retourne 404 sans lire l\'historique pour un site inconnu', async () => {
+    configurerÉvénement('SITE999', { from: '2026-09-16T00:00:00Z', to: '2026-09-17T00:00:00Z' })
+    mockRequireSiteAccess.mockRejectedValue(createError({ statusCode: 404 }))
+
+    await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 404 })
+    expect(mockQuerySiteHistory).not.toHaveBeenCalled()
   })
 
   it('retourne un tableau vide si aucune mesure sur la période', async () => {
@@ -69,14 +90,6 @@ describe('GET /api/sites/[id]/history', () => {
     })
     const résultat = await handler(mockEvent)
     expect(résultat).toEqual([])
-  })
-
-  it('retourne 422 si l\'identifiant de site est invalide', async () => {
-    configurerÉvénement('INVALID', {
-      from: '2026-09-16T00:00:00Z',
-      to: '2026-09-17T00:00:00Z'
-    })
-    await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 422 })
   })
 
   it('retourne 422 si from est absent', async () => {

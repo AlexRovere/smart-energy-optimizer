@@ -12,6 +12,7 @@ import { PARAMETRES_ARGON2ID } from '../../server/database/seed'
 import { baseDisponible, creerBaseDeTest, type BaseDeTest } from '../database/base-de-test'
 
 const EMAIL = 'admin@enervision.local'
+const EMAIL_OPERATEUR = 'operator@enervision.local'
 const PASSWORD = 'mot-de-passe-de-demonstration'
 
 let testDb: BaseDeTest
@@ -25,18 +26,32 @@ beforeAll(async () => {
   process.env.NUXT_ML_SERVICE_URL = 'http://127.0.0.1:1'
 
   const digest = await hash(PASSWORD, PARAMETRES_ARGON2ID)
-  await testDb.sql`INSERT INTO roles (name) VALUES ('ADMIN')`
+  await testDb.sql`INSERT INTO roles (name) VALUES ('ADMIN'), ('OPERATOR')`
   await testDb.sql`
     INSERT INTO users (role_id, email, password_hash)
     SELECT r.id, ${EMAIL}, ${digest} FROM roles r WHERE r.name = 'ADMIN'
   `
+  await testDb.sql`
+    INSERT INTO users (role_id, email, password_hash)
+    SELECT r.id, ${EMAIL_OPERATEUR}, ${digest} FROM roles r WHERE r.name = 'OPERATOR'
+  `
+  await testDb.sql`
+    INSERT INTO sites (id, name, type, capacity_kw, status)
+    VALUES ('SITE001', 'Usine A', 'usine', 500, 'active'),
+           ('SITE002', 'Usine B', 'usine', 800, 'active')
+  `
+  // L'opérateur n'a que SITE001 : SITE002 existe mais reste hors de son périmètre.
+  await testDb.sql`
+    INSERT INTO user_sites (user_id, site_id)
+    SELECT id, 'SITE001' FROM users WHERE email = ${EMAIL_OPERATEUR}
+  `
 }, 120_000)
 
-async function signIn(): Promise<string> {
+async function signIn(email = EMAIL): Promise<string> {
   const response = await fetch('/api/auth/login', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ email: EMAIL, password: PASSWORD })
+    body: JSON.stringify({ email, password: PASSWORD })
   })
   const header = response.headers.get('set-cookie')
   if (header === null) throw new Error('La réponse ne pose aucun cookie.')
@@ -78,5 +93,17 @@ describe.skipIf(!baseDisponible())('recommandations', async () => {
     expect(response.status).toBe(200)
     const body = await response.json()
     expect(Array.isArray(body)).toBe(true)
+  })
+
+  it.each([
+    { siteId: 'SITE001', status: 200, cas: 'un site de son périmètre' },
+    { siteId: 'SITE002', status: 403, cas: 'un site hors de son périmètre' },
+    { siteId: 'SITE999', status: 404, cas: 'un site absent du référentiel' }
+  ])('rend $status à un opérateur sur $cas', async ({ siteId, status }) => {
+    const cookie = await signIn(EMAIL_OPERATEUR)
+
+    const response = await fetch(`/api/sites/${siteId}/recommendations`, { headers: { cookie } })
+
+    expect(response.status).toBe(status)
   })
 })
