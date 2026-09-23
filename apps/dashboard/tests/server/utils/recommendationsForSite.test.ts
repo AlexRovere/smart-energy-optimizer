@@ -144,4 +144,13 @@ describe('recommendationsForSite', () => {
 
     expect(résultat).toEqual([])
   })
+
+  it('retourne un tableau vide quand l\'historique Parquet est inaccessible', async () => {
+    mockConsoHistory.mockRejectedValue(new Error("NUXT_PARQUET_DIR n'est pas défini — historique indisponible"))
+    mockSpikeHistory.mockRejectedValue(new Error("NUXT_PARQUET_DIR n'est pas défini — historique indisponible"))
+
+    const résultat = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
+
+    expect(résultat).toEqual([])
+  })
 })

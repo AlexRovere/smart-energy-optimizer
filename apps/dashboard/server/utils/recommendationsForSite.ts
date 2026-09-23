@@ -33,7 +33,13 @@ async function recommendationConso(
   siteId: string,
   reference: Date
 ): Promise<Recommendation | null> {
-  const aujourdHui = await detectConsumptionAlertFromHistory(db, siteId, reference)
+  let aujourdHui
+  try {
+    aujourdHui = await detectConsumptionAlertFromHistory(db, siteId, reference)
+  } catch {
+    return null
+  }
+
   if (aujourdHui.alert) {
     return buildRecommendation(siteId, 'conso', 'threshold', {
       timestamp: reference.toISOString(),
@@ -62,7 +68,13 @@ async function recommendationPic(
   siteId: string,
   reference: Date
 ): Promise<Recommendation | null> {
-  const aujourdHui = await detectSpikeAlertFromHistory(db, siteId, reference)
+  let aujourdHui
+  try {
+    aujourdHui = await detectSpikeAlertFromHistory(db, siteId, reference)
+  } catch {
+    return null
+  }
+
   if (aujourdHui.alert) {
     return buildRecommendation(siteId, 'pic', 'threshold', {
       timestamp: reference.toISOString(),
