@@ -106,10 +106,51 @@ describe('recommendationsForSite', () => {
     expect(résultat.map(r => r.type).sort()).toEqual(['efficiency', 'load_balancing'])
   })
 
+  it('trie les recommandations par urgence décroissante (high avant medium)', async () => {
+    mockConsoHistory.mockResolvedValue({ alert: true, average: 230, thresholdKwh: 200 })
+    mockSpikeHistory.mockResolvedValue({ alert: true, currentValue: 310, average: 200, thresholdKw: 300 })
+
+    const résultat = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
+
+    expect(résultat).toHaveLength(2)
+    expect(résultat[0]!.priority).toBe('high')
+    expect(résultat[1]!.priority).toBe('medium')
+  })
+
   it('interroge les prédictions sur l\'horizon complet de 168h', async () => {
     await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
 
     expect(mockConsoPredictions).toHaveBeenCalledWith(DB, 'SITE001', RÉFÉRENCE, 168)
     expect(mockSpikePredictions).toHaveBeenCalledWith(DB, 'SITE001', RÉFÉRENCE, 168)
+  })
+
+  it('retourne les recommandations de seuil même quand le ML est indisponible', async () => {
+    mockConsoHistory.mockResolvedValue({ alert: true, average: 230, thresholdKwh: 200 })
+    mockSpikeHistory.mockResolvedValue({ alert: true, currentValue: 310, average: 200, thresholdKw: 300 })
+    mockConsoPredictions.mockRejectedValue(new Error('ML service unavailable'))
+    mockSpikePredictions.mockRejectedValue(new Error('ML service unavailable'))
+
+    const résultat = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
+
+    expect(résultat).toHaveLength(2)
+    expect(résultat.every(r => r.source === 'threshold')).toBe(true)
+  })
+
+  it('retourne un tableau vide quand ni l\'historique ni le ML ne sont disponibles', async () => {
+    mockConsoPredictions.mockRejectedValue(new Error('ML service unavailable'))
+    mockSpikePredictions.mockRejectedValue(new Error('ML service unavailable'))
+
+    const résultat = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
+
+    expect(résultat).toEqual([])
+  })
+
+  it('retourne un tableau vide quand l\'historique Parquet est inaccessible', async () => {
+    mockConsoHistory.mockRejectedValue(new Error("NUXT_PARQUET_DIR n'est pas défini — historique indisponible"))
+    mockSpikeHistory.mockRejectedValue(new Error("NUXT_PARQUET_DIR n'est pas défini — historique indisponible"))
+
+    const résultat = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
+
+    expect(résultat).toEqual([])
   })
 })

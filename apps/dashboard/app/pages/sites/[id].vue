@@ -14,7 +14,7 @@ const { getSite, getSiteSensors, getSiteAlerts, getSiteHealth, getSiteInfo } = u
 
 const { data: reading, pending: readingPending, error: readingError } = useSiteCurrentReading(id)
 
-const { recommendations } = useSiteRecommendations(id)
+const { recommendations, pending } = useSiteRecommendations(id)
 const popupFermée = ref(false)
 watch(id, () => { popupFermée.value = false })
 const popupOuverte = computed(() => recommendations.value.length > 0 && !popupFermée.value)
@@ -500,6 +500,45 @@ const chartData = computed(() => {
         </template>
         <div class="flex flex-col gap-3">
           <EvAlertCard v-for="a in alerts" :key="a.alert_id" :alert="a" />
+        </div>
+      </EvCard>
+
+      <!-- Recommandations -->
+      <EvCard>
+        <template #title>
+          <span class="font-ev text-base font-semibold">Recommandations</span>
+          <span class="font-ev-mono text-[11px] text-ev-text-3 ml-2">
+            GET /api/sites/{{ id }}/recommendations
+          </span>
+        </template>
+
+        <div v-if="pending" class="py-6 text-center font-ev text-sm text-ev-text-3">
+          Chargement des recommandations…
+        </div>
+
+        <div v-else-if="recommendations.length === 0" class="py-6 flex flex-col items-center gap-2 text-center">
+          <span class="font-ev text-sm font-semibold text-ev-text-3">Aucune recommandation active</span>
+          <span class="font-ev text-xs text-ev-text-4">Aucune anomalie de consommation ni pic prévu sur ce site.</span>
+        </div>
+
+        <div v-else class="flex flex-col divide-y" style="border-color: var(--ev-border)">
+          <div
+            v-for="rec in recommendations"
+            :key="rec.recommendation_id"
+            class="flex items-start gap-4 py-4"
+          >
+            <div class="pt-0.5 shrink-0">
+              <EvSeverityTag :severity="rec.priority" />
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="font-ev text-sm font-semibold text-ev-text">{{ rec.title }}</p>
+              <p class="font-ev text-xs text-ev-text-3 mt-0.5">{{ rec.description }}</p>
+              <p class="font-ev-mono text-[11px] text-ev-text-4 mt-1.5">
+                {{ rec.trigger.value_kw }} kW / seuil {{ rec.trigger.threshold_kw }} kW
+                · {{ rec.source === 'forecast' ? 'prévision' : 'seuil dépassé' }}
+              </p>
+            </div>
+          </div>
         </div>
       </EvCard>
 

@@ -9,6 +9,7 @@
 | `secrets.md` | Chiffrement au repos, clés age, procédure de chiffrement et de déchiffrement, rotation | EC03, EC04 |
 | `data.md` | Modèle relationnel, contrat des fichiers Parquet, stratégie d'imputation, règles de qualité | EC05 |
 | `api.md` | Contrats d'interface des quatre briques, croisés à partir des propositions de chacun et figés avant le développement parallèle | EC03, C20 |
+| `recommandations.md` | Détection de pic et de consommation excessive, lecture d'une recommandation dans le dashboard | #45 |
 
 Annoncés et pas encore écrits, pour ne pas laisser croire le contraire : `ml.md` (modèle,
 entraînement, versionnement, dérive, pour l'EC06) et `runbook.md` (démarrage, exploitation, incidents
