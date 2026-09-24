@@ -44,8 +44,14 @@ function setupMocks() {
   useSitePredictionMock.mockReturnValue({
     forecastPoints: ref([]),
     modelVersion: ref(null),
-    confidenceLevel: ref(null),
-    available: ref(false),
+    confidenceLevel: ref(0),
+    predictedAt: ref(null),
+    nbPoints: ref(0),
+    available: ref(true),
+    lancer: vi.fn(),
+    lancee: ref(false),
+    dureeMs: ref(null),
+    pending: ref(false),
   })
 }
 
