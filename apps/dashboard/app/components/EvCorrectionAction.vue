@@ -30,7 +30,7 @@ function appliquer() {
       data-testid="apply-btn"
       class="shrink-0"
       variant="primary"
-      @click="emit('apply', recommendation.recommendation_id)"
+      @click="appliquer()"
     >Appliquer</EvButton>
   </div>
 </template>

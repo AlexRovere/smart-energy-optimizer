@@ -16,12 +16,6 @@ const state = reactive<LoginInput>({
 
 const loading = ref(false)
 const errorMessage = ref('')
-const toast = useToast()
-
-function motDePasseOublie() {
-  toast.add({ title: 'Fonctionnalité non disponible dans cette version', color: 'warning' })
-}
-
 async function onSubmit(event: FormSubmitEvent<LoginInput>) {
   errorMessage.value = ''
   loading.value = true

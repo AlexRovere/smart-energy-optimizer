@@ -37,7 +37,7 @@ describe('EvCorrectionAction', () => {
 
   it('affiche le bouton Appliquer', async () => {
     const wrapper = await mountSuspended(EvCorrectionAction, { props: { recommendation: mockRec } })
-    expect(wrapper.text()).toContain(texteAttendu)
+    expect(wrapper.text()).toContain('Appliquer')
   })
 
   it('affiche un toast au clic sur Appliquer', async () => {

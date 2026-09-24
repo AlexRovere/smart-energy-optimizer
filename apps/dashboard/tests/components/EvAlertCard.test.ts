@@ -11,7 +11,7 @@ const alerte: Alert = {
   alert_id: 'ALERT-001',
   site_id: 'SITE001',
   severity: 'high',
-  type: 'overconsumption',
+  type: 'threshold',
   message: 'Consommation excessive détectée',
   timestamp: '2026-09-23T10:00:00Z',
   value: 320,
