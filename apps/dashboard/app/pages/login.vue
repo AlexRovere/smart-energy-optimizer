@@ -16,7 +16,6 @@ const state = reactive<LoginInput>({
 
 const loading = ref(false)
 const errorMessage = ref('')
-
 async function onSubmit(event: FormSubmitEvent<LoginInput>) {
   errorMessage.value = ''
   loading.value = true

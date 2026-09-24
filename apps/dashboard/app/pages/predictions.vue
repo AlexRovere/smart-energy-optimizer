@@ -29,9 +29,10 @@ const SITES: { id: SiteId; label: string }[] = [
 ]
 
 const simulationDuration = ref(15)
+const toast = useToast()
 
-function appliedGainTotal() {
-  return 0
+function injecterPic() {
+  toast.add({ title: 'Fonctionnalité non disponible dans cette version', color: 'warning' })
 }
 </script>
 
@@ -155,11 +156,6 @@ function appliedGainTotal() {
         <template #title>
           <span class="font-ev text-base font-semibold">Actions correctives proposées</span>
         </template>
-        <template #actions>
-          <span class="font-ev-mono text-xs text-ev-text-3">
-            gain cumulé appliqué · {{ appliedGainTotal() }} kW
-          </span>
-        </template>
         <div>
           <EvCorrectionAction
             v-for="rec in recommendations"
@@ -194,7 +190,7 @@ function appliedGainTotal() {
           />
         </div>
 
-        <EvButton variant="accent" :block="true">
+        <EvButton data-testid="injecter-pic-btn" variant="accent" :block="true" @click="injecterPic()">
           Injecter un pic sur {{ selectedSiteId }}
         </EvButton>
 

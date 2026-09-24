@@ -1,8 +1,11 @@
 // @vitest-environment nuxt
-import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { describe, expect, it } from 'vitest'
+import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
+import { describe, expect, it, vi } from 'vitest'
 import EvCorrectionAction from '../../app/components/EvCorrectionAction.vue'
 import type { Recommendation } from '../../app/types/api'
+
+const useToastMock = vi.hoisted(() => vi.fn())
+mockNuxtImport('useToast', () => useToastMock)
 
 const mockRec: Recommendation = {
   recommendation_id: 'REC-SITE001-1',
@@ -37,11 +40,14 @@ describe('EvCorrectionAction', () => {
     expect(wrapper.text()).toContain('Appliquer')
   })
 
-  it("émet l'événement apply au clic sur Appliquer", async () => {
+  it('affiche un toast au clic sur Appliquer', async () => {
+    const toastAdd = vi.fn()
+    useToastMock.mockReturnValue({ add: toastAdd })
     const wrapper = await mountSuspended(EvCorrectionAction, { props: { recommendation: mockRec } })
-    const btn = wrapper.find('[data-testid="apply-btn"]')
-    await btn.trigger('click')
-    expect(wrapper.emitted('apply')).toHaveLength(1)
-    expect(wrapper.emitted('apply')![0]).toEqual([mockRec.recommendation_id])
+    await wrapper.find('[data-testid="apply-btn"]').trigger('click')
+    expect(toastAdd).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Fonctionnalité non disponible dans cette version',
+      color: 'warning',
+    }))
   })
 })
