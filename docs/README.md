@@ -12,6 +12,7 @@
 | `recommandations.md` | Détection de pic et de consommation excessive, lecture d'une recommandation dans le dashboard | #45 |
 | `ml.md` | Modèle de prévision, indicateurs, ajustements, surveillance de la dérive | EC06 |
 | `runbook.md` | Quoi faire selon la situation : démarrer, exploiter (déployer, ETL, sauvegarde, rotation, Grafana), incidents connus | EC06 |
+| `rapports/` | Rapports datés : un constat à une date, pas une référence tenue à jour. Aujourd'hui la synthèse Sonar du 23 septembre | EC03 |
 
 `cloud.md` n'existera pas : sa partie sécurité est devenue `securisation.md`, et la machine et sa
 configuration sont décrites par le playbook et son README, dans [`../infra/ansible/`](../infra/ansible/).

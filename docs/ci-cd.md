@@ -63,6 +63,8 @@ Un jeu de règles par langage, versionné, et le pipeline échoue sur une violat
 
 La version de `ruff` est épinglée dans le workflow. Son jeu de règles par défaut change d'une version à l'autre : une CI qui devient rouge parce qu'un outil s'est mis à jour tout seul n'apprend rien à personne, elle apprend à être désactivée.
 
+SonarQube Cloud analyse aussi le dépôt, en dehors de ces workflows. Bilan de la première analyse : [`rapports/2026-09-23-sonar.md`](./rapports/2026-09-23-sonar.md).
+
 `--output-format github` annote les lignes fautives directement dans l'onglet « Files changed » de la pull request, plutôt que d'obliger à ouvrir le log pour savoir où regarder.
 
 ### Les règles désactivées, et pourquoi
