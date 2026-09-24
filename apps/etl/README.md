@@ -18,6 +18,7 @@ python main.py periods --verbose                 # barre de progression (extract
 
 # Historique des mesures, dernière heure glissante (adapté à un cron horaire)
 python main.py hour                              # équivalent à periods --start-time {maintenant - 60mn} --end-time {maintenant}, toujours refetché
+python main.py hour --hours 24                   # relit les 24 dernières heures : comble le trou laissé par un passage manqué (cron)
 python main.py hour --verbose
 ```
 

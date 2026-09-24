@@ -201,8 +201,10 @@ def test_a_failing_phase_is_logged_with_the_exception_type_and_message():
 
 
 def test_a_failing_phase_lets_the_exception_propagate():
+    stream = io.StringIO()
+
     with pytest.raises(RuntimeError, match="API Mock injoignable"):
-        fail_during(io.StringIO())
+        fail_during(stream)
 
 
 def test_the_run_summary_reports_the_failure_too():

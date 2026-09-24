@@ -45,8 +45,10 @@ def test_profiles_balance_sites_before_aggregating_type():
 
 
 def test_profiles_reject_missing_columns():
+    frame = pd.DataFrame({"site_id": ["SITE001"]})
+
     with pytest.raises(ValueError, match="Colonnes manquantes"):
-        build_consumption_profiles(pd.DataFrame({"site_id": ["SITE001"]}))
+        build_consumption_profiles(frame)
 
 
 def test_peak_threshold_is_relative_to_each_site_mean():

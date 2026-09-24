@@ -45,8 +45,11 @@ function fmtConso(kw: number | null): string {
           :key="site.site_id"
           class="border-b last:border-0 transition-colors"
           :class="{ 'cursor-pointer': props.clickable }"
+          :tabindex="props.clickable ? 0 : undefined"
           style="border-color: var(--ev-border)"
           @click="props.clickable && emit('select', site)"
+          @keydown.enter="props.clickable && emit('select', site)"
+          @keydown.space.prevent="props.clickable && emit('select', site)"
           @mouseenter="($event.currentTarget as HTMLElement).style.background = 'var(--ev-veil)'"
           @mouseleave="($event.currentTarget as HTMLElement).style.background = ''"
         >

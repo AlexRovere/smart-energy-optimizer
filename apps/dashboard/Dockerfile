@@ -4,9 +4,9 @@
 FROM node:22-bookworm AS build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      python3 \
-      make \
       g++ \
+      make \
+      python3 \
     && rm -rf /var/lib/apt/lists/*
 
 # pnpm 12 bloque par défaut les scripts de build de dépendances non listées

@@ -24,13 +24,18 @@ const mockRec: Recommendation = {
 
 describe('EvCorrectionAction', () => {
   it.each([
-    ['le titre', 'Décaler la relance CVC de 45 min'],
-    ['la description', 'fenêtre 14:30 → 15:15 · confiance haute'],
-    ['le gain en kW', '-17'],
-    ['le score de confiance', '0,88'],
-    ['le bouton Appliquer', 'Appliquer'],
-  ])('affiche %s', async (_label, texteAttendu) => {
-    useToastMock.mockReturnValue({ add: vi.fn() })
+    ['le titre de la recommandation', ['Décaler la relance CVC de 45 min']],
+    ['la description (fenêtre + confiance)', ['fenêtre 14:30 → 15:15 · confiance haute']],
+    ['le gain en kW', ['-17', 'kW']],
+    ['le score de confiance', ['0,88']],
+  ])('affiche %s', async (_description, textesAttendus) => {
+    const wrapper = await mountSuspended(EvCorrectionAction, { props: { recommendation: mockRec } })
+    for (const texteAttendu of textesAttendus) {
+      expect(wrapper.text()).toContain(texteAttendu)
+    }
+  })
+
+  it('affiche le bouton Appliquer', async () => {
     const wrapper = await mountSuspended(EvCorrectionAction, { props: { recommendation: mockRec } })
     expect(wrapper.text()).toContain(texteAttendu)
   })

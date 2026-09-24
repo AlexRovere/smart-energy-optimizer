@@ -1,20 +1,39 @@
 <script setup lang="ts">
-defineProps<{ open: boolean }>()
+const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
+const dialog = useTemplateRef<HTMLDialogElement>('dialog')
+
+watch(() => props.open, async (open) => {
+  if (!open) return
+
+  await nextTick()
+  if (dialog.value && !dialog.value.open) {
+    if (typeof dialog.value.showModal === 'function') {
+      dialog.value.showModal()
+    }
+    else {
+      dialog.value.setAttribute('open', '')
+    }
+  }
+}, { immediate: true })
 </script>
 
 <template>
-  <div
+  <dialog
     v-if="open"
-    class="fixed inset-0 z-50 flex items-center justify-center p-4"
-    style="background: rgba(0,0,0,0.6)"
+    ref="dialog"
+    class="fixed bg-ev-surface-2 border border-ev-border rounded-ev-md p-6 w-full max-w-md text-ev-text"
     @click.self="emit('close')"
+    @keydown.esc.stop.prevent="emit('close')"
   >
-    <div
-      role="dialog"
-      class="bg-ev-surface-2 border border-ev-border rounded-ev-md p-6 w-full max-w-md flex flex-col gap-4"
-    >
+    <div class="flex flex-col gap-4">
       <slot />
     </div>
-  </div>
+  </dialog>
 </template>
+
+<style scoped>
+dialog::backdrop {
+  background: rgb(0 0 0 / 60%);
+}
+</style>

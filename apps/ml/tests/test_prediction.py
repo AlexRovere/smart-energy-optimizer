@@ -58,17 +58,19 @@ def test_recursive_prediction_fills_intermediate_hours_and_keeps_request_order()
 
 def test_prediction_rejects_horizon_above_168_hours():
     service = PredictionService(IncrementModel(), make_history(), SCHEDULES)
+    targets = [PredictionTarget("SITE001", datetime(2025, 1, 15, 0))]
 
     with pytest.raises(ValueError, match="between 1 and 168 hours"):
-        service.predict([PredictionTarget("SITE001", datetime(2025, 1, 15, 0))])
+        service.predict(targets)
 
 
 def test_prediction_rejects_incomplete_hourly_history():
     history = make_history(169).drop(index=100)
     service = PredictionService(IncrementModel(), history, SCHEDULES)
+    targets = [PredictionTarget("SITE001", datetime(2025, 1, 8, 1))]
 
     with pytest.raises(ValueError, match="consecutive hours"):
-        service.predict([PredictionTarget("SITE001", datetime(2025, 1, 8, 1))])
+        service.predict(targets)
 
 
 def test_prediction_accepts_exactly_168_hour_horizon():
@@ -83,6 +85,7 @@ def test_prediction_accepts_exactly_168_hour_horizon():
 
 def test_prediction_rejects_less_than_168_hours_of_initial_history():
     service = PredictionService(IncrementModel(), make_history(20), SCHEDULES)
+    targets = [PredictionTarget("SITE001", datetime(2025, 1, 1, 20))]
 
     with pytest.raises(ValueError, match="at least 168 hours of history"):
-        service.predict([PredictionTarget("SITE001", datetime(2025, 1, 1, 20))])
+        service.predict(targets)
