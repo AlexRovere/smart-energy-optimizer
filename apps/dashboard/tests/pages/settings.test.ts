@@ -13,8 +13,10 @@ vi.mock('../../app/composables/useSettings', () => ({
 
 const useAlertThresholdsMock = vi.hoisted(() => vi.fn())
 const useSitesListMock = vi.hoisted(() => vi.fn())
+const useAccountSessionMock = vi.hoisted(() => vi.fn())
 mockNuxtImport('useAlertThresholds', () => useAlertThresholdsMock)
 mockNuxtImport('useSitesList', () => useSitesListMock)
+mockNuxtImport('useAccountSession', () => useAccountSessionMock)
 
 const THRESHOLDS: AlertThresholdEntry[] = [
   { site_id: 'SITE001', type: 'conso', duration: 12, threshold: 350 }
@@ -23,23 +25,42 @@ const SITES: SiteApiItem[] = [
   { site_id: 'SITE001', site_name: 'Bureau Paris', site_type: 'office', location: null, capacity_kw: 300, status: 'active', warning_threshold_kw: null, present_in_source: true }
 ]
 
+function mockDefauts() {
+  useSettingsMock.mockReturnValue({
+    notifications: ref({ critical_alerts: true, daily_summary: true, sensor_fault: false }),
+    updateNotification: vi.fn(),
+  })
+  useAlertThresholdsMock.mockReturnValue({ thresholds: ref(THRESHOLDS), pending: ref(false), error: ref(null), save: vi.fn() })
+  useSitesListMock.mockReturnValue({ sites: ref(SITES), pending: ref(false), error: ref(null) })
+  useAccountSessionMock.mockReturnValue({
+    account: ref({ id: '1', email: 'admin@test.fr', role: 'ADMIN', sites: [] }),
+    logout: vi.fn(),
+  })
+}
+
 describe('page Paramétrages', () => {
   it('affiche les règles d\'alerte par site à la place de l\'ancien mock de seuils', async () => {
-    useSettingsMock.mockReturnValue({
-      activeRole: ref('admin'),
-      roleCapabilities: ref(['Lecture du parc et des alertes']),
-      notifications: ref({ critical_alerts: true, daily_summary: true, sensor_fault: false }),
-      updateNotification: vi.fn(),
-      session: ref({ user_name: 'M. Deschamps', role: 'Administrateur', polling_interval_s: 10, health_label: 'ok' })
-    })
-    useAlertThresholdsMock.mockReturnValue({ thresholds: ref(THRESHOLDS), pending: ref(false), error: ref(null), save: vi.fn() })
-    useSitesListMock.mockReturnValue({ sites: ref(SITES), pending: ref(false), error: ref(null) })
-
+    mockDefauts()
     const wrapper = await mountSuspended(SettingsPage)
 
     expect(wrapper.text()).toContain("Règles d'alerte par site")
     expect(wrapper.text()).toContain('Bureau Paris')
     expect(wrapper.text()).toContain('350 kWh')
     expect(wrapper.text()).not.toContain("en attendant le contrat API")
+  })
+
+  it('affiche l\'email du compte dans la carte session', async () => {
+    mockDefauts()
+    const wrapper = await mountSuspended(SettingsPage)
+
+    expect(wrapper.text()).toContain('admin@test.fr')
+  })
+
+  it('le sélecteur de rôle est absent', async () => {
+    mockDefauts()
+    const wrapper = await mountSuspended(SettingsPage)
+
+    expect(wrapper.text()).not.toContain('Opérateur')
+    expect(wrapper.text()).not.toContain('Lecteur')
   })
 })
