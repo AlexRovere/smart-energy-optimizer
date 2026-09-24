@@ -42,8 +42,6 @@ const values = computed(() => {
       <span class="font-ev-mono text-[11px] leading-none text-ev-text-4">{{ alert.site_id }}</span>
       <span class="font-ev-mono text-[11px] font-medium leading-none text-[rgba(243,244,246,0.7)]">{{ values }}</span>
     </div>
-    <div data-testid="acquitter-btn" @click="acquitter()">
-      <EvButton variant="secondary" block>Acquitter</EvButton>
-    </div>
+    <EvButton data-testid="acquitter-btn" variant="secondary" block @click="acquitter()">Acquitter</EvButton>
   </article>
 </template>

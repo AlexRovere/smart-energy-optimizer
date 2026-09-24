@@ -56,9 +56,7 @@ const filteredAlerts = computed(() =>
         </div>
         <div class="flex gap-3 shrink-0 mt-1">
           <EvButton variant="secondary">Rafraîchir</EvButton>
-          <div data-testid="exporter-btn" @click="exporter()">
-            <EvButton variant="primary">Exporter le relevé</EvButton>
-          </div>
+          <EvButton data-testid="exporter-btn" variant="primary" @click="exporter()">Exporter le relevé</EvButton>
         </div>
       </header>
 

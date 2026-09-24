@@ -127,8 +127,9 @@ function injecterPic() {
         </div>
 
         <div class="flex flex-col gap-1.5">
-          <label class="font-ev-mono text-xs text-ev-text-3">duration_minutes</label>
+          <label for="simulation-duration" class="font-ev-mono text-xs text-ev-text-3">duration_minutes</label>
           <UInput
+            id="simulation-duration"
             v-model.number="simulationDuration"
             type="number"
             min="1"
@@ -138,11 +139,9 @@ function injecterPic() {
           />
         </div>
 
-        <div data-testid="injecter-pic-btn" @click="injecterPic()">
-          <EvButton variant="accent" :block="true">
-            Injecter un pic sur {{ selectedSiteId }}
-          </EvButton>
-        </div>
+        <EvButton data-testid="injecter-pic-btn" variant="accent" :block="true" @click="injecterPic()">
+          Injecter un pic sur {{ selectedSiteId }}
+        </EvButton>
 
         <p class="font-ev text-[11px] leading-relaxed text-ev-text-3">
           Le pic est appliqué aux 4 derniers points de la série et se propage au dashboard, aux jauges et à la prévision.

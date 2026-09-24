@@ -213,9 +213,7 @@ const chartData = computed(() => {
 
         <!-- Actions -->
         <div class="flex gap-3 shrink-0 mt-1">
-          <div data-testid="configurer-seuils-btn" @click="configurerSeuils()">
-            <EvButton variant="secondary">Configurer les seuils</EvButton>
-          </div>
+          <EvButton data-testid="configurer-seuils-btn" variant="secondary" @click="configurerSeuils()">Configurer les seuils</EvButton>
         </div>
       </header>
 

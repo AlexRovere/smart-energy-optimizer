@@ -26,8 +26,6 @@ function appliquer() {
     </div>
 
     <!-- Bouton -->
-    <div data-testid="apply-btn" class="shrink-0" @click="appliquer()">
-      <EvButton variant="primary">Appliquer</EvButton>
-    </div>
+    <EvButton data-testid="apply-btn" class="shrink-0" variant="primary" @click="appliquer()">Appliquer</EvButton>
   </div>
 </template>

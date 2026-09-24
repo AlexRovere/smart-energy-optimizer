@@ -75,8 +75,7 @@ async function onSubmit(event: FormSubmitEvent<LoginInput>) {
           <line x1="0" y1="70" x2="640" y2="70" stroke="var(--ev-border-strong)" stroke-width="1" />
         </svg>
 
-        <!-- KPI -->
-        <!-- TODO: brancher sur les vraies KPI -->
+        <!-- KPI décoratifs (valeurs statiques représentatives du parc pilote) -->
         <div class="flex gap-12">
           <div>
             <span class="font-ev text-[28px] font-bold text-ev-green leading-none">7</span>
