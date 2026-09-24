@@ -65,7 +65,9 @@ Un jeu de règles par langage, versionné, et le pipeline échoue sur une violat
 
 `ruff` est épinglé en version : son jeu de règles par défaut change d'une version à l'autre, et une CI qui rougit parce qu'un outil s'est mis à jour tout seul apprend à l'équipe à l'ignorer.
 
-`--output-format github` annote les lignes fautives directement dans l'onglet « Files changed » de la pull request.
+SonarQube Cloud analyse aussi le dépôt, en dehors de ces workflows. Bilan de la première analyse : [`rapports/2026-09-23-sonar.md`](./rapports/2026-09-23-sonar.md).
+
+`--output-format github` annote les lignes fautives directement dans l'onglet « Files changed » de la pull request, plutôt que d'obliger à ouvrir le log pour savoir où regarder.
 
 ### Les règles désactivées, et pourquoi
 
