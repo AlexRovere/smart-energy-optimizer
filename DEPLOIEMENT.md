@@ -278,7 +278,9 @@ images restent disponibles.
 
 Le service `etl` porte le profil `cron` : `docker compose up -d` ne le lance
 pas. La crontab de `apprenant` exécute [`etl_cron.sh`](./etl_cron.sh) toutes
-les heures, qui lance `python main.py hour` avec les secrets de SOPS. En cas
+les heures, qui lance `python main.py hour --hours 24` avec les secrets de SOPS.
+Chaque passage relit les 24 dernières heures : un passage manqué est comblé par
+le suivant. En cas
 d'échec, il fait jusqu'à trois essais, espacés de 2 min.
 
 Le playbook pose l'entrée, sans doublon s'il est rejoué. Pour l'activer à la

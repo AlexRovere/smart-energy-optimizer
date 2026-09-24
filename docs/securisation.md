@@ -58,6 +58,8 @@ gitleaks git . --log-opts="--all -m --full-history" --redact --exit-code 1
 
 **Résultat**, gitleaks 8.30.1 : `279 commits scanned`, `25.77 MB`, **`no leaks found`**.
 
+![Résultat gitleaks dans le run security.yml](./screenshots/gitleaks.png)
+
 Réserve : gitleaks se trompe, une clé publique age a déjà été classée `generic-api-key` ici. La
 sortie de secours est un `gitleaks:allow` vérifié un par un, jamais pour faire taire un vrai secret.
 
@@ -78,7 +80,11 @@ Sorties réelles : `gh run list --workflow=security.yml`, puis `gh run view <id>
 **Résultat du 21 septembre 2026**, relevé automatiquement depuis le journal du job `security` de la
 dernière exécution terminée sur `main` : **0 critique, 0 haute**.
 
-## 4. Authentification
+![Résultat Trivy dans security.yml, seuil HIGH](./screenshots/trivy.png)
+
+![Résultat Trivy par image dans ci.yml, seuil CRITICAL](./screenshots/trivy-image.png)
+
+## 4. Authentification et autorisation
 
 **Argon2id**, `m=19456, t=2, p=1`, via `@node-rs/argon2`. Le ticket spécifiait bcrypt ; la lecture de
 l'OWASP Password Storage Cheat Sheet l'a fait changer, avec une note datée : bcrypt y est réservé
@@ -101,6 +107,22 @@ sont silencieuses.
 Session : cookie `httpOnly`, `secure`, `sameSite: lax`, deux heures. Secret de session issu de
 `sops`. Sessions expirées purgées à chaque connexion, compte désactivé refusé.
 
+**Autorisation par rôle.** Le rôle n'est jamais lu depuis le cookie, seulement en base à chaque
+requête (`server/utils/guard.ts`, `requireRole`). Conséquence directe : une session révoquée cesse
+d'agir immédiatement (#29), et un compte rétrogradé perd son rôle sans attendre l'expiration de sa
+session (#95).
+
+**Autorisation par site.** Un compte ne voit que les sites de `user_sites`. Avant #230, les
+routes `sites/{id}/*` ne vérifiaient que la session, et `stats/summary` rendait tout le parc. Un
+opérateur pouvait lire n'importe quel site et en modifier les seuils. Depuis, `requireSiteAccess`
+garde les cinq routes (`401`, puis `422`, `404`, `403`) et la synthèse est recalculée sur le
+périmètre.
+
+```bash
+cd apps/dashboard
+pnpm vitest run tests/server/utils/guard.test.ts tests/server/api/sites tests/server/api/stats
+```
+
 ## 5. Moindre privilège
 
 | Mesure | Ce que ça borne |
@@ -114,8 +136,8 @@ Le premier est le plus utile : **le service qui écrit dans la base n'utilise pa
 créée**, donc une injection dans l'ETL ne rend ni comptes ni sessions.
 
 ```bash
-grep -n -B6 -A2 "POSTGRES_USER: etl" docker-compose.yml
-grep -n ":/data:ro" docker-compose.yml
+grep -n -B6 -A2 "ETL_DB_USER" docker-compose.yml
+grep -n "PARQUET_DIR:-/data}:ro" docker-compose.yml
 ```
 
 ## 6. Réseau
@@ -143,12 +165,31 @@ redirection sur 80. Les trois ports d'administration restent liés à la boucle 
 accès SSH à la machine. Le motif du choix, et celui d'y faire passer Grafana, sont dans
 [`architecture.md`](./architecture.md).
 
+**En-têtes de sécurité**, posés par Caddy sur toute réponse : HSTS (force HTTPS), X-Frame-Options
+(bloque l'affichage en iframe, donc le clickjacking), X-Content-Type-Options (interdit au
+navigateur de deviner un type de fichier), Referrer-Policy (limite ce qui fuite vers un site
+externe au clic).
+
+```bash
+grep -n -A4 "Strict-Transport-Security" infra/caddy/Caddyfile
+```
+
+Pas de CSP : elle demanderait l'inventaire complet des origines chargées par le dashboard, non
+fait. Assumé, voir section 9.
+
+**Le service ML n'a aucune protection à lui.** `/training`, `/predictions` et `/metrics`
+n'exigent ni jeton ni clé : leur sécurité tient entièrement à la ligne `127.0.0.1:8000:8000`
+ci-dessus. Un changement de cette seule ligne les ouvrirait au réseau sans qu'aucun code ne s'y
+oppose. Assumé, voir section 9.
+
 ## 7. Accès au dépôt et à la machine
 
 **Dépôt** : [`CODEOWNERS`](../.github/CODEOWNERS), revue obligatoire, pas de poussée directe sur
 `main`. **Écart assumé** : la protection de branche n'existe pas sur un dépôt privé en offre
 gratuite, elle est donc tenue par la discipline, ce qui est plus faible qu'une règle technique. Le
 jeu de règles est prêt si le dépôt passe en public.
+
+![Règles de protection indisponibles sur l'offre gratuite](./screenshots/branch-protection.png)
 
 **Machine** : le compte est **partagé par les cinq**, et depuis le **17 septembre 2026** une clé de
 déchiffrement y est posée. C'est un renversement explicite de la décision de la veille, motivé dans
@@ -247,6 +288,8 @@ de développement : `catboost` et `mlflow` les exigent à l'exécution (`uv tree
 |---|---|
 | Docker garde les variables d'environnement en clair sur l'hôte | **Accepté.** Monter les secrets en fichiers changerait le contrat de [`api.md`](./api.md) pour déplacer la frontière d'un cran |
 | Clé de déchiffrement sur un compte partagé | **Accepté et daté**, avec sa condition de sortie (§7) |
+| Pas de CSP sur le dashboard | **Accepté**, faute d'inventaire des origines chargées (§6) |
+| Le service ML n'authentifie pas ses propres routes | **Accepté**, sécurité entièrement portée par le réseau (§6) |
 | Le fichier chiffré révèle sa structure | **Voulu** : c'est ce qui permet le contrôle sans clé |
 | Protection de branche indisponible | **Écart d'offre**, compensé par `CODEOWNERS` et la revue |
 | Pas de playbook Ansible, `infra/ansible/` n'a qu'un README | **Trou reconnu**, signalé jusque dans un `TODO` de la CI. La configuration de la machine **n'est pas rejouable** |
@@ -271,7 +314,7 @@ acte de pilotage ; un risque passé sous silence est une négligence.
 | Composition de production sans secret | **échoue**, aucune valeur de repli |
 | Composition de production avec `sops exec-env` | **se résout**, sans fichier en clair |
 | Composition de développement sans variable | **se résout** |
-| Ports publiés | **un seul**, `postgres` sur la boucle locale |
+| Ports publiés | **deux au réseau** (`caddy`, TLS), **trois en boucle locale** (`postgres`, `prometheus`, `ml`) |
 | Vulnérabilités Trivy sur `main` (relevé du 21 septembre) | **0 critique, 0 haute** |
 | Scans Trivy d'image | dans la CI, non rejouables sans démon Docker |
 | Dépendances de développement dans les images (relevé du 23 septembre) | **aucune**, sur les trois images |

@@ -10,11 +10,11 @@
 | `data.md` | Modèle relationnel, contrat des fichiers Parquet, stratégie d'imputation, règles de qualité | EC05 |
 | `api.md` | Contrats d'interface des quatre briques, croisés à partir des propositions de chacun et figés avant le développement parallèle | EC03, C20 |
 | `recommandations.md` | Détection de pic et de consommation excessive, lecture d'une recommandation dans le dashboard | #45 |
+| `ml.md` | Modèle de prévision, indicateurs, ajustements, surveillance de la dérive | EC06 |
+| `runbook.md` | Quoi faire selon la situation : démarrer, exploiter (déployer, ETL, sauvegarde, rotation, Grafana), incidents connus | EC06 |
+| `rapports/` | Rapports datés : un constat à une date, pas une référence tenue à jour. Aujourd'hui la synthèse Sonar du 23 septembre | EC03 |
 
-Annoncés et pas encore écrits, pour ne pas laisser croire le contraire : `ml.md` (modèle,
-entraînement, versionnement, dérive, pour l'EC06) et `runbook.md` (démarrage, exploitation, incidents
-connus). `cloud.md` n'existera pas : sa partie sécurité est devenue `securisation.md`, et ce qui reste
-(la machine et sa configuration) attend le playbook, `infra/ansible/` ne portant pour l'instant qu'un
-README.
+`cloud.md` n'existera pas : sa partie sécurité est devenue `securisation.md`, et la machine et sa
+configuration sont décrites par le playbook et son README, dans [`../infra/ansible/`](../infra/ansible/).
 
 Les livrables notés (dossiers EC01 et EC02) sont **individuels ou collectifs selon l'épreuve** et ne sont pas versionnés ici : les dossiers de conception passent au contrôle anti-plagiat et un document accessible aux autres membres est un risque partagé.

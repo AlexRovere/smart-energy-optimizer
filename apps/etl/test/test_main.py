@@ -327,6 +327,56 @@ def test_run_hour_covers_the_60_minutes_up_to_now(mock_run_periods):
 
 
 @patch("main.run_periods")
+def test_run_hour_covers_the_requested_hours_up_to_now(mock_run_periods):
+    now = datetime(2026, 9, 16, 14, 30, tzinfo=timezone.utc)
+    mock_run_periods.return_value = {"parquet_files": []}
+
+    run_hour(now=now, hours=24)
+
+    kwargs = mock_run_periods.call_args.kwargs
+    assert kwargs["start_time"] == datetime(2026, 9, 15, 14, 30, tzinfo=timezone.utc)
+    assert kwargs["end_time"] == now
+    assert kwargs["skip_coverage_check"] is True
+
+
+@patch("main.get_context_days")
+@patch("main.get_existing_days")
+@patch("main.fetch_sites")
+@patch("main.load_readings")
+@patch("main.transform_readings")
+@patch("main.fetch_readings")
+def test_run_periods_keeps_every_day_a_window_spans(
+    mock_fetch_readings,
+    mock_transform_readings,
+    mock_load_readings,
+    mock_fetch_sites,
+    mock_get_existing_days,
+    mock_get_context_days,
+):
+    # une fenetre de 24 h tient en une seule page qui franchit minuit : les lignes du
+    # lendemain ne doivent pas etre jetees comme du contexte
+    mock_fetch_sites.return_value = pd.DataFrame([{"site_id": "SITE001"}])
+    mock_get_context_days.return_value = pd.DataFrame()
+    mock_fetch_readings.return_value = pd.DataFrame()
+    mock_transform_readings.return_value = pd.DataFrame(
+        [
+            {"site_id": "SITE001", "timestamp": pd.Timestamp("2026-09-15 20:00", tz="UTC")},
+            {"site_id": "SITE001", "timestamp": pd.Timestamp("2026-09-16 10:00", tz="UTC")},
+        ]
+    )
+    mock_load_readings.return_value = []
+
+    run_periods(
+        start_time=datetime(2026, 9, 15, 14, 30, tzinfo=timezone.utc),
+        end_time=datetime(2026, 9, 16, 14, 30, tzinfo=timezone.utc),
+        skip_coverage_check=True,
+    )
+
+    loaded = mock_load_readings.call_args.args[0]
+    assert list(loaded["timestamp"].dt.date) == [date(2026, 9, 15), date(2026, 9, 16)]
+
+
+@patch("main.run_periods")
 def test_run_hour_forwards_verbose(mock_run_periods):
     mock_run_periods.return_value = {"parquet_files": []}
 
@@ -438,6 +488,41 @@ def test_cli_hour_verbose_flag_can_be_enabled():
     args = parser.parse_args(["hour", "--verbose"])
 
     assert args.verbose is True
+
+
+def test_cli_hour_hours_defaults_to_one():
+    parser = build_parser()
+
+    args = parser.parse_args(["hour"])
+
+    assert args.hours == 1
+
+
+def test_cli_hour_hours_option_sets_the_window():
+    parser = build_parser()
+
+    args = parser.parse_args(["hour", "--hours", "24"])
+
+    assert args.hours == 24
+
+
+@pytest.mark.parametrize("value", ["0", "-3", "abc"])
+def test_cli_hour_rejects_a_non_positive_hours(value):
+    parser = build_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(["hour", "--hours", value])
+
+
+@patch("main.load_root_env")
+@patch("main.run_hour")
+def test_cli_forwards_hours_to_run_hour(mock_run_hour, _mock_load_root_env, monkeypatch):
+    mock_run_hour.return_value = {"parquet_files": []}
+    monkeypatch.setattr(sys, "argv", ["main.py", "hour", "--hours", "24"])
+
+    main()
+
+    mock_run_hour.assert_called_once_with(hours=24, verbose=False)
 
 
 def journal(captured_out: str) -> list[dict]:

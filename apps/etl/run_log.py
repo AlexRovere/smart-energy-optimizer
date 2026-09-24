@@ -54,7 +54,7 @@ class PhaseLog:
     def measure(self, frame: pd.DataFrame, site_ids: list[str]) -> None:
         # les zeros viennent de la liste des sites et non du DataFrame : un site muet doit
         # apparaitre a 0 plutot que disparaitre, c'est tout l'interet du detail par site
-        counts = {site_id: 0 for site_id in site_ids}
+        counts = dict.fromkeys(site_ids, 0)
         if not frame.empty:
             observed = frame.groupby("site_id").size()
             counts.update({str(site_id): int(size) for site_id, size in observed.items()})

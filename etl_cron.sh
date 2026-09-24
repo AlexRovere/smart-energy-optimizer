@@ -22,9 +22,10 @@ fi
 
 # Trois essais contre une erreur passagère. Chacun borné à 15 min : un passage
 # bloqué garderait le verrou et ferait sauter tous les suivants. Le tout tient
-# dans l'heure. -T garde stdout (le JSON) séparé de stderr.
+# dans l'heure. -T garde stdout (le JSON) séparé de stderr. 24 h relues : un
+# passage manqué est comblé par le suivant.
 for attempt in 1 2 3; do
-  if sops exec-env secrets.enc.yaml 'timeout 15m docker compose run --rm -T etl python main.py hour'; then
+  if sops exec-env secrets.enc.yaml 'timeout 15m docker compose run --rm -T etl python main.py hour --hours 24'; then
     break
   fi
   if [[ "$attempt" -eq 3 ]]; then

@@ -69,8 +69,10 @@ def test_training_keeps_calendar_values_from_dataset():
 
 
 def test_working_hours_reject_unknown_site():
+    timestamp = datetime(2025, 1, 6, 9)
+
     with pytest.raises(ValueError, match="No working-hours configuration"):
-        is_working_hour("UNKNOWN", datetime(2025, 1, 6, 9), SCHEDULES)
+        is_working_hour("UNKNOWN", timestamp, SCHEDULES)
 
 
 def test_schedule_loader_rejects_invalid_hours(tmp_path):

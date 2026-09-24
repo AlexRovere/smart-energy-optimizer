@@ -107,7 +107,7 @@
       "id": 3,
       "type": "stat",
       "title": "Dernier passage de l'ETL",
-      "description": "Le cron a-t-il tourné avec succès ? L'ETL est lancé, il finit en quelques secondes, il disparaît : son oubli est invisible partout ailleurs. etl_cron.sh horodate chaque passage réussi, node-exporter le relève. Chaque passage ne relève que l'heure écoulée : au-delà de 2 h, l'historique Parquet a un trou.",
+      "description": "Le cron a-t-il tourné avec succès ? L'ETL est lancé, il finit en quelques secondes, il disparaît : son oubli est invisible partout ailleurs. etl_cron.sh horodate chaque passage réussi, node-exporter le relève. Chaque passage relit 24 h : un trou se comble au passage réussi suivant, et devient définitif au-delà (rouge).",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 5, "w": 6, "x": 12, "y": 1 },
       "targets": [

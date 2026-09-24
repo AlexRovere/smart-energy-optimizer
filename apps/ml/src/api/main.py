@@ -18,6 +18,9 @@ from models import PredictionService, PredictionTarget, load_model
 from training import MLFLOW_MODEL_NAME, train_model
 
 DEFAULT_SITE_CONFIG_PATH = "config/sites.json"
+MODEL_UNAVAILABLE_DETAIL = "Aucun modèle champion disponible"
+SERVICE_UNAVAILABLE_RESPONSE = {503: {"description": "Service temporairement indisponible"}}
+UNPROCESSABLE_ENTITY_RESPONSE = {422: {"description": "Requête métier invalide"}}
 
 mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "sqlite:///artifacts/mlflow.db"))
 
@@ -42,7 +45,7 @@ def get_prediction_model() -> CatBoostRegressor:
     except mlflow.exceptions.MlflowException as error:
         # Même réponse que /model : sans ça, l'absence de modèle se présentait
         # en 500, indiscernable d'un service en panne.
-        raise HTTPException(status_code=503, detail="Aucun modèle champion disponible") from error
+        raise HTTPException(status_code=503, detail=MODEL_UNAVAILABLE_DETAIL) from error
 
 
 @lru_cache(maxsize=1)
@@ -93,13 +96,13 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/model")
+@app.get("/model", responses=SERVICE_UNAVAILABLE_RESPONSE)
 def get_model_info() -> dict[str, object]:
     client = mlflow.MlflowClient()
     try:
         version = client.get_model_version_by_alias(MLFLOW_MODEL_NAME, "champion")
     except mlflow.exceptions.MlflowException as error:
-        raise HTTPException(status_code=503, detail="Aucun modèle champion disponible") from error
+        raise HTTPException(status_code=503, detail=MODEL_UNAVAILABLE_DETAIL) from error
     run = client.get_run(version.run_id)
     return {
         "name": MLFLOW_MODEL_NAME,
@@ -110,7 +113,7 @@ def get_model_info() -> dict[str, object]:
     }
 
 
-@app.get("/metrics")
+@app.get("/metrics", responses=SERVICE_UNAVAILABLE_RESPONSE)
 def metrics() -> Response:
     try:
         relative_mae_by_site = get_relative_mae_by_site()
@@ -118,7 +121,7 @@ def metrics() -> Response:
         raise HTTPException(status_code=503, detail=str(error)) from error
     except mlflow.exceptions.MlflowException as error:
         # Même dégradation que /model : pas de champion à évaluer.
-        raise HTTPException(status_code=503, detail="Aucun modèle champion disponible") from error
+        raise HTTPException(status_code=503, detail=MODEL_UNAVAILABLE_DETAIL) from error
 
     for site_id, relative_mae in relative_mae_by_site.items():
         forecast_relative_mae_gauge.labels(site_id=site_id).set(relative_mae)
@@ -126,7 +129,10 @@ def metrics() -> Response:
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
-@app.post("/training", response_model=TrainingResponse)
+@app.post(
+    "/training",
+    responses=SERVICE_UNAVAILABLE_RESPONSE | UNPROCESSABLE_ENTITY_RESPONSE,
+)
 def create_training() -> TrainingResponse:
     try:
         result = train_model(get_data_path())
@@ -140,7 +146,10 @@ def create_training() -> TrainingResponse:
     return TrainingResponse(**result.__dict__)
 
 
-@app.post("/predictions", response_model=list[PredictionResponse])
+@app.post(
+    "/predictions",
+    responses=SERVICE_UNAVAILABLE_RESPONSE | UNPROCESSABLE_ENTITY_RESPONSE,
+)
 def create_predictions(
     requests: PredictionRequests,
     model: Annotated[CatBoostRegressor, Depends(get_prediction_model)],
@@ -178,4 +187,4 @@ def run() -> None:
     import uvicorn
 
     load_root_env()
-    uvicorn.run("api.main:app", host="0.0.0.0", port=8000)
+    uvicorn.run("api.main:app", host=os.getenv("ML_API_HOST", "127.0.0.1"), port=8000)
