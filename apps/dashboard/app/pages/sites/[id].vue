@@ -36,7 +36,11 @@ const health = computed(() => getSiteHealth(id.value))
 const chartWindow = ref<'24h' | '7j'>('24h')
 const { readings } = useSiteHistory(id, chartWindow)
 const horizonHeures = ref(24)
-const { forecastPoints, modelVersion, confidenceLevel, available: predictionDisponible } = useSitePrediction(id, computed(() => horizonHeures.value))
+const {
+  forecastPoints, modelVersion, confidenceLevel, predictedAt, nbPoints,
+  available: predictionDisponible, lancer: lancerPrediction, lancee: predictionLancee,
+  dureeMs: predictionDureeMs, pending: predictionPending
+} = useSitePrediction(id, horizonHeures)
 
 // ── Formatters ──────────────────────────────────────────────────────
 
@@ -372,21 +376,42 @@ const chartData = computed(() => {
                 model_version · {{ modelVersion }}
               </div>
             </div>
-            <div class="flex gap-1">
-              <UButton
-                v-for="h in [24, 48]"
-                :key="h"
-                size="xs"
-                :variant="horizonHeures === h ? 'solid' : 'ghost'"
-                color="primary"
-                @click="horizonHeures = h"
-              >{{ h }}h</UButton>
+            <div class="flex items-start gap-3">
+              <div class="flex gap-1">
+                <UButton
+                  v-for="h in [24, 48]"
+                  :key="h"
+                  size="xs"
+                  :variant="horizonHeures === h ? 'solid' : 'ghost'"
+                  color="primary"
+                  @click="horizonHeures = h"
+                >{{ h }}h</UButton>
+              </div>
+              <EvPredictionTrigger
+                :site-id="id"
+                :lancee="predictionLancee"
+                :pending="predictionPending"
+                :available="predictionDisponible"
+                :predicted-at="predictedAt"
+                :nb-points="nbPoints"
+                :model-version="modelVersion"
+                :duree-ms="predictionDureeMs"
+                @lancer="lancerPrediction"
+              />
             </div>
           </div>
         </template>
 
+        <div v-if="!predictionLancee" class="py-10 text-center font-ev text-sm text-ev-text-3">
+          Choisissez un horizon puis cliquez sur « Lancer la prédiction ».
+        </div>
+
+        <div v-else-if="predictionPending" class="py-10 text-center font-ev text-sm text-ev-text-3">
+          Calcul de la prévision par le modèle…
+        </div>
+
         <div
-          v-if="!predictionDisponible"
+          v-else-if="!predictionDisponible"
           class="flex items-center gap-2.5 px-4 py-3 rounded-ev-md border text-sm font-ev"
           style="border-color: var(--ev-amber-bd); background: var(--ev-amber-bg); color: var(--ev-amber)"
         >

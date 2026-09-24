@@ -1,88 +1,58 @@
 import { useFetch } from 'nuxt/app'
 import { ref, computed } from 'vue'
-import type { Prediction, Recommendation, SiteId } from "~/types/api";
+import type { Recommendation, SiteId } from "~/types/api";
 import { useSites } from "../composables/useSites";
+import { useSitePrediction } from "../composables/useSitePrediction";
+import { useSiteHistory } from "../composables/useSiteHistory";
 
-const HORIZON_HOURS = 6
-const CONFIDENCE_LEVEL = 0.90
-const MODEL_VERSION = '1.0.0-demo'
-
-function mockPredictions(siteId: SiteId): Prediction {
-  const base = new Date()
-  base.setMinutes(0, 0, 0)
-
-  const BASE_VALUES: Record<SiteId, number> = {
-    SITE001: 98, SITE002: 580, SITE003: 410, SITE004: 88,
-    SITE005: 200, SITE006: 62, SITE007: 190
-  }
-
-  const base_kw = BASE_VALUES[siteId] ?? 100
-  const VARIATION = [0, 2, -3, 4, 1, -2]
-
-  return {
-    site_id: siteId,
-    predicted_at: new Date().toISOString(),
-    horizon_hours: HORIZON_HOURS,
-    granularity: 'hour',
-    model_version: MODEL_VERSION,
-    confidence_level: CONFIDENCE_LEVEL,
-    predictions: VARIATION.map((delta, i) => {
-      const predicted = base_kw + delta
-      return {
-        timestamp: new Date(base.getTime() + (i + 1) * 3_600_000).toISOString(),
-        predicted_consumption_kw: predicted,
-        confidence_lower: predicted - 8,
-        confidence_upper: predicted + 8
-      }
-    })
-  }
-}
-
+// Page Prédictions : prévision du service ML (déclenchée au clic, #257),
+// historique réel des dernières 24 h et indicateurs dérivés.
 export function usePredictions() {
-  const { getReadings, getSiteInfo } = useSites()
+  const { getSiteInfo } = useSites()
 
   const selectedSiteId = ref<SiteId>('SITE001')
+  const horizonHeures = ref(24)
 
-  const prediction = computed(() => mockPredictions(selectedSiteId.value))
-  const historicalPoints = computed(() => getReadings(selectedSiteId.value))
+  const prediction = useSitePrediction(selectedSiteId, horizonHeures)
+  const { readings: historicalPoints } = useSiteHistory(selectedSiteId, ref<'24h' | '7j'>('24h'))
+
   const { data: recommendationsData } = useFetch<Recommendation[]>(
     () => `/api/sites/${selectedSiteId.value}/recommendations`,
     { watch: [selectedSiteId] }
   )
   const recommendations = computed(() => recommendationsData.value ?? [])
+
   const siteInfo = computed(() => getSiteInfo(selectedSiteId.value))
   const thresholdKw = computed(() => siteInfo.value?.threshold_kw ?? 240)
-  const peakKw = computed(() => 
-    Math.max(...prediction.value.predictions.map(p => p.predicted_consumption_kw))
-  )
-  const marginKw = computed(() => thresholdKw.value - peakKw.value)
-  const exceedanceExpected = computed(() => 
-    prediction.value.predictions.some(p => p.predicted_consumption_kw >= thresholdKw.value)
-  )
-  const modelConfidence = computed(() =>
-    Math.round((prediction.value.confidence_level ?? 0) * 100)
+
+  const pic = computed(() => {
+    const points = prediction.forecastPoints.value
+    if (points.length === 0) return null
+    return points.reduce((max, p) => p.predicted_consumption_kw > max.predicted_consumption_kw ? p : max)
+  })
+  const peakKw = computed(() => pic.value?.predicted_consumption_kw ?? null)
+  const marginKw = computed(() => peakKw.value == null ? null : thresholdKw.value - peakKw.value)
+  const exceedanceExpected = computed(() =>
+    prediction.forecastPoints.value.some(p => p.predicted_consumption_kw >= thresholdKw.value)
   )
   const peakTime = computed(() => {
-    const peak = prediction.value.predictions.find(
-      p => p.predicted_consumption_kw === peakKw.value
-    )
-    if (!peak) return '--'
-    return new Date(peak.timestamp).toLocaleTimeString('fr-FR', {
+    if (!pic.value) return null
+    return new Date(pic.value.timestamp).toLocaleTimeString('fr-FR', {
       hour: '2-digit', minute: '2-digit',
     })
   })
 
   return {
+    ...prediction,
     selectedSiteId,
+    horizonHeures,
     siteInfo,
-    prediction,
     historicalPoints,
     recommendations,
     thresholdKw,
     peakKw,
     peakTime,
     marginKw,
-    exceedanceExpected,
-    modelConfidence
+    exceedanceExpected
   }
 }
