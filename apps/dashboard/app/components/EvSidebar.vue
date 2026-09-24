@@ -5,6 +5,23 @@ const { sites } = useSites()
 const { account } = useAccountSession()
 const toast = useToast()
 const { pending, dernierEntrainement, déclencher } = useTraining()
+
+const LABEL_RÔLE: Record<string, string> = {
+  ADMIN: 'Administrateur',
+  OPERATOR: 'Opérateur',
+  VIEWER: 'Lecteur',
+}
+
+const initiales = computed(() => {
+  const local = account.value?.email.split('@')[0] ?? ''
+  const segments = local.split('.')
+  if (segments.length > 1) {
+    return segments.map(s => s[0]?.toUpperCase() ?? '').join('').slice(0, 2) || '?'
+  }
+  return local.slice(0, 2).toUpperCase() || '?'
+})
+
+const labelRôle = computed(() => LABEL_RÔLE[account.value?.role ?? ''] ?? account.value?.role ?? '')
 const { modele, rafraichirModele, disponible: modeleDisponible } = useModeleML()
 
 watch(dernierEntrainement, (val) => {
@@ -138,13 +155,14 @@ const systemeItems: NavigationMenuItem[] = [
         <!-- User -->
         <div class="flex items-center gap-2.5 px-2 pb-2">
           <UAvatar
-            text="MD"
+            :text="initiales"
             size="sm"
             :ui="{ root: 'bg-ev-green-bg text-ev-green font-semibold shrink-0' }"
+            data-testid="user-avatar"
           />
           <div v-if="!collapsed" class="flex flex-col gap-0.5 min-w-0">
-            <span class="font-ev text-[13px] font-semibold leading-none truncate">M. Deschamps</span>
-            <span class="font-ev text-[11px] leading-none text-ev-text-4">Administrateur</span>
+            <span class="font-ev text-[13px] font-semibold leading-none truncate">{{ account?.email }}</span>
+            <span class="font-ev text-[11px] leading-none text-ev-text-4">{{ labelRôle }}</span>
           </div>
         </div>
       </div>

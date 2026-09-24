@@ -2,11 +2,8 @@
 import type { UserRole } from '~/types/api'
 import { useSettings } from '~/composables/useSettings'
 
-const {
-  activeRole, roleCapabilities,
-  notifications, updateNotification,
-  session,
-} = useSettings()
+const { account } = useAccountSession()
+const { notifications, updateNotification } = useSettings()
 
 const toast = useToast()
 
@@ -15,17 +12,36 @@ function basculerNotification(key: keyof typeof notifications.value) {
   toast.add({ title: 'Fonctionnalité non disponible dans cette version', color: 'warning' })
 }
 
-const ROLES: { id: UserRole; label: string }[] = [
-  { id: 'admin',    label: 'Admin' },
-  { id: 'operator', label: 'Opérateur' },
-  { id: 'viewer',   label: 'Lecteur' },
-]
+const ROLE_CAPABILITIES: Record<UserRole, string[]> = {
+  admin: [
+    'Lecture du parc et des alertes',
+    'Écriture des seuils + simulation',
+    'Export du relevé réglementaire',
+  ],
+  operator: [
+    'Lecture du parc et des alertes',
+    'Écriture des seuils + simulation',
+  ],
+  viewer: [
+    'Lecture du parc et des alertes',
+  ],
+}
+
+const LABEL_RÔLE: Record<string, string> = {
+  ADMIN: 'Administrateur',
+  OPERATOR: 'Opérateur',
+  VIEWER: 'Lecteur',
+}
 
 const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   admin:    'Accès complet : lecture, écriture des seuils, simulation de pic et export du relevé.',
   operator: 'Lecture du parc et écriture des seuils.',
   viewer:   'Lecture seule du parc et des alertes.',
 }
+
+const rôleActif = computed<UserRole>(() => (account.value?.role?.toLowerCase() as UserRole) ?? 'viewer')
+const roleCapabilities = computed(() => ROLE_CAPABILITIES[rôleActif.value] ?? [])
+const labelRôle = computed(() => LABEL_RÔLE[account.value?.role ?? ''] ?? account.value?.role ?? '')
 
 const NOTIFICATIONS: { key: keyof typeof notifications.value; label: string; description: string }[] = [
   { key: 'critical_alerts', label: 'Alertes critical et high',       description: 'e-mail immédiat + notification navigateur' },
@@ -49,20 +65,13 @@ const NOTIFICATIONS: { key: keyof typeof notifications.value; label: string; des
     <EvCard>
       <template #title>
         <span class="font-ev text-base font-semibold">Rôle actif (RBAC)</span>
-        <span class="font-ev text-xs text-ev-text-3 mt-0.5">{{ ROLE_DESCRIPTIONS[activeRole] }}</span>
+        <span class="font-ev text-xs text-ev-text-3 mt-0.5">{{ ROLE_DESCRIPTIONS[rôleActif] }}</span>
       </template>
       <template #actions>
-        <div class="flex gap-2">
-          <button
-            v-for="r in ROLES"
-            :key="r.id"
-            class="font-ev text-sm font-semibold px-4 py-1.5 rounded-ev-btn border transition-colors cursor-pointer"
-            :style="activeRole === r.id
-              ? 'background: var(--ev-green); border-color: var(--ev-green); color: #000'
-              : 'background: transparent; border-color: var(--ev-border); color: var(--ev-text-3)'"
-            @click="activeRole = r.id"
-          >{{ r.label }}</button>
-        </div>
+        <span
+          class="font-ev text-sm font-semibold px-4 py-1.5 rounded-ev-btn border"
+          style="background: var(--ev-green); border-color: var(--ev-green); color: #000"
+        >{{ labelRôle }}</span>
       </template>
 
       <!-- Capacités -->
@@ -130,19 +139,11 @@ const NOTIFICATIONS: { key: keyof typeof notifications.value; label: string; des
         <div class="flex flex-col gap-3 font-ev-mono text-sm">
           <div class="flex gap-2">
             <span class="text-ev-text-3 w-24 shrink-0">utilisateur</span>
-            <span class="font-semibold">{{ session.user_name }}</span>
+            <span class="font-semibold">{{ account?.email }}</span>
           </div>
           <div class="flex gap-2">
             <span class="text-ev-text-3 w-24 shrink-0">rôle</span>
-            <span class="font-semibold" style="color: var(--ev-green)">{{ session.role }}</span>
-          </div>
-          <div class="flex gap-2">
-            <span class="text-ev-text-3 w-24 shrink-0">polling</span>
-            <span>polling /current · {{ session.polling_interval_s }} s</span>
-          </div>
-          <div class="flex gap-2">
-            <span class="text-ev-text-3 w-24 shrink-0">health</span>
-            <span style="color: var(--ev-green)">{{ session.health_label }}</span>
+            <span class="font-semibold" style="color: var(--ev-green)">{{ labelRôle }}</span>
           </div>
         </div>
 

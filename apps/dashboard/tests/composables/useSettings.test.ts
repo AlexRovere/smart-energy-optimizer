@@ -56,27 +56,4 @@ describe('useSettings', () => {
       expect(notifications.value.daily_summary).toBe(true)
     })
   })
-
-  describe('session', () => {
-    it('session.user_name est défini', () => {
-      const { session } = useSettings()
-      expect(session.value.user_name).toBeTruthy()
-    })
-
-    it('session.role est défini', () => {
-      const { session } = useSettings()
-      expect(session.value.role).toBeTruthy()
-    })
-
-    it('session.polling_interval_s est un entier positif', () => {
-      const { session } = useSettings()
-      expect(session.value.polling_interval_s).toBeGreaterThan(0)
-      expect(Number.isInteger(session.value.polling_interval_s)).toBe(true)
-    })
-
-    it('session.health_label est défini', () => {
-      const { session } = useSettings()
-      expect(session.value.health_label).toBeTruthy()
-    })
-  })
 })

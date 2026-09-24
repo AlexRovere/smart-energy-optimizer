@@ -16,8 +16,10 @@ vi.mock('../../app/composables/useSettings', () => ({
 
 const useAlertThresholdsMock = vi.hoisted(() => vi.fn())
 const useSitesListMock = vi.hoisted(() => vi.fn())
+const useAccountSessionMock = vi.hoisted(() => vi.fn())
 mockNuxtImport('useAlertThresholds', () => useAlertThresholdsMock)
 mockNuxtImport('useSitesList', () => useSitesListMock)
+mockNuxtImport('useAccountSession', () => useAccountSessionMock)
 
 const THRESHOLDS: AlertThresholdEntry[] = [
   { site_id: 'SITE001', type: 'conso', duration: 12, threshold: 350 }
@@ -29,14 +31,15 @@ const SITES: SiteApiItem[] = [
 function setupSettingsMocks(updateNotificationSpy = vi.fn()) {
   useToastMock.mockReturnValue({ add: vi.fn() })
   useSettingsMock.mockReturnValue({
-    activeRole: ref('admin'),
-    roleCapabilities: ref(['Lecture du parc et des alertes']),
     notifications: ref({ critical_alerts: true, daily_summary: true, sensor_fault: false }),
     updateNotification: updateNotificationSpy,
-    session: ref({ user_name: 'M. Deschamps', role: 'Administrateur', polling_interval_s: 10, health_label: 'ok' })
   })
   useAlertThresholdsMock.mockReturnValue({ thresholds: ref(THRESHOLDS), pending: ref(false), error: ref(null), save: vi.fn() })
   useSitesListMock.mockReturnValue({ sites: ref(SITES), pending: ref(false), error: ref(null) })
+  useAccountSessionMock.mockReturnValue({
+    account: ref({ id: '1', email: 'admin@test.fr', role: 'ADMIN', sites: [] }),
+    logout: vi.fn(),
+  })
 }
 
 describe('page Paramétrages', () => {
@@ -52,7 +55,6 @@ describe('page Paramétrages', () => {
 
   it('affiche un toast au clic sur un toggle de notification', async () => {
     const toastAdd = vi.fn()
-    useToastMock.mockReturnValue({ add: toastAdd })
     setupSettingsMocks()
     useToastMock.mockReturnValue({ add: toastAdd })
     const wrapper = await mountSuspended(SettingsPage)
@@ -61,5 +63,20 @@ describe('page Paramétrages', () => {
       title: 'Fonctionnalité non disponible dans cette version',
       color: 'warning',
     }))
+  })
+
+  it('affiche l\'email du compte dans la carte session', async () => {
+    setupSettingsMocks()
+    const wrapper = await mountSuspended(SettingsPage)
+
+    expect(wrapper.text()).toContain('admin@test.fr')
+  })
+
+  it('le sélecteur de rôle est absent', async () => {
+    setupSettingsMocks()
+    const wrapper = await mountSuspended(SettingsPage)
+
+    expect(wrapper.text()).not.toContain('Opérateur')
+    expect(wrapper.text()).not.toContain('Lecteur')
   })
 })
