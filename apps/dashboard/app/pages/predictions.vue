@@ -1,14 +1,22 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import type { SiteId } from '~/types/api'
 import { usePredictions } from '~/composables/usePredictions'
 
 const {
-  selectedSiteId, siteInfo, prediction,
+  selectedSiteId, horizonHeures, siteInfo,
   historicalPoints, recommendations,
-  thresholdKw, peakKw, peakTime, marginKw,
-  exceedanceExpected, modelConfidence,
+  thresholdKw, peakKw, peakTime, marginKw, exceedanceExpected,
+  forecastPoints, confidenceLevel, modelVersion, predictedAt, nbPoints,
+  available, lancer, lancee, dureeMs, pending,
 } = usePredictions()
+
+// Les indicateurs n'ont de sens qu'une fois la prévision revenue.
+const prévisionPrête = computed(() => lancee.value && !pending.value && available.value && forecastPoints.value.length > 0)
+
+function kw(valeur: number | null): string {
+  return prévisionPrête.value && valeur != null ? String(Math.round(valeur)) : '—'
+}
 
 const SITES: { id: SiteId; label: string }[] = [
   { id: 'SITE001', label: 'S001' },
@@ -36,25 +44,48 @@ function appliedGainTotal() {
         <h2 class="font-ev text-[28px] font-bold tracking-tight">Prédiction &amp; actions correctives</h2>
         <p class="font-ev text-sm text-ev-text-3">
           {{ selectedSiteId }} · {{ siteInfo?.site_name ?? '—' }}
-          — horizon {{ prediction.horizon_hours }} h, pas horaire.
-        </p>
-        <!-- Bannière mode démonstration -->
-        <p class="font-ev text-xs font-medium" style="color: var(--ev-amber)">
-          Endpoint prédictif non spécifié : valeurs issues d'un modèle local de démonstration.
+          · horizon {{ horizonHeures }} h, pas horaire.
         </p>
       </div>
 
-      <!-- Sélecteur de sites -->
-      <div class="flex flex-wrap gap-1.5 shrink-0 mt-1">
-        <button
-          v-for="s in SITES"
-          :key="s.id"
-          class="font-ev-mono text-xs font-bold px-3 py-1.5 rounded-full border transition-colors cursor-pointer"
-          :style="selectedSiteId === s.id
-            ? 'background: var(--ev-green); border-color: var(--ev-green); color: #fff'
-            : 'background: transparent; border-color: var(--ev-border); color: var(--ev-text-3)'"
-          @click="selectedSiteId = s.id"
-        >{{ s.label }}</button>
+      <div class="flex flex-col items-end gap-3 shrink-0 mt-1">
+        <!-- Sélecteur de sites -->
+        <div class="flex flex-wrap gap-1.5">
+          <button
+            v-for="s in SITES"
+            :key="s.id"
+            class="font-ev-mono text-xs font-bold px-3 py-1.5 rounded-full border transition-colors cursor-pointer"
+            :style="selectedSiteId === s.id
+              ? 'background: var(--ev-green); border-color: var(--ev-green); color: #fff'
+              : 'background: transparent; border-color: var(--ev-border); color: var(--ev-text-3)'"
+            @click="selectedSiteId = s.id"
+          >{{ s.label }}</button>
+        </div>
+
+        <!-- Horizon et déclenchement -->
+        <div class="flex items-start gap-3">
+          <div class="flex gap-1">
+            <UButton
+              v-for="h in [24, 48]"
+              :key="h"
+              size="xs"
+              :variant="horizonHeures === h ? 'solid' : 'ghost'"
+              color="primary"
+              @click="horizonHeures = h"
+            >{{ h }}h</UButton>
+          </div>
+          <EvPredictionTrigger
+            :site-id="selectedSiteId"
+            :lancee="lancee"
+            :pending="pending"
+            :available="available"
+            :predicted-at="predictedAt"
+            :nb-points="nbPoints"
+            :model-version="modelVersion"
+            :duree-ms="dureeMs"
+            @lancer="lancer"
+          />
+        </div>
       </div>
     </header>
 
@@ -62,38 +93,58 @@ function appliedGainTotal() {
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-ev-card">
       <EvKpiCard
         label="PIC PRÉVU"
-        :value="String(Math.round(peakKw))"
+        :value="kw(peakKw)"
         unit="kW"
-        :note="`à ${peakTime} · horizon ${prediction.horizon_hours} h`"
+        :note="prévisionPrête ? `à ${peakTime} · horizon ${horizonHeures} h` : 'en attente de prédiction'"
       />
       <EvKpiCard
         label="MARGE AU SEUIL"
-        :value="String(Math.round(marginKw))"
+        :value="kw(marginKw)"
         unit="kW"
         :note="`seuil configuré ${thresholdKw} kW`"
       />
       <EvKpiCard
         label="DÉPASSEMENT ATTENDU"
-        :value="exceedanceExpected ? 'oui' : 'aucun'"
-        :note="exceedanceExpected ? 'dépassement prévu sur l\'horizon' : 'sous le seuil sur tout l\'horizon'"
-        :note-tone="exceedanceExpected ? 'amber' : 'muted'"
+        :value="prévisionPrête ? (exceedanceExpected ? 'oui' : 'aucun') : '—'"
+        :note="!prévisionPrête ? 'en attente de prédiction' : exceedanceExpected ? 'dépassement prévu sur l\'horizon' : 'sous le seuil sur tout l\'horizon'"
+        :note-tone="prévisionPrête && exceedanceExpected ? 'amber' : 'muted'"
       />
       <EvKpiCard
-        label="CONFIANCE DU MODÈLE"
-        :value="String(modelConfidence)"
-        unit="%"
-        note="schéma de réponse à figer (EC06)"
+        label="VERSION DU MODÈLE"
+        :value="prévisionPrête && modelVersion ? `v${modelVersion}` : '—'"
+        note="modèle champion du registre MLflow"
       />
     </div>
 
     <!-- Graphique -->
     <EvCard tone="light">
+      <div v-if="!lancee" class="py-16 text-center font-ev text-sm text-ev-text-3">
+        Choisissez un site et un horizon, puis cliquez sur « Lancer la prédiction ».
+      </div>
+
+      <div v-else-if="pending" class="py-16 text-center font-ev text-sm text-ev-text-3">
+        Calcul de la prévision par le modèle…
+      </div>
+
+      <div
+        v-else-if="!available"
+        class="flex items-center gap-2.5 px-4 py-3 rounded-ev-md border text-sm font-ev"
+        style="border-color: var(--ev-amber-bd); background: var(--ev-amber-bg); color: var(--ev-amber)"
+      >
+        Service de prédiction indisponible : la prévision n'est pas affichée.
+      </div>
+
       <EvPredictionChart
+        v-else-if="historicalPoints.length && forecastPoints.length"
         :historical-points="historicalPoints"
-        :forecast-points="prediction.predictions"
+        :forecast-points="forecastPoints"
         :threshold="thresholdKw"
-        :confidence-level="prediction.confidence_level ?? 0"
+        :confidence-level="confidenceLevel"
       />
+
+      <div v-else class="py-16 text-center font-ev text-sm text-ev-text-3">
+        Aucune donnée de prévision disponible
+      </div>
     </EvCard>
 
     <!-- Section basse -->

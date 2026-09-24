@@ -11,6 +11,7 @@
 | `api.md` | Contrats d'interface des quatre briques, croisés à partir des propositions de chacun et figés avant le développement parallèle | EC03, C20 |
 | `recommandations.md` | Détection de pic et de consommation excessive, lecture d'une recommandation dans le dashboard | #45 |
 | `ml.md` | Modèle de prévision, indicateurs, ajustements, surveillance de la dérive | EC06 |
+| `predictions.md` | Les prédictions dans le dashboard : déclenchement, lecture du retour, déroulé de démo | #257 |
 | `runbook.md` | Quoi faire selon la situation : démarrer, exploiter (déployer, ETL, sauvegarde, rotation, Grafana), incidents connus | EC06 |
 | `rapports/` | Rapports datés : un constat à une date, pas une référence tenue à jour. Aujourd'hui la synthèse Sonar du 23 septembre | EC03 |
 
