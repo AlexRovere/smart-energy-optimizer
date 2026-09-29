@@ -152,10 +152,10 @@ Chaque application a son propre README avec ses prérequis.
 | Docs         | `docs`  |
 | Spike        | `spike` |
 
-Nommage complet : `EADL_2025_NANTES_G1/<préfixe>-<numéro issue>-<slug>`.
-Exemple : `EADL_2025_NANTES_G1/feat-18-ingestion-etl`.
+Nommage complet : `<préfixe>-<numéro issue>-<slug>`.
+Exemple : `fix-18-graphiques`.
 
-> L'année est **2025**, comme le nom de la machine fournie par le formateur et le document de consignes. À ne pas confondre avec `EADL-2026`, qui est le nom de l'organisation GitHub.
+Les branches de l'école portaient le préfixe `EADL_2025_NANTES_G1/`, abandonné avec la reprise.
 
 **Commits.** Même préfixe que la branche, en conventional commits : `feat(etl): ...`, `fix(ml): ...`.
 

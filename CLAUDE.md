@@ -37,7 +37,7 @@ Ces points reviennent régulièrement. Ils ont été arbitrés, le motif est éc
 
 **Rien ne part directement sur `main`.** La protection par règle n'est pas activable tant que le dépôt est privé sur une organisation en offre gratuite : rien ne refusera le `push`, et c'est précisément pour ça que la règle doit être écrite. Un changement arrivé sans revue se rattrape ensuite par une PR, ce qui coûte deux fois le temps qu'il fallait pour l'ouvrir.
 
-**Une branche par issue**, nommée `EADL_2025_NANTES_G1/<préfixe>-<numéro>-<slug>`.
+**Une branche par issue**, nommée `<préfixe>-<numéro>-<slug>`, le numéro étant celui de l'issue dans ce dépôt.
 
 | Type d'issue | Préfixe |
 | :--- | :--- |
@@ -47,9 +47,7 @@ Ces points reviennent régulièrement. Ils ont été arbitrés, le motif est éc
 | Docs | `docs` |
 | Spike | `spike` |
 
-Exemple : `EADL_2025_NANTES_G1/feat-18-ingestion-etl`. Le type `Epic` ne porte pas de branche.
-
-> L'année est **2025**, comme le nom de la machine et le document de consignes. L'organisation GitHub, elle, s'appelle `EADL-2026`. Les deux se ressemblent et ce n'est pas une faute de frappe.
+Exemple : `fix-18-graphiques`. Le type `Epic` ne porte pas de branche.
 
 **Commits** en conventional commits, même préfixe que la branche : `feat(etl): ...`, `docs(data): ...`. Trois règles en plus du format :
 
