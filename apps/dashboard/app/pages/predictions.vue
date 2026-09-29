@@ -141,6 +141,7 @@ function injecterPic() {
         :forecast-points="forecastPoints"
         :threshold="thresholdKw"
         :confidence-level="confidenceLevel"
+        tone="light"
       />
 
       <div v-else class="py-16 text-center font-ev text-sm text-ev-text-3">
