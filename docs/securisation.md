@@ -185,7 +185,7 @@ oppose. Assumé, voir section 9.
 ## 7. Accès au dépôt et à la machine
 
 **Dépôt** : [`CODEOWNERS`](../.github/CODEOWNERS), revue obligatoire, pas de poussée directe sur
-`main`. **Écart assumé** : la protection de branche n'existe pas sur un dépôt privé en offre
+`main` (CODEOWNERS retiré le 29 septembre 2026, à la reprise du projet en solo : plus personne à qui router la revue). **Écart assumé** : la protection de branche n'existe pas sur un dépôt privé en offre
 gratuite, elle est donc tenue par la discipline, ce qui est plus faible qu'une règle technique. Le
 jeu de règles est prêt si le dépôt passe en public.
 

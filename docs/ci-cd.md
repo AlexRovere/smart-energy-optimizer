@@ -168,7 +168,7 @@ Corrigée, ou acceptée explicitement — jamais contournée en silence, jamais 
 
 1. Corriger d'abord : monter la dépendance, ou l'image de base.
 2. Sans correctif, ajouter l'identifiant (CVE ou GHSA) dans `.trivyignore`, **avec un commentaire** disant pourquoi c'est acceptable et ce qui la rouvrira.
-3. L'acceptation passe par une pull request comme le reste. `.github/CODEOWNERS` route la revue vers les propriétaires de la chaîne de build.
+3. L'acceptation passe par une pull request comme le reste, relue avant fusion.
 
 [`.trivyignore`](../.trivyignore) existe et ne contient aucune exception à ce jour ; il porte la procédure en commentaire.
 
