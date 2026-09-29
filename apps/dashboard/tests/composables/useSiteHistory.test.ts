@@ -70,6 +70,20 @@ describe('useSiteHistory', () => {
     expect(diffDays).toBeCloseTo(7, 0)
   })
 
+  it("l'URL d'une plage choisie reprend ses bornes", () => {
+    const range = ref({ from: '2026-09-01T00:00:00.000Z', to: '2026-09-16T00:00:00.000Z' })
+    useSiteHistory(ref<SiteId>('SITE001'), ref('custom'), range)
+    const url = (mockUseFetch.mock.calls[0]![0] as () => string)()
+    expect(decodeURIComponent(url)).toContain('from=2026-09-01T00:00:00.000Z&to=2026-09-16T00:00:00.000Z')
+  })
+
+  it('recharge quand la plage choisie change', () => {
+    const range = ref({ from: '2026-09-01T00:00:00.000Z', to: '2026-09-16T00:00:00.000Z' })
+    useSiteHistory(ref<SiteId>('SITE001'), ref('custom'), range)
+    const opts = mockUseFetch.mock.calls[0]![1] as { watch: unknown[] }
+    expect(opts.watch).toContain(range)
+  })
+
   it('passe watch: [siteId, fenêtre] à useFetch', () => {
     const siteId = ref<SiteId>('SITE001')
     const timeWindow = ref<'24h' | '7j'>('24h')

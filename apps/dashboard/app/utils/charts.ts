@@ -4,7 +4,7 @@
 import type { EChartsOption, LineSeriesOption } from 'echarts'
 import type { PredictionPoint, Reading } from '../types/api'
 
-export type ChartWindow = '24h' | '7j'
+export type ChartWindow = '24h' | '7j' | 'custom'
 export type ChartTone = 'dark' | 'light'
 
 type Point = [number, number | null]
@@ -88,7 +88,17 @@ export function peakReading(readings: Reading[]): { kw: number; timestamp: numbe
   return { kw: value, timestamp }
 }
 
-export function historyTitle(window: ChartWindow): string {
+function dayMonth(iso: string): string {
+  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+}
+
+// Une plage choisie finit à minuit le lendemain de son dernier jour : c'est ce
+// dernier jour qu'on annonce.
+export function historyTitle(window: ChartWindow, range?: { from: string; to: string } | null): string {
+  if (window === 'custom' && range) {
+    const lastDay = new Date(Date.parse(range.to) - 1).toISOString()
+    return `Historique de consommation, du ${dayMonth(range.from)} au ${dayMonth(lastDay)}`
+  }
   return window === '24h'
     ? 'Historique de consommation, 24 dernières heures'
     : 'Historique de consommation, 7 derniers jours'
@@ -111,7 +121,10 @@ export function consumptionChartOption(input: {
   if (input.thresholdKw) lines.push(markLine(`seuil ${kw(input.thresholdKw)}`, input.thresholdKw, AMBER))
 
   const yMax = niceMax(Math.max(...values, input.capacityKw ?? 0, input.thresholdKw ?? 0))
-  const labelFormat = input.window === '24h' ? '{HH}:{mm}' : '{dd}/{MM}'
+  const times = data.map(p => p[0])
+  const labelFormat = input.window === 'custom'
+    ? timeLabel(Math.max(...times) - Math.min(...times))
+    : input.window === '24h' ? '{HH}:{mm}' : '{dd}/{MM}'
 
   const series: LineSeriesOption = {
     id: 'consumption',

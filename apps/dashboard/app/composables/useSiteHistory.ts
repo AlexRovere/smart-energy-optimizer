@@ -1,7 +1,9 @@
 import { useFetch, useRoute } from 'nuxt/app'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { Ref } from 'vue'
 import type { Reading, SiteId } from '../types/api'
+import type { ChartWindow } from '../utils/charts'
+import type { HistoryRange } from '../utils/historyRange'
 import { watchFetchError } from '../utils/fetchError'
 
 function timeRange(timeWindow: '24h' | '7j') {
@@ -13,13 +15,19 @@ function timeRange(timeWindow: '24h' | '7j') {
   return { from: from.toISOString(), to: to.toISOString() }
 }
 
-export function useSiteHistory(siteId: Ref<SiteId>, timeWindow: Ref<'24h' | '7j'>) {
+export function useSiteHistory(
+  siteId: Ref<SiteId>,
+  timeWindow: Ref<ChartWindow>,
+  customRange: Ref<HistoryRange | null> = ref(null)
+) {
   const { data, pending, error } = useFetch<Reading[]>(
     () => {
-      const { from, to } = timeRange(timeWindow.value)
+      const { from, to } = timeWindow.value === 'custom' && customRange.value
+        ? customRange.value
+        : timeRange(timeWindow.value === '24h' ? '24h' : '7j')
       return `/api/sites/${siteId.value}/history?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
     },
-    { watch: [siteId, timeWindow] }
+    { watch: [siteId, timeWindow, customRange] }
   )
   const route = useRoute()
   watchFetchError(error, {

@@ -4,6 +4,8 @@ import type { SiteId } from '~/types/api'
 import { useSiteHistory } from '~/composables/useSiteHistory'
 import { useSiteRecommendations } from '~/composables/useSiteRecommendations'
 import { useSitePrediction } from '~/composables/useSitePrediction'
+import type { ChartWindow } from '~/utils/charts'
+import type { HistoryRange } from '~/utils/historyRange'
 
 const route = useRoute()
 const router = useRouter()
@@ -22,7 +24,7 @@ watch(id, () => { popupDismissed.value = false })
 const popupOpen = computed(() => recommendations.value.length > 0 && !popupDismissed.value)
 
 // Mesure courante, ou dernière valeur connue de l'historique si le capteur est muet.
-const consumption = computed(() => displayedConsumption(reading.value, readings.value))
+const consumption = computed(() => displayedConsumption(reading.value, recentReadings.value))
 
 const loadPercent = computed(() => {
   const kw = consumption.value?.kw
@@ -43,8 +45,12 @@ const sensors = computed(() => getSiteSensors(id.value))
 const alerts = computed(() => getSiteAlerts(id.value))
 const health = computed(() => getSiteHealth(id.value))
 
-const chartWindow = ref<'24h' | '7j'>('24h')
-const { readings } = useSiteHistory(id, chartWindow)
+const chartWindow = ref<ChartWindow>('24h')
+const historyRange = ref<HistoryRange | null>(null)
+const { readings } = useSiteHistory(id, chartWindow, historyRange)
+// Dernières 24 h, quelle que soit la plage affichée : la valeur reportée et la
+// courbe de prévision partent du présent, pas d'une plage choisie dans le passé.
+const { readings: recentReadings } = useSiteHistory(id, ref<ChartWindow>('24h'))
 const horizonHours = ref(24)
 const {
   forecastPoints, modelVersion, confidenceLevel, predictedAt, nbPoints,
@@ -228,6 +234,9 @@ function sensorStatusColor(status: string): string {
       <!-- Historique de consommation -->
       <EvConsumptionChart
         v-model:window="chartWindow"
+        v-model:range="historyRange"
+        :first-data-at="info?.first_data_at"
+        :last-data-at="info?.last_data_at"
         :readings="readings"
         :capacity-kw="site?.capacity_kw ?? null"
         :threshold-kw="info?.threshold_kw ?? null"
@@ -286,8 +295,8 @@ function sensorStatusColor(status: string): string {
         </div>
 
         <EvPredictionChart
-          v-else-if="readings.length && forecastPoints.length"
-          :historical-points="readings"
+          v-else-if="recentReadings.length && forecastPoints.length"
+          :historical-points="recentReadings"
           :forecast-points="forecastPoints"
           :threshold="info?.threshold_kw ?? 0"
           :confidence-level="confidenceLevel"

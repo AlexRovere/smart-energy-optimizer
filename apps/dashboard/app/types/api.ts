@@ -22,6 +22,7 @@ export interface Site {
   capacity_kw: number;          // 200–1000
   status: SiteStatus;
   threshold_kw?: number | null; // paramètre local — absent de l'API Mock
+  first_data_at?: string | null; // première mesure dans le Parquet
   last_data_at?: string | null; // dernière mesure dans le Parquet
 }
 
