@@ -115,7 +115,7 @@ flowchart TB
     end
 
     subgraph JOBDASH["load-test-dashboard"]
-        STUB["mock_api_stub.py<br/>latence + plafond 500/h"]
+        STUB["apps/mock-api, simulateur<br/>latence + plafond 500/h"]
         DASH["enervision-dashboard:ci"]
         LH["dashboard_history.py<br/>GET /history"]
         LM["dashboard_mock.py<br/>GET /current"]
@@ -135,7 +135,7 @@ flowchart TB
     LM --> REPORT["Rapport publie<br/>jamais verifie"]
 ```
 
-`dashboard_history.py` rejoint le même contrôle de seuils que le service ML, sans tiers en jeu. `dashboard_mock.py` en sort : son rapport est publié, jamais comparé à un seuil, parce qu'il dépend de l'API Mock (ici son stub).
+`dashboard_history.py` rejoint le même contrôle de seuils que le service ML, sans tiers en jeu. `dashboard_mock.py` en sort : son rapport est publié, jamais comparé à un seuil, parce qu'il dépend de l'API Mock (ici son simulateur).
 
 | Job | Scénario | Requêtes nommées | Bloquant |
 |---|---|---|---|
@@ -146,7 +146,7 @@ flowchart TB
 
 Les seuils de 95e percentile vivent dans [`load-tests/thresholds.py`](../load-tests/thresholds.py), lus par [`check_thresholds.py`](../load-tests/check_thresholds.py), qui compare au CSV `--csv` de Locust et fait échouer le job sur dépassement — jamais pour `dashboard_mock`, qui n'a pas de seuil.
 
-**`current.get.ts` appelle un tiers externe, et la CI ne l'appelle jamais.** `NUXT_MOCK_API_URL` pointe en CI sur [`load-tests/mock_api_stub.py`](../load-tests/mock_api_stub.py), qui reproduit la latence et le plafond documentés de la source réelle (500 points/heure/client, `docs/api.md`) sans jamais la solliciter : taper sur la vraie API Mock à chaque push consommerait un quota partagé avec le reste de la formation. Constater le bottleneck réel reste un geste manuel, en local (voir `load-tests/README.md`).
+**`current.get.ts` appelle un tiers externe, et la CI ne l'appelle jamais.** `NUXT_MOCK_API_URL` pointe en CI sur le simulateur [`apps/mock-api`](../apps/mock-api/README.md), réglé pour reproduire la latence et le plafond documentés de la source réelle (500 points/heure/client, `docs/api.md`) sans jamais la solliciter : taper sur la vraie API Mock à chaque push consommerait un quota partagé avec le reste de la formation. Constater le bottleneck réel reste un geste manuel, en local (voir `load-tests/README.md`).
 
 Les seuils de départ dans `thresholds.py` sont volontairement larges, faute de mesure réelle au moment où ils ont été écrits ; à resserrer sur un run réel de `ci.yml`, jamais sur une estimation.
 
@@ -269,7 +269,7 @@ Ce qui suit est connu, décidé, et non corrigé. C'est ce qui distingue une doc
 | **Un `HIGH` dans une image ne bloque pas** | Seule une `CRITICAL` bloque, là où le scan de code bloque dès `HIGH`. Les paquets de la base Debian ne se corrigent pas à notre rythme ; ils restent affichés dans le log du job |
 | **Pas de seuil de couverture bloquant** | Retiré le 16 septembre 2026. Sur dix jours, un seuil non tenu est une CI rouge qui empêche de fusionner : un coût sans contrepartie |
 | **Le scan n'est pas dans le graphe de `ci.yml`** | Il tourne sur tout push, donc plus tôt et plus souvent que s'il attendait une pull request. Le chaîner le rendrait plus tardif, pas plus sûr |
-| **La CI ne mesure jamais le bottleneck réel de l'API Mock** | `load-test-dashboard` tape sur un stub (`load-tests/mock_api_stub.py`), pas sur la source réelle : quota partagé de 500 pts/h avec la formation. Le constat réel reste un geste manuel, en local |
+| **La CI ne mesure jamais le bottleneck réel de l'API Mock** | `load-test-dashboard` tape sur le simulateur (`apps/mock-api`), pas sur la source réelle : quota partagé de 500 pts/h avec la formation. Le constat réel reste un geste manuel, en local |
 | **L'applicatif est construit deux fois** | Une fois par `pnpm build`, une fois dans l'image. Environ deux minutes, contre un Dockerfile réellement vérifié |
 | **Le formatage TypeScript n'est pas automatisé** | Les règles stylistiques de `@nuxt/eslint` reformateraient tout le dashboard, en collision avec les branches en cours dessus. Pull request dédiée quand elles auront atterri |
 | **Le notebook d'exploration n'est pas linté** | `apps/ml/notebooks` est exclu : un notebook garde des cellules dans le désordre et des variables d'essai, trace du raisonnement. Le code qui en sort est repris dans `apps/ml/src`, lui bien linté |

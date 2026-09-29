@@ -6,12 +6,9 @@ readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "locust>=2.42.0",
-    "fastapi>=0.116.0",
-    "uvicorn>=0.35.0",
     "pyarrow>=23.0.1",
     "pandas>=2.2.3",
     "pytest>=8.0.0",
-    "httpx2>=0.1.0",
 ]
 
 [tool.uv]
