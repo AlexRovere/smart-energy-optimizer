@@ -105,13 +105,12 @@ async function onSubmit(event: FormSubmitEvent<LoginInput>) {
         </div>
 
         <!-- Session expirée : l'utilisateur doit savoir pourquoi il est ici -->
-        <div
+        <output
           v-if="sessionExpired && !errorMessage"
-          role="status"
-          class="bg-ev-amber-bg border border-ev-amber-bd rounded-ev-sm px-4 py-3"
+          class="block bg-ev-amber-bg border border-ev-amber-bd rounded-ev-sm px-4 py-3"
         >
           <span class="font-ev text-sm font-semibold text-ev-amber">Session expirée, reconnectez-vous</span>
-        </div>
+        </output>
 
         <!-- Erreur globale -->
         <div
