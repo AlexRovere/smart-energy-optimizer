@@ -1,6 +1,6 @@
 # Charge et performance — Locust
 
-Mesures de charge et de performance pour le service ML (`/predictions` par horizon, `/training`) et pour le dashboard (historique Parquet, accès à l'API Mock). Voir [`docs/ci-cd.md`](../docs/ci-cd.md) pour ce que la CI en fait, et ce qui est bloquant ou non.
+Mesures de charge et de performance pour le service ML (`/predictions` par horizon, `/training`) et pour le dashboard (historique Parquet, accès à l'API Mock). En CI, ils ne partent qu'à la demande : Actions, workflow `CI`, « Run workflow », choix `tests_de_charge`. Voir [`docs/ci-cd.md`](../docs/ci-cd.md) pour ce qui est mesuré et ce qui est bloquant ou non.
 
 ## Structure
 
