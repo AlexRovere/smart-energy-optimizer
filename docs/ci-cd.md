@@ -8,9 +8,9 @@ Un lecteur qui n'a pas écrit ces fichiers doit pouvoir rejouer une étape sur s
 
 | Fichier | Nom affiché | Déclencheur | Ce qu'il vérifie |
 |---|---|---|---|
-| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | CI | pull request vers `main`, ou lancement manuel (temporaire : plus de push sur `main` tant que le dépôt est privé) | Lint, types, tests, validation de la composition, construction **et scan** des images |
-| [`.github/workflows/security.yml`](../.github/workflows/security.yml) | Sécurité | pull request vers `main`, push sur `main`, ou lancement manuel (temporaire : **tout** push au passage en public) | Vulnérabilités, secrets dans l'arbre et dans l'historique, cohérence du chiffrement SOPS |
-| [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | CD | fin réussie de `CI` sur `main`, ou lancement manuel | Exécution locale du playbook Ansible sur la VM |
+| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | CI | pull request vers `main`, et push sur `main` | Lint, types, tests, validation de la composition, construction **et scan** des images |
+| [`.github/workflows/security.yml`](../.github/workflows/security.yml) | Sécurité | **tout** push, sur n'importe quelle branche | Vulnérabilités, secrets dans l'arbre et dans l'historique, cohérence du chiffrement SOPS |
+| [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | CD | lancement manuel (suspendu depuis la reprise en solo : plus de runner sur la VM, le déclencheur sur fin de `CI` revient avec Kubernetes) | Exécution locale du playbook Ansible sur la VM |
 
 La séparation n'est pas cosmétique : un secret poussé par erreur ne doit pas attendre une pull request pour être détecté, donc `Sécurité` tourne dès le premier push. Le reste coûte des minutes de runner et reste attaché aux pull requests.
 
@@ -46,7 +46,7 @@ L'enchaînement est **par domaine** : lint, puis tests, puis construction de l'i
 | 5 | Images | `image-*` : `docker build`, puis Trivy | Un Dockerfile cassé, une vulnérabilité **critique** dans l'image | En place |
 | 6 | Charge et performance | `load-test-ml`, `load-test-dashboard` : Locust | Un dépassement de seuil sur `/predictions`, `/training`, l'historique du dashboard. **Jamais** sur l'accès à l'API Mock (voir plus bas) | En place |
 | 7 | Scan du code | `security.yml` : Trivy, gitleaks, SOPS | Une vulnérabilité critique **ou élevée**, un secret, un destinataire oublié | En place, hors chaîne (voir plus bas) |
-| 8 | Déploiement | `deploy.yml` sur le runner de la VM | Ne s'exécute qu'après une CI verte sur `main` | En place |
+| 8 | Déploiement | `deploy.yml` sur le runner de la VM | Ne s'exécute qu'après une CI verte sur `main` | Suspendu depuis le 29 septembre 2026 (VM de l'école abandonnée) |
 
 Les tests passent avant la construction de l'image : les tests ne tournent pas dans l'image, et la construire avant de savoir si le lint passe achète des minutes de runner contre rien.
 
