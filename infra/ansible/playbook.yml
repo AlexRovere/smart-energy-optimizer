@@ -238,7 +238,7 @@
         minute: "5"
         job: >-
           ETL_METRICS_DIR={{ metrics_dir }}
-          {{ project_dir }}/etl_cron.sh
+          {{ project_dir }}/scripts/etl_cron.sh
           >> {{ log_dir }}/etl.jsonl
           2>> {{ log_dir }}/etl.err
 

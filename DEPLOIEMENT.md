@@ -277,7 +277,7 @@ images restent disponibles.
 ## Passage horaire de l'ETL
 
 Le service `etl` porte le profil `cron` : `docker compose up -d` ne le lance
-pas. La crontab de `apprenant` exécute [`etl_cron.sh`](./etl_cron.sh) toutes
+pas. La crontab de `apprenant` exécute [`scripts/etl_cron.sh`](./scripts/etl_cron.sh) toutes
 les heures, qui lance `python main.py hour --hours 24` avec les secrets de SOPS.
 Chaque passage relit les 24 dernières heures : un passage manqué est comblé par
 le suivant. En cas
@@ -288,7 +288,7 @@ main, `crontab -e` et ajouter la même ligne. Vérifier avec `crontab -l` :
 
 ```text
 #Ansible: EnerVision : passage horaire de l'ETL
-5 * * * * ETL_METRICS_DIR=/var/lib/enervision/metrics /home/apprenant/Projet/enerVision/etl_cron.sh >> /var/log/enervision/etl.jsonl 2>> /var/log/enervision/etl.err
+5 * * * * ETL_METRICS_DIR=/var/lib/enervision/metrics /home/apprenant/Projet/enerVision/scripts/etl_cron.sh >> /var/log/enervision/etl.jsonl 2>> /var/log/enervision/etl.err
 ```
 
 Pour un passage immédiat, lancer cette même commande à la main.

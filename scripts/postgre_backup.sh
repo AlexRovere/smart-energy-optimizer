@@ -2,15 +2,16 @@
 # Sauvegarde chiffrée : pg_dump de PostgreSQL + archive du répertoire Parquet, réunis puis chiffrés avec age pour les destinataires de .sops.yaml (#52).
 set -euo pipefail
 
-SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-cd "$SCRIPT_DIR"
+# Le script vit dans scripts/ : tout ce qui suit se lit depuis la racine du dépôt.
+REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$REPO_ROOT"
 
-for outil in docker sops age tar; do
+for outil in docker age tar; do
   command -v "$outil" >/dev/null 2>&1 || { echo "backup: '$outil' est requis mais introuvable dans le PATH" >&2; exit 1; }
 done
 
-if [[ ! -f .sops.yaml || ! -f secrets.enc.yaml ]]; then
-  echo "backup: .sops.yaml ou secrets.enc.yaml introuvable à la racine du dépôt" >&2
+if [[ ! -f .sops.yaml ]]; then
+  echo "backup: .sops.yaml introuvable à la racine du dépôt" >&2
   exit 1
 fi
 
@@ -25,8 +26,12 @@ trap 'rm -rf "$WORKDIR"' EXIT
 mkdir -p "$BACKUP_DIR"
 
 echo "backup: dump de la base PostgreSQL" >&2
-if ! sops exec-env secrets.enc.yaml \
-  'docker compose exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" postgres pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' \
+# Utilisateur, base et mot de passe sont lus dans le conteneur, qui les tient de
+# la composition : l'hôte ne les a pas dans son environnement, et un
+# « -U "$POSTGRES_USER" » développé ici se connectait en root.
+# shellcheck disable=SC2016 # développé par le shell du conteneur, pas celui-ci
+if ! docker compose exec -T postgres \
+  sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' \
   > "$WORKDIR/postgres.dump"; then
   echo "backup: échec du pg_dump, sauvegarde annulée" >&2
   exit 1

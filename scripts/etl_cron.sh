@@ -8,8 +8,9 @@ set -euo pipefail
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 export SOPS_AGE_KEY_FILE=${SOPS_AGE_KEY_FILE:-$HOME/.config/sops/age/keys.txt}
 
-SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-cd "$SCRIPT_DIR"
+# Le script vit dans scripts/ : tout ce qui suit se lit depuis la racine du dépôt.
+REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$REPO_ROOT"
 
 echo "etl_cron: passage du $(date -u +%Y-%m-%dT%H:%M:%SZ)" >&2
 
