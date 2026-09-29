@@ -11,10 +11,10 @@ mockNuxtImport('useAccountSession', () => useAccountSessionMock)
 mockNuxtImport('useSites', () => useSitesMock)
 mockNuxtImport('useTraining', () => useTrainingMock)
 
-function mockDefauts(role = 'ADMIN', email = 'a.coulon@eni.fr') {
+function mockDefauts(role = 'ADMIN', email = 'a.coulon@eni.fr', logout = vi.fn()) {
   useAccountSessionMock.mockReturnValue({
     account: ref({ id: '1', email, role, sites: [] }),
-    logout: vi.fn(),
+    logout,
   })
   useSitesMock.mockReturnValue({ sites: ref([]) })
   useTrainingMock.mockReturnValue({
@@ -56,5 +56,15 @@ describe('EvSidebar', () => {
     const wrapper = await mountSuspended(EvSidebar)
     const avatar = wrapper.find('[data-testid="user-avatar"]')
     expect(avatar.text()).toBe('MA')
+  })
+
+  it('déconnecte le compte depuis le pied de la barre latérale', async () => {
+    const logout = vi.fn()
+    mockDefauts('VIEWER', 'marie@eni.fr', logout)
+    const wrapper = await mountSuspended(EvSidebar)
+
+    await wrapper.find('[aria-label="Se déconnecter"]').trigger('click')
+
+    expect(logout).toHaveBeenCalledOnce()
   })
 })
