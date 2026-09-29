@@ -2,7 +2,7 @@
 
 <!-- En une ou deux phrases. -->
 
-Ferme #
+Closes #
 
 ## Vérifications
 
