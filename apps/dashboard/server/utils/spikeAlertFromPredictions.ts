@@ -7,8 +7,8 @@ import { hoursInHorizon } from './predictionHorizon'
 import type { AppDatabase } from './session'
 import type { TimestampedValue } from './rollingAverage'
 
-const DÉFAUTS_PIC = { duration: 5, threshold: 1.5 }
-const LIMITE_LECTURE = 1000
+const SPIKE_DEFAULTS = { duration: 5, threshold: 1.5 }
+const READ_LIMIT = 1000
 
 export interface HourlySpikeAlert extends SpikeAlertEvaluation {
   timestamp: string
@@ -18,36 +18,36 @@ export async function detectSpikeAlertsFromPredictions(
   db: AppDatabase,
   siteId: string,
   reference: Date,
-  horizonHeures: number
+  horizonHours: number
 ): Promise<HourlySpikeAlert[]> {
-  const réglage = await getAlertThreshold(db, siteId, 'pic', DÉFAUTS_PIC)
-  const heures = hoursInHorizon(reference, horizonHeures)
+  const setting = await getAlertThreshold(db, siteId, 'pic', SPIKE_DEFAULTS)
+  const hours = hoursInHorizon(reference, horizonHours)
 
-  const début = new Date(reference.getTime() - réglage.duration * 3_600_000)
-  const fin = new Date(reference.getTime() + 1)
-  const contexte = await querySiteHistory(siteId, début.toISOString(), fin.toISOString(), LIMITE_LECTURE)
+  const startedAt = new Date(reference.getTime() - setting.duration * 3_600_000)
+  const finishedAt = new Date(reference.getTime() + 1)
+  const context = await querySiteHistory(siteId, startedAt.toISOString(), finishedAt.toISOString(), READ_LIMIT)
 
-  const prédictions = await fetchPredictions(
-    heures.map(heure => ({
+  const forecastHours = await fetchPredictions(
+    hours.map(hour => ({
       site_id: siteId,
-      date: heure.toISOString().slice(0, 10),
-      hour: heure.getUTCHours()
+      date: hour.toISOString().slice(0, 10),
+      hour: hour.getUTCHours()
     }))
   )
 
-  const valeursContexte: TimestampedValue[] = contexte
-    .filter(mesure => mesure.consumption_kwh !== null && mesure.consumption_kwh !== undefined)
-    .map(mesure => ({ timestamp: mesure.timestamp, value: mesure.consumption_kwh! }))
-  const valeursPrédites: TimestampedValue[] = heures.map((heure, index) => ({
-    timestamp: heure.toISOString(),
-    value: prédictions[index]!.consumption_kwh
+  const contextValues: TimestampedValue[] = context
+    .filter(reading => reading.consumption_kwh !== null && reading.consumption_kwh !== undefined)
+    .map(reading => ({ timestamp: reading.timestamp, value: reading.consumption_kwh! }))
+  const predictedValues: TimestampedValue[] = hours.map((hour, index) => ({
+    timestamp: hour.toISOString(),
+    value: forecastHours[index]!.consumption_kwh
   }))
 
-  return heures.map((heure, index) => {
-    const précédentes = [...valeursContexte, ...valeursPrédites.slice(0, index)]
+  return hours.map((hour, index) => {
+    const previous = [...contextValues, ...predictedValues.slice(0, index)]
     return {
-      timestamp: heure.toISOString(),
-      ...detectSpikeAlert(précédentes, heure, valeursPrédites[index]!.value, réglage)
+      timestamp: hour.toISOString(),
+      ...detectSpikeAlert(previous, hour, predictedValues[index]!.value, setting)
     }
   })
 }

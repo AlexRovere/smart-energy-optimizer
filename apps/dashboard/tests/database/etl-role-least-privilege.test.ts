@@ -1,22 +1,22 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import postgres from 'postgres'
-import { baseDisponible, creerBaseDeTest, ligneAttendue, type BaseDeTest } from './base-de-test'
+import { databaseAvailable, createTestDatabase, expectedRow, type TestDatabase } from './test-database'
 
 // Mot de passe de test, jamais un secret : le rôle vit dans un conteneur
 // jetable qui n'est joignable que par cette suite.
-const MOT_DE_PASSE = 'mot-de-passe-de-test'
-const PRIVILEGE_INSUFFISANT = '42501'
+const PASSWORD = 'mot-de-passe-de-test'
+const INSUFFICIENT_PRIVILEGE = '42501'
 
-describe.skipIf(!baseDisponible())('le rôle etl ne peut faire que ce que data.md lui accorde', () => {
-  let base: BaseDeTest
+describe.skipIf(!databaseAvailable())('le rôle etl ne peut faire que ce que data.md lui accorde', () => {
+  let base: TestDatabase
   let etl: postgres.Sql
 
   beforeAll(async () => {
-    base = await creerBaseDeTest()
+    base = await createTestDatabase()
 
-    const { literal } = ligneAttendue(
+    const { literal } = expectedRow(
       await base.sql<{ literal: string }[]>`
-        SELECT quote_literal(${MOT_DE_PASSE}) AS literal
+        SELECT quote_literal(${PASSWORD}) AS literal
       `,
       'le mot de passe échappé par quote_literal'
     )
@@ -29,19 +29,19 @@ describe.skipIf(!baseDisponible())('le rôle etl ne peut faire que ce que data.m
 
     const url = new URL(base.url)
     url.username = 'etl'
-    url.password = MOT_DE_PASSE
+    url.password = PASSWORD
     etl = postgres(url.toString(), { max: 1 })
   })
 
   afterAll(async () => {
     await etl?.end()
-    await base?.fermer()
+    await base?.close()
   })
 
   describe('ce qui doit passer', () => {
     it('lit les sites', async () => {
-      const lignes = await etl`SELECT id FROM sites`
-      expect(lignes).toHaveLength(1)
+      const rows = await etl`SELECT id FROM sites`
+      expect(rows).toHaveLength(1)
     })
 
     it('insère un site', async () => {
@@ -49,8 +49,8 @@ describe.skipIf(!baseDisponible())('le rôle etl ne peut faire que ce que data.m
         INSERT INTO sites (id, name, type, capacity_kw, status)
         VALUES ('SITE002', 'Usine Lyon', 'factory', 500, 'active')
       `
-      const lignes = await etl`SELECT id FROM sites WHERE id = 'SITE002'`
-      expect(lignes).toHaveLength(1)
+      const rows = await etl`SELECT id FROM sites WHERE id = 'SITE002'`
+      expect(rows).toHaveLength(1)
     })
 
     it('met à jour les sept colonnes autorisées', async () => {
@@ -65,43 +65,43 @@ describe.skipIf(!baseDisponible())('le rôle etl ne peut faire que ce que data.m
                updated_at = NOW()
          WHERE id = 'SITE001'
       `
-      const ligne = ligneAttendue(
+      const row = expectedRow(
         await etl<{ capacity_kw: number }[]>`
           SELECT capacity_kw FROM sites WHERE id = 'SITE001'
         `,
         'le site SITE001 relu après mise à jour'
       )
-      expect(ligne.capacity_kw).toBe(220)
+      expect(row.capacity_kw).toBe(220)
     })
   })
 
   describe('ce qui doit être refusé', () => {
-    const refus = async (requete: () => Promise<unknown>) => {
-      await expect(requete()).rejects.toMatchObject({ code: PRIVILEGE_INSUFFISANT })
+    const refusal = async (query: () => Promise<unknown>) => {
+      await expect(query()).rejects.toMatchObject({ code: INSUFFICIENT_PRIVILEGE })
     }
 
     it('ne lit pas les comptes', async () => {
-      await refus(() => etl`SELECT id FROM users`)
+      await refusal(() => etl`SELECT id FROM users`)
     })
 
     it('ne lit pas les sessions', async () => {
-      await refus(() => etl`SELECT id FROM sessions`)
+      await refusal(() => etl`SELECT id FROM sessions`)
     })
 
     it("ne lit pas les périmètres d'accès", async () => {
-      await refus(() => etl`SELECT user_id FROM user_sites`)
+      await refusal(() => etl`SELECT user_id FROM user_sites`)
     })
 
     it("n'écrase pas un seuil réglé à l'écran", async () => {
-      await refus(() => etl`UPDATE sites SET warning_threshold_kw = 100`)
+      await refusal(() => etl`UPDATE sites SET warning_threshold_kw = 100`)
     })
 
     it('ne supprime aucun site', async () => {
-      await refus(() => etl`DELETE FROM sites`)
+      await refusal(() => etl`DELETE FROM sites`)
     })
 
     it('ne touche pas au référentiel des rôles', async () => {
-      await refus(() => etl`INSERT INTO roles (name) VALUES ('PIRATE')`)
+      await refusal(() => etl`INSERT INTO roles (name) VALUES ('PIRATE')`)
     })
   })
 })

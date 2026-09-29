@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import type { DernierEntrainement } from '~/composables/useTraining'
+import type { LastTraining } from '~/composables/useTraining'
 
 const props = defineProps<{
-  dernierEntrainement?: DernierEntrainement | null
+  lastTraining?: LastTraining | null
   loading?: boolean
 }>()
 
 const emit = defineEmits<{
-  déclencher: []
+  trigger: []
 }>()
 
-function formaterHeure(date: Date): string {
+function formatHour(date: Date): string {
   return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
 </script>
@@ -26,13 +26,13 @@ function formaterHeure(date: Date): string {
       class="w-full justify-start"
       :loading="props.loading"
       :disabled="props.loading"
-      @click="emit('déclencher')"
+      @click="emit('trigger')"
     >
       Entraîner le modèle
     </UButton>
 
     <div
-      v-if="props.loading || props.dernierEntrainement"
+      v-if="props.loading || props.lastTraining"
       data-testid="training-badge"
       class="flex items-center gap-1.5 px-1"
     >
@@ -40,14 +40,14 @@ function formaterHeure(date: Date): string {
         <span class="size-1.5 rounded-full shrink-0 bg-ev-amber" />
         <span class="font-ev-mono text-[10px] leading-none text-ev-text-muted">En cours</span>
       </template>
-      <template v-else-if="props.dernierEntrainement">
+      <template v-else-if="props.lastTraining">
         <span
           class="size-1.5 rounded-full shrink-0"
-          :class="props.dernierEntrainement.statut === 'succès' ? 'bg-ev-green' : 'bg-ev-red'"
+          :class="props.lastTraining.status === 'success' ? 'bg-ev-green' : 'bg-ev-red'"
         />
         <span class="font-ev-mono text-[10px] leading-none text-ev-text-muted">
-          {{ props.dernierEntrainement.statut === 'succès' ? 'Succès' : 'Erreur' }}
-          · {{ formaterHeure(props.dernierEntrainement.à) }}
+          {{ props.lastTraining.status === 'success' ? 'Succès' : 'Erreur' }}
+          · {{ formatHour(props.lastTraining.finishedAt) }}
         </span>
       </template>
     </div>

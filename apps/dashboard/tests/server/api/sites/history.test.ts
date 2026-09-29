@@ -35,12 +35,12 @@ vi.mock('../../../../server/utils/logger', () => ({
 
 const mockEvent = {} as H3Event
 
-function configurerÉvénement(siteId: string, params: Record<string, string>) {
+function configureEvent(siteId: string, params: Record<string, string>) {
   mockGetRouterParam.mockReturnValue(siteId)
   mockGetQuery.mockReturnValue(params)
 }
 
-const mesureFixture = {
+const readingFixture = {
   timestamp: '2026-09-16T14:00:00Z',
   site_id: 'SITE001',
   consumption_kw: 87.34,
@@ -55,19 +55,19 @@ describe('GET /api/sites/[id]/history', () => {
   })
 
   it('retourne les mesures pour un site autorisé et une période valide', async () => {
-    mockQuerySiteHistory.mockResolvedValue([mesureFixture])
-    configurerÉvénement('SITE001', {
+    mockQuerySiteHistory.mockResolvedValue([readingFixture])
+    configureEvent('SITE001', {
       from: '2026-09-16T00:00:00Z',
       to: '2026-09-17T00:00:00Z'
     })
-    const résultat = await handler(mockEvent)
-    expect(résultat).toHaveLength(1)
+    const result = await handler(mockEvent)
+    expect(result).toHaveLength(1)
     expect(mockRequireSiteAccess).toHaveBeenCalledWith(mockEvent, 'SITE001')
     expect(mockQuerySiteHistory).toHaveBeenCalledWith('SITE001', '2026-09-16T00:00:00Z', '2026-09-17T00:00:00Z', 500)
   })
 
   it('retourne 403 sans lire l\'historique pour un site hors périmètre', async () => {
-    configurerÉvénement('SITE002', { from: '2026-09-16T00:00:00Z', to: '2026-09-17T00:00:00Z' })
+    configureEvent('SITE002', { from: '2026-09-16T00:00:00Z', to: '2026-09-17T00:00:00Z' })
     mockRequireSiteAccess.mockRejectedValue(createError({ statusCode: 403 }))
 
     await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 403 })
@@ -75,7 +75,7 @@ describe('GET /api/sites/[id]/history', () => {
   })
 
   it('retourne 404 sans lire l\'historique pour un site inconnu', async () => {
-    configurerÉvénement('SITE999', { from: '2026-09-16T00:00:00Z', to: '2026-09-17T00:00:00Z' })
+    configureEvent('SITE999', { from: '2026-09-16T00:00:00Z', to: '2026-09-17T00:00:00Z' })
     mockRequireSiteAccess.mockRejectedValue(createError({ statusCode: 404 }))
 
     await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 404 })
@@ -84,26 +84,26 @@ describe('GET /api/sites/[id]/history', () => {
 
   it('retourne un tableau vide si aucune mesure sur la période', async () => {
     mockQuerySiteHistory.mockResolvedValue([])
-    configurerÉvénement('SITE001', {
+    configureEvent('SITE001', {
       from: '2026-09-16T00:00:00Z',
       to: '2026-09-17T00:00:00Z'
     })
-    const résultat = await handler(mockEvent)
-    expect(résultat).toEqual([])
+    const result = await handler(mockEvent)
+    expect(result).toEqual([])
   })
 
   it('retourne 422 si from est absent', async () => {
-    configurerÉvénement('SITE001', { to: '2026-09-17T00:00:00Z' })
+    configureEvent('SITE001', { to: '2026-09-17T00:00:00Z' })
     await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 422 })
   })
 
   it('retourne 422 si to est absent', async () => {
-    configurerÉvénement('SITE001', { from: '2026-09-16T00:00:00Z' })
+    configureEvent('SITE001', { from: '2026-09-16T00:00:00Z' })
     await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 422 })
   })
 
   it('retourne 422 si from est mal formé', async () => {
-    configurerÉvénement('SITE001', {
+    configureEvent('SITE001', {
       from: '16/09/2026',
       to: '2026-09-17T00:00:00Z'
     })
@@ -111,7 +111,7 @@ describe('GET /api/sites/[id]/history', () => {
   })
 
   it('retourne 422 si limit est hors domaine', async () => {
-    configurerÉvénement('SITE001', {
+    configureEvent('SITE001', {
       from: '2026-09-16T00:00:00Z',
       to: '2026-09-17T00:00:00Z',
       limit: '2000'
@@ -121,7 +121,7 @@ describe('GET /api/sites/[id]/history', () => {
 
   it('retourne 503 si le répertoire Parquet est indisponible', async () => {
     mockQuerySiteHistory.mockRejectedValue(new Error("NUXT_PARQUET_DIR n'est pas défini"))
-    configurerÉvénement('SITE001', {
+    configureEvent('SITE001', {
       from: '2026-09-16T00:00:00Z',
       to: '2026-09-17T00:00:00Z'
     })
@@ -129,9 +129,9 @@ describe('GET /api/sites/[id]/history', () => {
   })
 
   it('loggue l\'erreur DuckDB avant de lancer 503', async () => {
-    const messageErreur = 'DuckDB: impossible de lire le fichier Parquet'
-    mockQuerySiteHistory.mockRejectedValue(new Error(messageErreur))
-    configurerÉvénement('SITE001', {
+    const errorMessage = 'DuckDB: impossible de lire le fichier Parquet'
+    mockQuerySiteHistory.mockRejectedValue(new Error(errorMessage))
+    configureEvent('SITE001', {
       from: '2026-09-16T00:00:00Z',
       to: '2026-09-17T00:00:00Z'
     })
@@ -139,14 +139,14 @@ describe('GET /api/sites/[id]/history', () => {
     await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 503 })
 
     expect(mockLoggerError).toHaveBeenCalledOnce()
-    const [, contexte] = mockLoggerError.mock.calls[0] as [string, Record<string, unknown>]
-    expect(contexte.message).toBe(messageErreur)
-    expect(contexte.siteId).toBe('SITE001')
+    const [, context] = mockLoggerError.mock.calls[0] as [string, Record<string, unknown>]
+    expect(context.message).toBe(errorMessage)
+    expect(context.siteId).toBe('SITE001')
   })
 
   it('applique la limite personnalisée', async () => {
     mockQuerySiteHistory.mockResolvedValue([])
-    configurerÉvénement('SITE001', {
+    configureEvent('SITE001', {
       from: '2026-09-16T00:00:00Z',
       to: '2026-09-17T00:00:00Z',
       limit: '100'

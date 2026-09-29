@@ -6,15 +6,15 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres from 'postgres'
 import { inject } from 'vitest'
 
-export const DOSSIER_MIGRATIONS = resolve(
+export const MIGRATIONS_DIR = resolve(
   dirname(fileURLToPath(import.meta.url)),
   '../../server/database/migrations'
 )
 
-export interface BaseDeTest {
+export interface TestDatabase {
   url: string
   sql: postgres.Sql
-  fermer: () => Promise<void>
+  close: () => Promise<void>
 }
 
 // Une requête `postgres` rend toujours un tableau, et `noUncheckedIndexedAccess`
@@ -22,47 +22,47 @@ export interface BaseDeTest {
 // ligne. Plutôt que d'affirmer le contraire au coup par coup, les tests passent
 // tous par ici. Une requête muette échoue alors en nommant ce qu'on attendait,
 // au lieu de se traduire en « cannot read properties of undefined » à dérouler.
-export function ligneAttendue<T>(lignes: readonly T[], attendu: string): T {
-  const [ligne] = lignes
-  if (ligne === undefined) {
-    throw new Error(`Aucune ligne rendue pour ${attendu}.`)
+export function expectedRow<T>(rows: readonly T[], expected: string): T {
+  const [row] = rows
+  if (row === undefined) {
+    throw new Error(`Aucune ligne rendue pour ${expected}.`)
   }
-  return ligne
+  return row
 }
 
-// À poser en `describe.skipIf(!baseDisponible())` en tête des fichiers qui ont
+// À poser en `describe.skipIf(!databaseAvailable())` en tête des fichiers qui ont
 // besoin d'une base. L'amorce globale rend une URL vide quand aucun runtime de
 // conteneurs n'a répondu, ce qui n'arrive que sur un poste : en intégration
 // continue, elle échoue avant d'en arriver là.
-export function baseDisponible(): boolean {
-  return inject('urlAdministrateur') !== ''
+export function databaseAvailable(): boolean {
+  return inject('adminUrl') !== ''
 }
 
-export async function creerBaseDeTest(
-  options: { migrer?: boolean } = {}
-): Promise<BaseDeTest> {
-  const urlAdministrateur = inject('urlAdministrateur')
-  if (urlAdministrateur === '') {
+export async function createTestDatabase(
+  options: { migrate?: boolean } = {}
+): Promise<TestDatabase> {
+  const adminUrl = inject('adminUrl')
+  if (adminUrl === '') {
     throw new Error(
       "Aucune base de test disponible : ce fichier aurait dû s'ignorer par "
-      + 'describe.skipIf(!baseDisponible()).'
+      + 'describe.skipIf(!databaseAvailable()).'
     )
   }
   // Un nom de base ne peut pas porter de tiret sans être cité : on les retire.
-  const nom = `test_${randomUUID().replaceAll('-', '')}`
+  const name = `test_${randomUUID().replaceAll('-', '')}`
 
   // CREATE DATABASE refuse de s'exécuter dans une transaction, d'où `unsafe`.
-  const administrateur = postgres(urlAdministrateur, { max: 1 })
-  await administrateur.unsafe(`CREATE DATABASE ${nom}`)
-  await administrateur.end()
+  const admin = postgres(adminUrl, { max: 1 })
+  await admin.unsafe(`CREATE DATABASE ${name}`)
+  await admin.end()
 
-  const url = new URL(urlAdministrateur)
-  url.pathname = `/${nom}`
+  const url = new URL(adminUrl)
+  url.pathname = `/${name}`
   const sql = postgres(url.toString(), { max: 1 })
 
-  if (options.migrer !== false) {
-    await migrate(drizzle(sql), { migrationsFolder: DOSSIER_MIGRATIONS })
+  if (options.migrate !== false) {
+    await migrate(drizzle(sql), { migrationsFolder: MIGRATIONS_DIR })
   }
 
-  return { url: url.toString(), sql, fermer: () => sql.end() }
+  return { url: url.toString(), sql, close: () => sql.end() }
 }

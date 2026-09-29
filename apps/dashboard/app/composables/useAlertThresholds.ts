@@ -6,8 +6,8 @@ export function useAlertThresholds() {
   const { data, pending, error, refresh } = useFetch<AlertThresholdEntry[]>('/api/alert-thresholds')
   const thresholds = computed(() => data.value ?? [])
 
-  async function save(siteId: string, type: AlertThresholdType, valeurs: AlertThresholdInput) {
-    await $fetch(`/api/sites/${siteId}/alert-thresholds/${type}`, { method: 'PUT', body: valeurs })
+  async function save(siteId: string, type: AlertThresholdType, values: AlertThresholdInput) {
+    await $fetch(`/api/sites/${siteId}/alert-thresholds/${type}`, { method: 'PUT', body: values })
     await refresh()
   }
 

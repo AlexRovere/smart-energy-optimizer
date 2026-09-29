@@ -1,7 +1,7 @@
 import { useFetch, useRoute } from 'nuxt/app'
 import { computed, onMounted, onUnmounted } from 'vue'
 import type { Alert } from '../types/api'
-import { observerErreurFetch } from '../utils/erreurFetch'
+import { watchFetchError } from '../utils/fetchError'
 
 const POLLING_INTERVAL_MS = 30_000
 
@@ -14,7 +14,7 @@ export function useAlerts() {
     onUnmounted(() => clearInterval(timer))
   })
 
-  observerErreurFetch(error, {
+  watchFetchError(error, {
     url: '/api/alerts',
     route: () => route.path,
   })

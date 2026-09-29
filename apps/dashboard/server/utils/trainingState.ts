@@ -1,18 +1,18 @@
-export interface DernierResultat {
-  statut: 'succès' | 'erreur'
-  début: Date
-  fin: Date
+export interface TrainingRun {
+  status: 'success' | 'error'
+  startedAt: Date
+  finishedAt: Date
   message?: string
 }
 
 export const trainingState = {
-  enCours: false as boolean,
-  debut: undefined as Date | undefined,
-  dernier: null as DernierResultat | null,
+  inProgress: false as boolean,
+  startedAt: undefined as Date | undefined,
+  lastRun: null as TrainingRun | null,
 }
 
 export function resetTrainingState(): void {
-  trainingState.enCours = false
-  trainingState.debut = undefined
-  trainingState.dernier = null
+  trainingState.inProgress = false
+  trainingState.startedAt = undefined
+  trainingState.lastRun = null
 }

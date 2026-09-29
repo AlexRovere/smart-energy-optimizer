@@ -8,7 +8,7 @@ import { useSiteRecommendations } from '../../app/composables/useSiteRecommendat
 const useFetchMock = vi.hoisted(() => vi.fn())
 mockNuxtImport('useFetch', () => useFetchMock)
 
-const RECOMMANDATION: Recommendation = {
+const RECOMMENDATION: Recommendation = {
   recommendation_id: 'REC-SITE001-pic-2026-09-18T10:00:00.000Z',
   site_id: 'SITE001',
   source: 'threshold',
@@ -54,9 +54,9 @@ describe('useSiteRecommendations', () => {
   })
 
   it('rend les recommandations reçues', () => {
-    useFetchMock.mockReturnValue({ data: ref({ recommendations: [RECOMMANDATION], unavailable: [] }), pending: ref(false), error: ref(null) })
+    useFetchMock.mockReturnValue({ data: ref({ recommendations: [RECOMMENDATION], unavailable: [] }), pending: ref(false), error: ref(null) })
     const { recommendations } = useSiteRecommendations(ref<SiteId>('SITE001'))
-    expect(recommendations.value).toEqual([RECOMMANDATION])
+    expect(recommendations.value).toEqual([RECOMMENDATION])
   })
 
   it('dit quelles sources ont manqué au calcul', () => {

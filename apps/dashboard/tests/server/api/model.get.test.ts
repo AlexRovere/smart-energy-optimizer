@@ -19,10 +19,10 @@ vi.mock('../../../server/utils/mlClient', () => ({
   fetchModelInfo: mockFetchModelInfo,
 }))
 
-const compteAdmin = { id: 'user-uuid', email: 'admin@enervision.fr', role: 'ADMIN' }
+const adminAccount = { id: 'user-uuid', email: 'admin@enervision.fr', role: 'ADMIN' }
 const mockEvent = { path: '/api/model' } as H3Event
 
-const modèleChampion = {
+const championModel = {
   name: 'enervision-catboost',
   version: '4',
   alias: 'champion',
@@ -33,8 +33,8 @@ const modèleChampion = {
 describe('GET /api/model', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockRequireRole.mockResolvedValue(compteAdmin)
-    mockFetchModelInfo.mockResolvedValue(modèleChampion)
+    mockRequireRole.mockResolvedValue(adminAccount)
+    mockFetchModelInfo.mockResolvedValue(championModel)
   })
 
   it('retourne 403 si le compte n\'est pas ADMIN', async () => {
@@ -44,9 +44,9 @@ describe('GET /api/model', () => {
   })
 
   it('retourne les informations enrichies du modèle champion', async () => {
-    const résultat = await handler(mockEvent)
+    const result = await handler(mockEvent)
 
-    expect(résultat).toEqual(modèleChampion)
+    expect(result).toEqual(championModel)
   })
 
   it('retourne 503 si le service ML est indisponible', async () => {

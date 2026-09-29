@@ -1,21 +1,21 @@
 import { watch } from 'vue'
 import type { Ref } from 'vue'
 
-export interface ContexteErreurFetch {
+export interface FetchErrorContext {
   url: string | (() => string)
   route: () => string
 }
 
-export function observerErreurFetch(
+export function watchFetchError(
   error: Ref<Error | null | undefined>,
-  contexte: ContexteErreurFetch
+  context: FetchErrorContext
 ) {
   watch(error, (err) => {
     if (!err) return
     console.error('[EnerVision] Erreur réseau ou serveur', {
       timestamp: new Date().toISOString(),
-      route: contexte.route(),
-      url: typeof contexte.url === 'function' ? contexte.url() : contexte.url,
+      route: context.route(),
+      url: typeof context.url === 'function' ? context.url() : context.url,
       message: err.message,
     })
   })

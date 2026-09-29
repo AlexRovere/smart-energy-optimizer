@@ -36,7 +36,7 @@ vi.mock('../../../../server/database', () => ({
 
 const mockEvent = {} as H3Event
 
-const compteFixture = { id: 'user-uuid', email: 'test@enervision.fr', role: 'OPERATOR' }
+const accountFixture = { id: 'user-uuid', email: 'test@enervision.fr', role: 'OPERATOR' }
 
 const siteFixture = {
   site_id: 'SITE001',
@@ -52,7 +52,7 @@ const siteFixture = {
 describe('GET /api/sites', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockRequireAccount.mockResolvedValue(compteFixture)
+    mockRequireAccount.mockResolvedValue(accountFixture)
     mockLatestDataPerSite.mockResolvedValue({})
     process.env.NUXT_PARQUET_DIR = '/data'
   })
@@ -61,10 +61,10 @@ describe('GET /api/sites', () => {
     mockAllowedSites.mockResolvedValue(['SITE001'])
     mockQuerySitesList.mockResolvedValue([siteFixture])
 
-    const résultat = await handler(mockEvent)
+    const result = await handler(mockEvent)
 
-    expect(résultat).toEqual([{ ...siteFixture, last_data_at: null }])
-    expect(mockAllowedSites).toHaveBeenCalledWith({}, compteFixture)
+    expect(result).toEqual([{ ...siteFixture, last_data_at: null }])
+    expect(mockAllowedSites).toHaveBeenCalledWith({}, accountFixture)
     expect(mockQuerySitesList).toHaveBeenCalledWith({}, ['SITE001'])
   })
 
@@ -72,9 +72,9 @@ describe('GET /api/sites', () => {
     mockAllowedSites.mockResolvedValue([])
     mockQuerySitesList.mockResolvedValue([])
 
-    const résultat = await handler(mockEvent)
+    const result = await handler(mockEvent)
 
-    expect(résultat).toEqual([])
+    expect(result).toEqual([])
   })
 
   it('retourne 401 quand requireAccount rejette', async () => {
@@ -97,10 +97,10 @@ describe('GET /api/sites', () => {
     mockQuerySitesList.mockResolvedValue([siteFixture])
     mockLatestDataPerSite.mockResolvedValue({ SITE001: '2026-09-29T13:00:00.000Z', SITE009: '2026-09-29T13:00:00.000Z' })
 
-    const résultat = await handler(mockEvent)
+    const result = await handler(mockEvent)
 
     expect(mockLatestDataPerSite).toHaveBeenCalledWith('/data')
-    expect(résultat).toEqual([{ ...siteFixture, last_data_at: '2026-09-29T13:00:00.000Z' }])
+    expect(result).toEqual([{ ...siteFixture, last_data_at: '2026-09-29T13:00:00.000Z' }])
   })
 
   it('sert la liste même quand le Parquet est illisible, et le journalise', async () => {
@@ -108,9 +108,9 @@ describe('GET /api/sites', () => {
     mockQuerySitesList.mockResolvedValue([siteFixture])
     mockLatestDataPerSite.mockRejectedValue(new Error('ENOENT'))
 
-    const résultat = await handler(mockEvent)
+    const result = await handler(mockEvent)
 
-    expect(résultat).toEqual([{ ...siteFixture, last_data_at: null }])
+    expect(result).toEqual([{ ...siteFixture, last_data_at: null }])
     expect(mockLoggerWarn).toHaveBeenCalledOnce()
   })
 })

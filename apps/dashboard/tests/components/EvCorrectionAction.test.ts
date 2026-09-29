@@ -27,10 +27,10 @@ describe('EvCorrectionAction', () => {
     ['le titre de la recommandation', ['Décaler la relance CVC de 45 min']],
     ['la description (fenêtre + confiance)', ['fenêtre 14:30 → 15:15 · confiance haute']],
     ['le gain en kW', ['-17', 'kW']],
-  ])('affiche %s', async (_description, textesAttendus) => {
+  ])('affiche %s', async (_description, expectedTexts) => {
     const wrapper = await mountSuspended(EvCorrectionAction, { props: { recommendation: mockRec } })
-    for (const texteAttendu of textesAttendus) {
-      expect(wrapper.text()).toContain(texteAttendu)
+    for (const expectedText of expectedTexts) {
+      expect(wrapper.text()).toContain(expectedText)
     }
   })
 

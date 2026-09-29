@@ -1,39 +1,39 @@
 import type { Prediction, SiteId } from "~/types/api";
-import { observerErreurFetch } from "~/utils/erreurFetch";
+import { watchFetchError } from "~/utils/fetchError";
 
 // La prédiction ne part qu'au clic (#257) : en démonstration, on veut voir
 // l'appel partir et son retour arriver, pas une courbe déjà là à l'ouverture.
-export function useSitePrediction(siteId: Ref<SiteId>, horizonHeures: Ref<number> = ref(24)) {
+export function useSitePrediction(siteId: Ref<SiteId>, horizonHours: Ref<number> = ref(24)) {
   const { data, pending, error, execute, clear } = useFetch<Prediction>(
     () => `/api/sites/${siteId.value}/prediction`,
     {
       method: 'POST',
-      body: computed(() => ({ horizon_hours: horizonHeures.value })),
+      body: computed(() => ({ horizon_hours: horizonHours.value })),
       immediate: false,
       watch: false
     }
   )
 
-  const lancee = ref(false)
-  const dureeMs = ref<number | null>(null)
+  const launched = ref(false)
+  const durationMs = ref<number | null>(null)
 
-  async function lancer() {
-    lancee.value = true
-    const début = performance.now()
+  async function launch() {
+    launched.value = true
+    const startedAt = performance.now()
     await execute()
-    dureeMs.value = Math.round(performance.now() - début)
+    durationMs.value = Math.round(performance.now() - startedAt)
   }
 
   // Une courbe calculée pour un autre site ou un autre horizon induirait en
   // erreur : on revient à l'état « pas encore lancé ».
-  watch([siteId, horizonHeures], () => {
-    lancee.value = false
-    dureeMs.value = null
+  watch([siteId, horizonHours], () => {
+    launched.value = false
+    durationMs.value = null
     clear()
   })
 
   const route = useRoute()
-  observerErreurFetch(error, {
+  watchFetchError(error, {
     url: () => `/api/sites/${siteId.value}/prediction`,
     route: () => route.path
   })
@@ -49,9 +49,9 @@ export function useSitePrediction(siteId: Ref<SiteId>, horizonHeures: Ref<number
     available: computed(() => error.value == null),
     // Motif rendu par la route (#6) : historique insuffisant, modèle absent...
     failureMessage: computed(() => error.value?.statusMessage ?? null),
-    lancer,
-    lancee,
-    dureeMs,
+    launch,
+    launched,
+    durationMs,
     pending,
     error
   }

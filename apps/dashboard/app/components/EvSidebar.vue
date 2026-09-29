@@ -4,9 +4,9 @@ import type { NavigationMenuItem } from '@nuxt/ui'
 const { sites } = useSites()
 const { account, logout } = useAccountSession()
 const toast = useToast()
-const { pending, dernierEntrainement, déclencher } = useTraining()
+const { pending, lastTraining, trigger } = useTraining()
 
-const initiales = computed(() => {
+const initials = computed(() => {
   const local = account.value?.email.split('@')[0] ?? ''
   const segments = local.split('.')
   if (segments.length > 1) {
@@ -15,8 +15,8 @@ const initiales = computed(() => {
   return local.slice(0, 2).toUpperCase() || '?'
 })
 
-const labelRôle = computed(() => roleLabel(account.value?.role))
-const { modele, rafraichirModele, disponible: modeleDisponible } = useModeleML()
+const roleText = computed(() => roleLabel(account.value?.role))
+const { model, refreshModel, available: modelAvailable } = useMlModel()
 const { health } = useHealth()
 
 const SERVICE = {
@@ -26,17 +26,17 @@ const SERVICE = {
 } as const
 
 const service = computed(() => health.value ? SERVICE[health.value.status] : null)
-const derniereCollecte = computed(() => health.value?.last_data_at
+const lastCollect = computed(() => health.value?.last_data_at
   ? `dernière collecte ${fmtShortDateTime(health.value.last_data_at)}`
   : 'aucune collecte connue')
 
-watch(dernierEntrainement, (val) => {
-  if (val?.statut === 'succès') rafraichirModele()
+watch(lastTraining, (val) => {
+  if (val?.status === 'success') refreshModel()
 })
 
-async function lancerEntrainement() {
+async function startTraining() {
   try {
-    await déclencher()
+    await trigger()
     toast.add({ title: 'Entraînement déclenché', description: 'La demande a été transmise au service ML.', color: 'success' })
   } catch (err: unknown) {
     const code = (err as { statusCode?: number }).statusCode
@@ -45,7 +45,7 @@ async function lancerEntrainement() {
   }
 }
 
-const pilotageItems = computed<NavigationMenuItem[]>(() => [
+const operationsItems = computed<NavigationMenuItem[]>(() => [
   {
     label: 'Vue d\'ensemble',
     icon: 'i-heroicons-chart-bar-square',
@@ -69,7 +69,7 @@ const pilotageItems = computed<NavigationMenuItem[]>(() => [
   }
 ])
 
-const systemeItems: NavigationMenuItem[] = [
+const systemItems: NavigationMenuItem[] = [
   {
     label: 'Paramétrages',
     icon: 'i-heroicons-cog-6-tooth',
@@ -92,7 +92,7 @@ const systemeItems: NavigationMenuItem[] = [
     <template #default="{ collapsed }">
       <UNavigationMenu
         :collapsed="collapsed"
-        :items="pilotageItems"
+        :items="operationsItems"
         color="primary"
         orientation="vertical"
         tooltip
@@ -118,7 +118,7 @@ const systemeItems: NavigationMenuItem[] = [
 
       <UNavigationMenu
         :collapsed="collapsed"
-        :items="systemeItems"
+        :items="systemItems"
         color="primary"
         orientation="vertical"
         tooltip
@@ -135,11 +135,11 @@ const systemeItems: NavigationMenuItem[] = [
       <div class="flex flex-col gap-3 px-2">
         <!-- Modèle actif + entraînement — ADMIN uniquement -->
         <template v-if="!collapsed && account?.role === 'ADMIN'">
-          <EvModelCard :modele="modele" :disponible="modeleDisponible" />
+          <EvModelCard :model="model" :available="modelAvailable" />
           <EvTrainingButton
-            :dernier-entrainement="dernierEntrainement"
+            :last-training="lastTraining"
             :loading="pending"
-            @déclencher="lancerEntrainement"
+            @trigger="startTraining"
           />
         </template>
 
@@ -151,21 +151,21 @@ const systemeItems: NavigationMenuItem[] = [
           <span class="font-ev text-[11px] font-medium tracking-[0.06em] text-ev-text-4">COLLECTE</span>
           <EvHealthBadge :status="service.badge" :label="service.label" />
           <span class="font-ev-mono text-[11px] leading-snug text-ev-text-4">
-            {{ derniereCollecte }}
+            {{ lastCollect }}
           </span>
         </div>
 
         <!-- User -->
         <div class="flex items-center gap-2.5 px-2 pb-2">
           <UAvatar
-            :text="initiales"
+            :text="initials"
             size="sm"
             :ui="{ root: 'bg-ev-green-bg text-ev-green font-semibold shrink-0' }"
             data-testid="user-avatar"
           />
           <div v-if="!collapsed" class="flex flex-col gap-0.5 min-w-0">
             <span class="font-ev text-[13px] font-semibold leading-none truncate">{{ account?.email }}</span>
-            <span class="font-ev text-[11px] leading-none text-ev-text-4">{{ labelRôle }}</span>
+            <span class="font-ev text-[11px] leading-none text-ev-text-4">{{ roleText }}</span>
           </div>
           <UButton
             v-if="!collapsed"

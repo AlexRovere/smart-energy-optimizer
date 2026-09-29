@@ -12,9 +12,9 @@ export function usePredictions() {
   const { getSiteInfo } = useSites()
 
   const selectedSiteId = ref<SiteId>('SITE001')
-  const horizonHeures = ref(24)
+  const horizonHours = ref(24)
 
-  const prediction = useSitePrediction(selectedSiteId, horizonHeures)
+  const prediction = useSitePrediction(selectedSiteId, horizonHours)
   const { readings: historicalPoints } = useSiteHistory(selectedSiteId, ref<'24h' | '7j'>('24h'))
 
   const { data: recommendationsData } = useFetch<SiteRecommendationsResponse>(
@@ -46,7 +46,7 @@ export function usePredictions() {
   return {
     ...prediction,
     selectedSiteId,
-    horizonHeures,
+    horizonHours,
     siteInfo,
     historicalPoints,
     recommendations,

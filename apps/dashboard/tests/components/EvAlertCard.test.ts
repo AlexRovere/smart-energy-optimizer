@@ -7,7 +7,7 @@ import type { Alert } from '../../app/types/api'
 const useToastMock = vi.hoisted(() => vi.fn())
 mockNuxtImport('useToast', () => useToastMock)
 
-const alerte: Alert = {
+const alert: Alert = {
   alert_id: 'ALERT-001',
   site_id: 'SITE001',
   severity: 'high',
@@ -21,21 +21,21 @@ const alerte: Alert = {
 describe('EvAlertCard', () => {
   it('affiche le message de l\'alerte', async () => {
     useToastMock.mockReturnValue({ add: vi.fn() })
-    const wrapper = await mountSuspended(EvAlertCard, { props: { alert: alerte } })
+    const wrapper = await mountSuspended(EvAlertCard, { props: { alert: alert } })
     expect(wrapper.text()).toContain('Consommation excessive détectée')
   })
 
   it('affiche le bouton Acquitter', async () => {
     useToastMock.mockReturnValue({ add: vi.fn() })
-    const wrapper = await mountSuspended(EvAlertCard, { props: { alert: alerte } })
+    const wrapper = await mountSuspended(EvAlertCard, { props: { alert: alert } })
     expect(wrapper.text()).toContain('Acquitter')
   })
 
   it('affiche un toast au clic sur Acquitter', async () => {
     const toastAdd = vi.fn()
     useToastMock.mockReturnValue({ add: toastAdd })
-    const wrapper = await mountSuspended(EvAlertCard, { props: { alert: alerte } })
-    await wrapper.find('[data-testid="acquitter-btn"]').trigger('click')
+    const wrapper = await mountSuspended(EvAlertCard, { props: { alert: alert } })
+    await wrapper.find('[data-testid="acknowledge-btn"]').trigger('click')
     expect(toastAdd).toHaveBeenCalledWith(expect.objectContaining({
       title: 'Fonctionnalité non disponible dans cette version',
       color: 'warning',

@@ -7,8 +7,8 @@ import { hoursInHorizon } from './predictionHorizon'
 import type { AppDatabase } from './session'
 import type { TimestampedValue } from './rollingAverage'
 
-const DÉFAUTS_CONSO = { duration: 5, threshold: 200 }
-const LIMITE_LECTURE = 1000
+const CONSUMPTION_DEFAULTS = { duration: 5, threshold: 200 }
+const READ_LIMIT = 1000
 
 export interface HourlyConsumptionAlert extends ConsumptionAlertEvaluation {
   timestamp: string
@@ -18,34 +18,34 @@ export async function detectConsumptionAlertsFromPredictions(
   db: AppDatabase,
   siteId: string,
   reference: Date,
-  horizonHeures: number
+  horizonHours: number
 ): Promise<HourlyConsumptionAlert[]> {
-  const réglage = await getAlertThreshold(db, siteId, 'conso', DÉFAUTS_CONSO)
-  const heures = hoursInHorizon(reference, horizonHeures)
+  const setting = await getAlertThreshold(db, siteId, 'conso', CONSUMPTION_DEFAULTS)
+  const hours = hoursInHorizon(reference, horizonHours)
 
-  const début = new Date(reference.getTime() - réglage.duration * 3_600_000)
-  const fin = new Date(reference.getTime() + 1)
-  const contexte = await querySiteHistory(siteId, début.toISOString(), fin.toISOString(), LIMITE_LECTURE)
+  const startedAt = new Date(reference.getTime() - setting.duration * 3_600_000)
+  const finishedAt = new Date(reference.getTime() + 1)
+  const context = await querySiteHistory(siteId, startedAt.toISOString(), finishedAt.toISOString(), READ_LIMIT)
 
-  const prédictions = await fetchPredictions(
-    heures.map(heure => ({
+  const forecastHours = await fetchPredictions(
+    hours.map(hour => ({
       site_id: siteId,
-      date: heure.toISOString().slice(0, 10),
-      hour: heure.getUTCHours()
+      date: hour.toISOString().slice(0, 10),
+      hour: hour.getUTCHours()
     }))
   )
 
-  const valeursContexte: TimestampedValue[] = contexte
-    .filter(mesure => mesure.consumption_kwh !== null && mesure.consumption_kwh !== undefined)
-    .map(mesure => ({ timestamp: mesure.timestamp, value: mesure.consumption_kwh! }))
-  const valeursPrédites: TimestampedValue[] = heures.map((heure, index) => ({
-    timestamp: heure.toISOString(),
-    value: prédictions[index]!.consumption_kwh
+  const contextValues: TimestampedValue[] = context
+    .filter(reading => reading.consumption_kwh !== null && reading.consumption_kwh !== undefined)
+    .map(reading => ({ timestamp: reading.timestamp, value: reading.consumption_kwh! }))
+  const predictedValues: TimestampedValue[] = hours.map((hour, index) => ({
+    timestamp: hour.toISOString(),
+    value: forecastHours[index]!.consumption_kwh
   }))
-  const valeurs = [...valeursContexte, ...valeursPrédites]
+  const values = [...contextValues, ...predictedValues]
 
-  return heures.map(heure => ({
-    timestamp: heure.toISOString(),
-    ...detectConsumptionAlert(valeurs, heure, réglage)
+  return hours.map(hour => ({
+    timestamp: hour.toISOString(),
+    ...detectConsumptionAlert(values, hour, setting)
   }))
 }

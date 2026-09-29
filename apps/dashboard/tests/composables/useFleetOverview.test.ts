@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import type { Alert, StatsSummary } from '../../app/types/api'
 import { useFleetOverview } from '../../app/composables/useFleetOverview'
 
-const alertesFixture: Alert[] = [
+const alertsFixture: Alert[] = [
   { alert_id: 'ALT-001', site_id: 'SITE003', severity: 'critical', type: 'outage',    message: 'Capteur muet',    timestamp: new Date(Date.now() - 12 * 60_000).toISOString() },
   { alert_id: 'ALT-002', site_id: 'SITE002', severity: 'critical', type: 'threshold', message: 'Seuil dépassé',   timestamp: new Date(Date.now() - 27 * 60_000).toISOString(), value: 781, threshold: 720 },
   { alert_id: 'ALT-003', site_id: 'SITE005', severity: 'high',     type: 'spike',     message: 'Pic de charge',   timestamp: new Date(Date.now() - 48 * 60_000).toISOString() },
@@ -13,7 +13,7 @@ const alertesFixture: Alert[] = [
 
 vi.mock('../../app/composables/useAlerts', () => ({
   useAlerts: () => ({
-    alerts: computed(() => alertesFixture),
+    alerts: computed(() => alertsFixture),
     pending: ref(false),
     error: ref(null),
   }),
@@ -162,8 +162,8 @@ describe('useFleetOverview', () => {
 
   it("tire la santé de chaque site de l'état réel des capteurs", () => {
     const { siteSummary } = useFleetOverview()
-    const santé = Object.fromEntries(siteSummary.value.map(s => [s.site_id, s.health]))
-    expect(santé).toMatchObject({ SITE001: 'critical', SITE002: 'degraded', SITE003: 'ok' })
+    const health = Object.fromEntries(siteSummary.value.map(s => [s.site_id, s.health]))
+    expect(health).toMatchObject({ SITE001: 'critical', SITE002: 'degraded', SITE003: 'ok' })
   })
 
   it('reporte la date de la dernière donnée de chaque site', () => {

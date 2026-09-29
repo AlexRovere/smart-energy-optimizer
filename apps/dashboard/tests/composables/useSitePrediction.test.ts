@@ -8,7 +8,7 @@ const mockUseFetch = vi.hoisted(() => vi.fn())
 mockNuxtImport('useFetch', () => mockUseFetch)
 mockNuxtImport('useRoute', () => () => ({ path: '/sites/SITE001' }))
 
-const prédictionFixture = {
+const predictionFixture = {
   site_id: 'SITE001' as SiteId,
   predicted_at: '2026-09-23T10:00:00Z',
   horizon_hours: 24,
@@ -20,21 +20,21 @@ const prédictionFixture = {
   ],
 }
 
-function retourUseFetch(surcharges: Record<string, unknown> = {}) {
+function useFetchReturn(overrides: Record<string, unknown> = {}) {
   return {
     data: ref(null),
     pending: ref(false),
     error: ref(null),
     execute: vi.fn().mockResolvedValue(undefined),
     clear: vi.fn(),
-    ...surcharges,
+    ...overrides,
   }
 }
 
 describe('useSitePrediction', () => {
   beforeEach(() => {
     mockUseFetch.mockReset()
-    mockUseFetch.mockReturnValue(retourUseFetch())
+    mockUseFetch.mockReturnValue(useFetchReturn())
   })
 
   it('retourne forecastPoints=[] quand data est null', () => {
@@ -43,13 +43,13 @@ describe('useSitePrediction', () => {
   })
 
   it('retourne forecastPoints depuis data.predictions', () => {
-    mockUseFetch.mockReturnValue(retourUseFetch({ data: ref(prédictionFixture) }))
+    mockUseFetch.mockReturnValue(useFetchReturn({ data: ref(predictionFixture) }))
     const { forecastPoints } = useSitePrediction(ref<SiteId>('SITE001'))
-    expect(forecastPoints.value).toEqual(prédictionFixture.predictions)
+    expect(forecastPoints.value).toEqual(predictionFixture.predictions)
   })
 
   it('expose modelVersion depuis data.model_version', () => {
-    mockUseFetch.mockReturnValue(retourUseFetch({ data: ref(prédictionFixture) }))
+    mockUseFetch.mockReturnValue(useFetchReturn({ data: ref(predictionFixture) }))
     const { modelVersion } = useSitePrediction(ref<SiteId>('SITE001'))
     expect(modelVersion.value).toBe('3')
   })
@@ -60,7 +60,7 @@ describe('useSitePrediction', () => {
   })
 
   it('expose predictedAt et nbPoints depuis la réponse', () => {
-    mockUseFetch.mockReturnValue(retourUseFetch({ data: ref(prédictionFixture) }))
+    mockUseFetch.mockReturnValue(useFetchReturn({ data: ref(predictionFixture) }))
     const { predictedAt, nbPoints } = useSitePrediction(ref<SiteId>('SITE001'))
     expect(predictedAt.value).toBe('2026-09-23T10:00:00Z')
     expect(nbPoints.value).toBe(2)
@@ -78,7 +78,7 @@ describe('useSitePrediction', () => {
   })
 
   it('available=false quand error est défini', () => {
-    mockUseFetch.mockReturnValue(retourUseFetch({ error: ref(new Error('503 Service Unavailable')) }))
+    mockUseFetch.mockReturnValue(useFetchReturn({ error: ref(new Error('503 Service Unavailable')) }))
     const { available } = useSitePrediction(ref<SiteId>('SITE001'))
     expect(available.value).toBe(false)
   })
@@ -118,7 +118,7 @@ describe('useSitePrediction', () => {
   })
 
   it('expose confidenceLevel depuis data.confidence_level', () => {
-    mockUseFetch.mockReturnValue(retourUseFetch({ data: ref({ ...prédictionFixture, confidence_level: 0.9 }) }))
+    mockUseFetch.mockReturnValue(useFetchReturn({ data: ref({ ...predictionFixture, confidence_level: 0.9 }) }))
     const { confidenceLevel } = useSitePrediction(ref<SiteId>('SITE001'))
     expect(confidenceLevel.value).toBe(0.9)
   })
@@ -137,54 +137,54 @@ describe('useSitePrediction', () => {
     })
 
     it('lancee=false tant que lancer() n\'a pas été appelé', () => {
-      const { lancee } = useSitePrediction(ref<SiteId>('SITE001'))
-      expect(lancee.value).toBe(false)
+      const { launched } = useSitePrediction(ref<SiteId>('SITE001'))
+      expect(launched.value).toBe(false)
     })
 
     it('lancer() appelle execute et passe lancee à true', async () => {
-      const retour = retourUseFetch()
-      mockUseFetch.mockReturnValue(retour)
-      const { lancer, lancee } = useSitePrediction(ref<SiteId>('SITE001'))
-      await lancer()
-      expect(retour.execute).toHaveBeenCalledOnce()
-      expect(lancee.value).toBe(true)
+      const returned = useFetchReturn()
+      mockUseFetch.mockReturnValue(returned)
+      const { launch, launched } = useSitePrediction(ref<SiteId>('SITE001'))
+      await launch()
+      expect(returned.execute).toHaveBeenCalledOnce()
+      expect(launched.value).toBe(true)
     })
 
     it('lancer() mesure la durée de l\'appel en millisecondes', async () => {
-      const { lancer, dureeMs } = useSitePrediction(ref<SiteId>('SITE001'))
-      expect(dureeMs.value).toBeNull()
-      await lancer()
-      expect(typeof dureeMs.value).toBe('number')
-      expect(dureeMs.value).toBeGreaterThanOrEqual(0)
+      const { launch, durationMs } = useSitePrediction(ref<SiteId>('SITE001'))
+      expect(durationMs.value).toBeNull()
+      await launch()
+      expect(typeof durationMs.value).toBe('number')
+      expect(durationMs.value).toBeGreaterThanOrEqual(0)
     })
 
     it('changer de site efface le résultat et revient à l\'état non lancé', async () => {
-      const retour = retourUseFetch()
-      mockUseFetch.mockReturnValue(retour)
+      const returned = useFetchReturn()
+      mockUseFetch.mockReturnValue(returned)
       const siteId = ref<SiteId>('SITE001')
-      const { lancer, lancee, dureeMs } = useSitePrediction(siteId)
-      await lancer()
+      const { launch, launched, durationMs } = useSitePrediction(siteId)
+      await launch()
 
       siteId.value = 'SITE002'
       await nextTick()
 
-      expect(lancee.value).toBe(false)
-      expect(dureeMs.value).toBeNull()
-      expect(retour.clear).toHaveBeenCalled()
+      expect(launched.value).toBe(false)
+      expect(durationMs.value).toBeNull()
+      expect(returned.clear).toHaveBeenCalled()
     })
 
     it('changer d\'horizon efface aussi le résultat', async () => {
-      const retour = retourUseFetch()
-      mockUseFetch.mockReturnValue(retour)
+      const returned = useFetchReturn()
+      mockUseFetch.mockReturnValue(returned)
       const horizon = ref(24)
-      const { lancer, lancee } = useSitePrediction(ref<SiteId>('SITE001'), horizon)
-      await lancer()
+      const { launch, launched } = useSitePrediction(ref<SiteId>('SITE001'), horizon)
+      await launch()
 
       horizon.value = 48
       await nextTick()
 
-      expect(lancee.value).toBe(false)
-      expect(retour.clear).toHaveBeenCalled()
+      expect(launched.value).toBe(false)
+      expect(returned.clear).toHaveBeenCalled()
     })
   })
 
@@ -194,7 +194,7 @@ describe('useSitePrediction', () => {
     it('loggue sur console.error quand error passe de null à une Error', async () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
       const errorRef = ref<Error | null>(null)
-      mockUseFetch.mockReturnValue(retourUseFetch({ error: errorRef }))
+      mockUseFetch.mockReturnValue(useFetchReturn({ error: errorRef }))
 
       useSitePrediction(ref<SiteId>('SITE001'))
 

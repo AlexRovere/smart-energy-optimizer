@@ -10,17 +10,17 @@ export interface SpikeAlertEvaluation {
 }
 
 export function detectSpikeAlert(
-  valeursPrécédentes: TimestampedValue[],
+  previousValues: TimestampedValue[],
   reference: Date,
-  valeurCourante: number,
-  réglage: AlertThreshold
+  currentValue: number,
+  setting: AlertThreshold
 ): SpikeAlertEvaluation {
-  const moyenne = rollingAverage(valeursPrécédentes, reference, réglage.duration)
-  const seuilKw = moyenne !== null ? moyenne * réglage.threshold : null
+  const mean = rollingAverage(previousValues, reference, setting.duration)
+  const thresholdKw = mean !== null ? mean * setting.threshold : null
   return {
-    alert: seuilKw !== null && valeurCourante >= seuilKw,
-    currentValue: valeurCourante,
-    average: moyenne,
-    thresholdKw: seuilKw
+    alert: thresholdKw !== null && currentValue >= thresholdKw,
+    currentValue: currentValue,
+    average: mean,
+    thresholdKw: thresholdKw
   }
 }

@@ -21,13 +21,13 @@ export default defineEventHandler(async (event) => {
   const { horizon_hours } = body.data
 
   try {
-    const heures = hoursInHorizon(new Date(), horizon_hours)
-    const requests = heures.map(d => ({
+    const hours = hoursInHorizon(new Date(), horizon_hours)
+    const requests = hours.map(d => ({
       site_id: siteId,
       date: d.toISOString().slice(0, 10),
       hour: d.getUTCHours()
     }))
-    const [items, modèle] = await Promise.all([
+    const [items, model] = await Promise.all([
       fetchPredictions(requests),
       fetchModelInfo()
     ])
@@ -36,7 +36,7 @@ export default defineEventHandler(async (event) => {
       predicted_at: new Date().toISOString(),
       horizon_hours,
       granularity: 'hour' as const,
-      model_version: modèle.version,
+      model_version: model.version,
       predictions: items.map(item => ({
         timestamp: item.timestamp,
         predicted_consumption_kw: item.consumption_kwh

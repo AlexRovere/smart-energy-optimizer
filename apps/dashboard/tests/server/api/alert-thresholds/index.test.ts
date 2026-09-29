@@ -24,13 +24,13 @@ vi.mock('../../../../server/database', () => ({
   db: {}
 }))
 
-const compteFixture = { id: 'user-uuid', email: 'test@enervision.fr', role: 'OPERATOR' }
+const accountFixture = { id: 'user-uuid', email: 'test@enervision.fr', role: 'OPERATOR' }
 const mockEvent = {} as H3Event
 
 describe('GET /api/alert-thresholds', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockRequireAccount.mockResolvedValue(compteFixture)
+    mockRequireAccount.mockResolvedValue(accountFixture)
   })
 
   it('rend les règles des sites autorisés, en snake_case', async () => {
@@ -40,13 +40,13 @@ describe('GET /api/alert-thresholds', () => {
       { siteId: 'SITE001', type: 'pic', duration: 5, threshold: 1.5 }
     ])
 
-    const résultat = await handler(mockEvent)
+    const result = await handler(mockEvent)
 
-    expect(résultat).toEqual([
+    expect(result).toEqual([
       { site_id: 'SITE001', type: 'conso', duration: 5, threshold: 200 },
       { site_id: 'SITE001', type: 'pic', duration: 5, threshold: 1.5 }
     ])
-    expect(mockAllowedSites).toHaveBeenCalledWith({}, compteFixture)
+    expect(mockAllowedSites).toHaveBeenCalledWith({}, accountFixture)
     expect(mockListAlertThresholds).toHaveBeenCalledWith({}, ['SITE001'])
   })
 

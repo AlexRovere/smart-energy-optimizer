@@ -5,11 +5,11 @@ import { DuckDBInstance } from '@duckdb/node-api'
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { querySiteHistory } from '../../../server/utils/parquetReader'
 
-const répertoireTemp = join(tmpdir(), `parquet-test-${Date.now()}`)
-const cheminFichier = join(répertoireTemp, 'site_id=SITE001', 'year=2026', 'month=09', 'day=16', 'readings.parquet')
+const tempDir = join(tmpdir(), `parquet-test-${Date.now()}`)
+const filePath = join(tempDir, 'site_id=SITE001', 'year=2026', 'month=09', 'day=16', 'readings.parquet')
 
 beforeAll(async () => {
-  mkdirSync(join(répertoireTemp, 'site_id=SITE001', 'year=2026', 'month=09', 'day=16'), { recursive: true })
+  mkdirSync(join(tempDir, 'site_id=SITE001', 'year=2026', 'month=09', 'day=16'), { recursive: true })
 
   const instance = await DuckDBInstance.create()
   const conn = await instance.connect()
@@ -29,37 +29,37 @@ beforeAll(async () => {
         NULL::DOUBLE                         AS humidity_percent,
         []::VARCHAR[]                        AS null_reasons,
         'good'                               AS data_quality
-    ) TO '${cheminFichier.replace(/\\/g, '/')}' (FORMAT PARQUET)
+    ) TO '${filePath.replace(/\\/g, '/')}' (FORMAT PARQUET)
   `)
 })
 
 afterAll(() => {
-  rmSync(répertoireTemp, { recursive: true, force: true })
+  rmSync(tempDir, { recursive: true, force: true })
 })
 
 describe('querySiteHistory — vrai fichier Parquet', () => {
-  const envSauvegarde = process.env.NUXT_PARQUET_DIR
+  const savedEnv = process.env.NUXT_PARQUET_DIR
 
   beforeAll(() => {
-    process.env.NUXT_PARQUET_DIR = répertoireTemp
+    process.env.NUXT_PARQUET_DIR = tempDir
   })
 
   afterAll(() => {
-    process.env.NUXT_PARQUET_DIR = envSauvegarde
+    process.env.NUXT_PARQUET_DIR = savedEnv
   })
 
   it('retourne les mesures lues depuis le fichier Parquet', async () => {
-    const résultat = await querySiteHistory(
+    const result = await querySiteHistory(
       'SITE001',
       '2026-09-16T00:00:00Z',
       '2026-09-17T00:00:00Z',
       500
     )
 
-    expect(résultat).toHaveLength(1)
-    expect(résultat[0]!.site_id).toBe('SITE001')
-    expect(résultat[0]!.consumption_kw).toBeCloseTo(87.34)
-    expect(résultat[0]!.data_quality).toBe('good')
-    expect(résultat[0]!.timestamp).toMatch(/^2026-09-16T14:00:00/)
+    expect(result).toHaveLength(1)
+    expect(result[0]!.site_id).toBe('SITE001')
+    expect(result[0]!.consumption_kw).toBeCloseTo(87.34)
+    expect(result[0]!.data_quality).toBe('good')
+    expect(result[0]!.timestamp).toMatch(/^2026-09-16T14:00:00/)
   })
 })

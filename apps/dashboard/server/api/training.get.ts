@@ -5,15 +5,15 @@ import { trainingState } from '../utils/trainingState'
 export default defineEventHandler(async (event) => {
   await requireRole(event, 'ADMIN')
 
-  const { enCours, dernier } = trainingState
+  const { inProgress, lastRun } = trainingState
   return {
-    en_cours: enCours,
-    dernier: dernier
+    in_progress: inProgress,
+    last: lastRun
       ? {
-          statut: dernier.statut,
-          début: dernier.début.toISOString(),
-          fin: dernier.fin.toISOString(),
-          message: dernier.message,
+          status: lastRun.status,
+          started_at: lastRun.startedAt.toISOString(),
+          finished_at: lastRun.finishedAt.toISOString(),
+          message: lastRun.message,
         }
       : null,
   }

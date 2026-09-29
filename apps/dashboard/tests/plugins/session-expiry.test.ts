@@ -22,7 +22,7 @@ describe('plugin session expirée', () => {
   it("un 401 d'une route d'API renvoie vers la connexion et oublie le compte", async () => {
     await globalThis.$fetch('/api/sites/SITE001/current').catch(() => {})
 
-    expect(navigateToMock).toHaveBeenCalledWith(expect.stringMatching(/^\/login\?expiree=1/))
+    expect(navigateToMock).toHaveBeenCalledWith(expect.stringMatching(/^\/login\?expired=1/))
     expect(useAccountSession().account.value).toBeNull()
   })
 

@@ -15,14 +15,14 @@ vi.mock('../../../server/utils/guard', () => ({
   requireRole: mockRequireRole,
 }))
 
-const compteAdmin = { id: 'user-uuid', email: 'admin@enervision.fr', role: 'ADMIN' }
+const adminAccount = { id: 'user-uuid', email: 'admin@enervision.fr', role: 'ADMIN' }
 const mockEvent = { path: '/api/training' } as H3Event
 
 describe('GET /api/training', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     resetTrainingState()
-    mockRequireRole.mockResolvedValue(compteAdmin)
+    mockRequireRole.mockResolvedValue(adminAccount)
   })
 
   it('retourne 403 si le compte n\'est pas ADMIN', async () => {
@@ -31,40 +31,40 @@ describe('GET /api/training', () => {
     await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 403 })
   })
 
-  it('retourne en_cours false et dernier null à l\'état initial', async () => {
-    const résultat = await handler(mockEvent)
+  it('retourne in_progress false et last null à l\'état initial', async () => {
+    const result = await handler(mockEvent)
 
-    expect(résultat).toEqual({ en_cours: false, dernier: null })
+    expect(result).toEqual({ in_progress: false, last: null })
   })
 
-  it('retourne en_cours true pendant un entraînement', async () => {
-    trainingState.enCours = true
+  it('retourne in_progress true pendant un entraînement', async () => {
+    trainingState.inProgress = true
 
-    const résultat = await handler(mockEvent)
+    const result = await handler(mockEvent)
 
-    expect(résultat.en_cours).toBe(true)
+    expect(result.in_progress).toBe(true)
   })
 
   it('retourne le statut succès après un entraînement réussi', async () => {
-    const début = new Date('2026-09-23T10:00:00Z')
-    const fin = new Date('2026-09-23T10:02:00Z')
-    trainingState.dernier = { statut: 'succès', début, fin }
+    const startedAt = new Date('2026-09-23T10:00:00Z')
+    const finishedAt = new Date('2026-09-23T10:02:00Z')
+    trainingState.lastRun = { status: 'success', startedAt, finishedAt }
 
-    const résultat = await handler(mockEvent)
+    const result = await handler(mockEvent)
 
-    expect(résultat.dernier?.statut).toBe('succès')
-    expect(résultat.dernier?.début).toBe(début.toISOString())
-    expect(résultat.dernier?.fin).toBe(fin.toISOString())
+    expect(result.last?.status).toBe('success')
+    expect(result.last?.started_at).toBe(startedAt.toISOString())
+    expect(result.last?.finished_at).toBe(finishedAt.toISOString())
   })
 
   it('retourne le statut erreur avec le message après un échec', async () => {
-    const début = new Date('2026-09-23T10:00:00Z')
-    const fin = new Date('2026-09-23T10:00:05Z')
-    trainingState.dernier = { statut: 'erreur', début, fin, message: 'Données invalides' }
+    const startedAt = new Date('2026-09-23T10:00:00Z')
+    const finishedAt = new Date('2026-09-23T10:00:05Z')
+    trainingState.lastRun = { status: 'error', startedAt, finishedAt, message: 'Données invalides' }
 
-    const résultat = await handler(mockEvent)
+    const result = await handler(mockEvent)
 
-    expect(résultat.dernier?.statut).toBe('erreur')
-    expect(résultat.dernier?.message).toBe('Données invalides')
+    expect(result.last?.status).toBe('error')
+    expect(result.last?.message).toBe('Données invalides')
   })
 })

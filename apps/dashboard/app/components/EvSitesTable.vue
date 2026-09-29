@@ -20,7 +20,7 @@ function fmtLoad(pct: number | null): string {
   return pct.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' %'
 }
 
-function fmtConso(kw: number | null): string {
+function fmtConsumption(kw: number | null): string {
   if (kw == null) return '—'
   return kw.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' kW'
 }
@@ -61,7 +61,7 @@ function fmtConso(kw: number | null): string {
             </div>
           </td>
           <td class="py-3.5 pr-6 text-right font-ev-mono text-sm">
-            {{ fmtConso(site.current_consumption_kw) }}
+            {{ fmtConsumption(site.current_consumption_kw) }}
           </td>
           <td class="py-3.5 pr-8 text-right font-ev-mono text-sm">
             {{ site.capacity_kw.toLocaleString('fr-FR') }} kW

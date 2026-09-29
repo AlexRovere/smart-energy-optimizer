@@ -12,14 +12,14 @@ export async function getAlertThreshold(
   db: AppDatabase,
   siteId: string,
   type: 'conso' | 'pic',
-  defauts: AlertThreshold
+  defaults: AlertThreshold
 ): Promise<AlertThreshold> {
-  const [ligne] = await db
+  const [row] = await db
     .select({ duration: alertThresholds.duration, threshold: alertThresholds.threshold })
     .from(alertThresholds)
     .where(and(eq(alertThresholds.siteId, siteId), eq(alertThresholds.type, type)))
 
-  return ligne ?? defauts
+  return row ?? defaults
 }
 
 export interface AlertThresholdEntry extends AlertThreshold {
@@ -27,32 +27,32 @@ export interface AlertThresholdEntry extends AlertThreshold {
   type: 'conso' | 'pic'
 }
 
-const DÉFAUTS: Record<'conso' | 'pic', AlertThreshold> = {
+const DEFAULTS: Record<'conso' | 'pic', AlertThreshold> = {
   conso: { duration: 5, threshold: 200 },
   pic: { duration: 5, threshold: 1.5 }
 }
 
 export async function listAlertThresholds(db: AppDatabase, siteIds: string[]): Promise<AlertThresholdEntry[]> {
-  const entrées: AlertThresholdEntry[] = []
+  const entries: AlertThresholdEntry[] = []
   for (const siteId of siteIds) {
     for (const type of ['conso', 'pic'] as const) {
-      entrées.push({ siteId, type, ...await getAlertThreshold(db, siteId, type, DÉFAUTS[type]) })
+      entries.push({ siteId, type, ...await getAlertThreshold(db, siteId, type, DEFAULTS[type]) })
     }
   }
-  return entrées
+  return entries
 }
 
 export async function upsertAlertThreshold(
   db: AppDatabase,
   siteId: string,
   type: 'conso' | 'pic',
-  valeurs: AlertThreshold
+  values: AlertThreshold
 ): Promise<void> {
   await db
     .insert(alertThresholds)
-    .values({ siteId, type, duration: valeurs.duration, threshold: valeurs.threshold })
+    .values({ siteId, type, duration: values.duration, threshold: values.threshold })
     .onConflictDoUpdate({
       target: [alertThresholds.siteId, alertThresholds.type],
-      set: { duration: valeurs.duration, threshold: valeurs.threshold }
+      set: { duration: values.duration, threshold: values.threshold }
     })
 }

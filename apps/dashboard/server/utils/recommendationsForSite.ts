@@ -9,7 +9,7 @@ import type { Recommendation, RecommendationPriority } from '../../shared/recomm
 
 // Au-delà de deux jours, une alerte n'est plus actionnable, et la prédiction
 // autorégressive accumule ses biais (#6, décision du 23 septembre 2026).
-const HORIZON_PRÉVISION_HEURES = 48
+const FORECAST_HORIZON_HOURS = 48
 
 export type MissingSource = 'history' | 'forecast'
 
@@ -28,48 +28,48 @@ export async function recommendationsForSite(
   reference: Date
 ): Promise<SiteRecommendations> {
   const outcomes = [
-    await recommendationConso(db, siteId, reference),
+    await consumptionRecommendation(db, siteId, reference),
     await recommendationPic(db, siteId, reference),
   ]
 
-  const ORDRE_PRIORITÉ: Record<RecommendationPriority, number> = { high: 0, medium: 1, low: 2 }
+  const PRIORITY_ORDER: Record<RecommendationPriority, number> = { high: 0, medium: 1, low: 2 }
   const recommendations = outcomes
     .flatMap(o => (o.recommendation ? [o.recommendation] : []))
-    .sort((a, b) => ORDRE_PRIORITÉ[a.priority] - ORDRE_PRIORITÉ[b.priority])
+    .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority])
   const unavailable = [...new Set(outcomes.flatMap(o => (o.missing ? [o.missing] : [])))]
 
   return { recommendations, unavailable }
 }
 
-async function recommendationConso(db: AppDatabase, siteId: string, reference: Date): Promise<Outcome> {
-  let aujourdHui
+async function consumptionRecommendation(db: AppDatabase, siteId: string, reference: Date): Promise<Outcome> {
+  let today
   try {
-    aujourdHui = await detectConsumptionAlertFromHistory(db, siteId, reference)
+    today = await detectConsumptionAlertFromHistory(db, siteId, reference)
   } catch {
     return { recommendation: null, missing: 'history' }
   }
 
-  if (aujourdHui.alert) {
+  if (today.alert) {
     return {
       recommendation: buildRecommendation(siteId, 'conso', 'threshold', {
         timestamp: reference.toISOString(),
-        valueKw: aujourdHui.average!,
-        thresholdKw: aujourdHui.thresholdKwh
+        valueKw: today.average!,
+        thresholdKw: today.thresholdKwh
       }),
       missing: null,
     }
   }
 
   try {
-    const prévisions = await detectConsumptionAlertsFromPredictions(db, siteId, reference, HORIZON_PRÉVISION_HEURES)
-    const première = prévisions.find(heure => heure.alert)
-    if (!première) return { recommendation: null, missing: null }
+    const forecasts = await detectConsumptionAlertsFromPredictions(db, siteId, reference, FORECAST_HORIZON_HOURS)
+    const first = forecasts.find(hour => hour.alert)
+    if (!first) return { recommendation: null, missing: null }
 
     return {
       recommendation: buildRecommendation(siteId, 'conso', 'forecast', {
-        timestamp: première.timestamp,
-        valueKw: première.average!,
-        thresholdKw: première.thresholdKwh
+        timestamp: first.timestamp,
+        valueKw: first.average!,
+        thresholdKw: first.thresholdKwh
       }),
       missing: null,
     }
@@ -79,34 +79,34 @@ async function recommendationConso(db: AppDatabase, siteId: string, reference: D
 }
 
 async function recommendationPic(db: AppDatabase, siteId: string, reference: Date): Promise<Outcome> {
-  let aujourdHui
+  let today
   try {
-    aujourdHui = await detectSpikeAlertFromHistory(db, siteId, reference)
+    today = await detectSpikeAlertFromHistory(db, siteId, reference)
   } catch {
     return { recommendation: null, missing: 'history' }
   }
 
-  if (aujourdHui.alert) {
+  if (today.alert) {
     return {
       recommendation: buildRecommendation(siteId, 'pic', 'threshold', {
         timestamp: reference.toISOString(),
-        valueKw: aujourdHui.currentValue!,
-        thresholdKw: aujourdHui.thresholdKw!
+        valueKw: today.currentValue!,
+        thresholdKw: today.thresholdKw!
       }),
       missing: null,
     }
   }
 
   try {
-    const prévisions = await detectSpikeAlertsFromPredictions(db, siteId, reference, HORIZON_PRÉVISION_HEURES)
-    const première = prévisions.find(heure => heure.alert)
-    if (!première) return { recommendation: null, missing: null }
+    const forecasts = await detectSpikeAlertsFromPredictions(db, siteId, reference, FORECAST_HORIZON_HOURS)
+    const first = forecasts.find(hour => hour.alert)
+    if (!first) return { recommendation: null, missing: null }
 
     return {
       recommendation: buildRecommendation(siteId, 'pic', 'forecast', {
-        timestamp: première.timestamp,
-        valueKw: première.currentValue!,
-        thresholdKw: première.thresholdKw!
+        timestamp: first.timestamp,
+        valueKw: first.currentValue!,
+        thresholdKw: first.thresholdKw!
       }),
       missing: null,
     }

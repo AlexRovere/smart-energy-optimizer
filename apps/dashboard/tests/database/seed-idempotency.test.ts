@@ -3,33 +3,33 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { baseDisponible, creerBaseDeTest, DOSSIER_MIGRATIONS, ligneAttendue, type BaseDeTest } from './base-de-test'
-import { amorcer, COMPTES_DE_DEMONSTRATION, ROLES, SITES_DE_DEMONSTRATION } from '../../server/database/seed'
+import { databaseAvailable, createTestDatabase, MIGRATIONS_DIR, expectedRow, type TestDatabase } from './test-database'
+import { seedDatabase, DEMO_ACCOUNTS, ROLES, DEMO_SITES } from '../../server/database/seed'
 
 const OPTIONS = {
-  motDePasseDemonstration: 'mot-de-passe-de-test',
-  motDePasseEtl: 'mot-de-passe-etl-de-test'
+  demoPassword: 'mot-de-passe-de-test',
+  etlPassword: 'mot-de-passe-etl-de-test'
 }
 
 // Apostrophe, antislash et guillemet : de quoi casser une concaténation naïve.
 // ALTER ROLE ... PASSWORD n'accepte aucun paramètre lié, donc l'amorçage
 // assemble là le seul SQL non paramétré de la branche, et rien ne l'exerçait
 // jusqu'ici avec autre chose qu'un mot de passe sage.
-const MOT_DE_PASSE_ETL_HOSTILE = 'a\'b\\c"d'
+const HOSTILE_ETL_PASSWORD = 'a\'b\\c"d'
 
-describe.skipIf(!baseDisponible())('amorçage', () => {
-  let base: BaseDeTest
+describe.skipIf(!databaseAvailable())('amorçage', () => {
+  let base: TestDatabase
 
   beforeAll(async () => {
-    base = await creerBaseDeTest()
+    base = await createTestDatabase()
   })
 
   afterAll(async () => {
-    await base?.fermer()
+    await base?.close()
   })
 
-  const compter = async (table: 'roles' | 'users') => {
-    const { total } = ligneAttendue(
+  const countRows = async (table: 'roles' | 'users') => {
+    const { total } = expectedRow(
       await base.sql<{ total: number }[]>`
         SELECT count(*)::int AS total FROM ${base.sql(table)}
       `,
@@ -39,74 +39,74 @@ describe.skipIf(!baseDisponible())('amorçage', () => {
   }
 
   it('crée les trois rôles, les trois comptes et les sites de démonstration au premier passage', async () => {
-    const resultat = await amorcer(base.sql, OPTIONS)
+    const result = await seedDatabase(base.sql, OPTIONS)
 
-    const accèsAttendus = COMPTES_DE_DEMONSTRATION.length * SITES_DE_DEMONSTRATION.length
-    expect(resultat).toEqual({
-      rolesCrees: ROLES.length,
-      comptesCrees: COMPTES_DE_DEMONSTRATION.length,
-      sitesCrees: SITES_DE_DEMONSTRATION.length,
-      accèsCrees: accèsAttendus
+    const expectedAccess = DEMO_ACCOUNTS.length * DEMO_SITES.length
+    expect(result).toEqual({
+      createdRoles: ROLES.length,
+      createdAccounts: DEMO_ACCOUNTS.length,
+      createdSites: DEMO_SITES.length,
+      createdAccess: expectedAccess
     })
-    expect(await compter('roles')).toBe(ROLES.length)
-    expect(await compter('users')).toBe(COMPTES_DE_DEMONSTRATION.length)
+    expect(await countRows('roles')).toBe(ROLES.length)
+    expect(await countRows('users')).toBe(DEMO_ACCOUNTS.length)
   })
 
   it('hache les mots de passe en Argon2id', async () => {
-    const ligne = ligneAttendue(
+    const row = expectedRow(
       await base.sql<{ password_hash: string }[]>`
-        SELECT password_hash FROM users WHERE email = ${COMPTES_DE_DEMONSTRATION[0].email}
+        SELECT password_hash FROM users WHERE email = ${DEMO_ACCOUNTS[0].email}
       `,
-      `le compte de démonstration ${COMPTES_DE_DEMONSTRATION[0].email}`
+      `le compte de démonstration ${DEMO_ACCOUNTS[0].email}`
     )
-    expect(ligne.password_hash).toMatch(/^\$argon2id\$/)
-    expect(ligne.password_hash).toContain('m=19456,t=2,p=1')
+    expect(row.password_hash).toMatch(/^\$argon2id\$/)
+    expect(row.password_hash).toContain('m=19456,t=2,p=1')
   })
 
   it('ne duplique rien au second passage', async () => {
-    const resultat = await amorcer(base.sql, OPTIONS)
+    const result = await seedDatabase(base.sql, OPTIONS)
 
-    expect(resultat).toEqual({ rolesCrees: 0, comptesCrees: 0, sitesCrees: 0, accèsCrees: 0 })
-    expect(await compter('roles')).toBe(ROLES.length)
-    expect(await compter('users')).toBe(COMPTES_DE_DEMONSTRATION.length)
+    expect(result).toEqual({ createdRoles: 0, createdAccounts: 0, createdSites: 0, createdAccess: 0 })
+    expect(await countRows('roles')).toBe(ROLES.length)
+    expect(await countRows('users')).toBe(DEMO_ACCOUNTS.length)
   })
 
   it("n'écrase pas un mot de passe changé depuis", async () => {
-    const email = COMPTES_DE_DEMONSTRATION[0].email
-    const empreinteChangee = '$argon2id$empreinte-posee-a-la-main'
+    const email = DEMO_ACCOUNTS[0].email
+    const hashChanged = '$argon2id$empreinte-posee-a-la-main'
 
     await base.sql`
-      UPDATE users SET password_hash = ${empreinteChangee} WHERE email = ${email}
+      UPDATE users SET password_hash = ${hashChanged} WHERE email = ${email}
     `
-    await amorcer(base.sql, OPTIONS)
+    await seedDatabase(base.sql, OPTIONS)
 
-    const ligne = ligneAttendue(
+    const row = expectedRow(
       await base.sql<{ password_hash: string }[]>`
         SELECT password_hash FROM users WHERE email = ${email}
       `,
       `le compte ${email} relu après le second amorçage`
     )
-    expect(ligne.password_hash).toBe(empreinteChangee)
+    expect(row.password_hash).toBe(hashChanged)
   })
 
   it('amorce les sites de démonstration pour permettre de tester sans ETL', async () => {
-    const { total } = ligneAttendue(
+    const { total } = expectedRow(
       await base.sql<{ total: number }[]>`
         SELECT count(*)::int AS total FROM sites
       `,
       'le décompte des lignes de sites'
     )
-    expect(total).toBe(SITES_DE_DEMONSTRATION.length)
+    expect(total).toBe(DEMO_SITES.length)
   })
 
   it('rend le rôle etl capable de se connecter', async () => {
-    const ligne = ligneAttendue(
+    const row = expectedRow(
       await base.sql<{ rolcanlogin: boolean }[]>`
         SELECT rolcanlogin FROM pg_roles WHERE rolname = 'etl'
       `,
       'la ligne pg_roles du rôle etl'
     )
-    expect(ligne.rolcanlogin).toBe(true)
+    expect(row.rolcanlogin).toBe(true)
   })
 
   // Volontairement le dernier test qui amorce : le mot de passe d'un rôle est
@@ -114,7 +114,7 @@ describe.skipIf(!baseDisponible())('amorçage', () => {
   // l'échappement par quote_literal et la propriété que personne ne vérifiait,
   // le mot de passe posé par l'amorçage ouvrant réellement une session.
   it('pose un mot de passe hostile avec lequel le rôle etl se connecte vraiment', async () => {
-    await amorcer(base.sql, { ...OPTIONS, motDePasseEtl: MOT_DE_PASSE_ETL_HOSTILE })
+    await seedDatabase(base.sql, { ...OPTIONS, etlPassword: HOSTILE_ETL_PASSWORD })
 
     // Connexion par options et non par URL : un mot de passe pareil ne traverse
     // pas une chaîne d'URL sans questions d'encodage, et ce test parle
@@ -125,37 +125,37 @@ describe.skipIf(!baseDisponible())('amorçage', () => {
       port: Number(url.port),
       database: url.pathname.slice(1),
       username: 'etl',
-      password: MOT_DE_PASSE_ETL_HOSTILE,
+      password: HOSTILE_ETL_PASSWORD,
       max: 1
     })
 
     try {
-      const ligne = ligneAttendue(
-        await etl<{ utilisateur: string }[]>`
-          SELECT current_user AS utilisateur
+      const row = expectedRow(
+        await etl<{ user: string }[]>`
+          SELECT current_user AS "user"
         `,
         'le current_user de la session ouverte par le rôle etl'
       )
-      expect(ligne.utilisateur).toBe('etl')
-      expect(await etl`SELECT id FROM sites`).toHaveLength(SITES_DE_DEMONSTRATION.length)
+      expect(row.user).toBe('etl')
+      expect(await etl`SELECT id FROM sites`).toHaveLength(DEMO_SITES.length)
     } finally {
       await etl.end()
     }
   })
 
   it("s'arrête dès la première insertion si les migrations n'ont pas été appliquées", async () => {
-    const vierge = await creerBaseDeTest({ migrer: false })
+    const blank = await createTestDatabase({ migrate: false })
     try {
-      const erreur = await amorcer(vierge.sql, OPTIONS).catch((cause: unknown) => cause)
+      const error = await seedDatabase(blank.sql, OPTIONS).catch((cause: unknown) => cause)
 
       // Ce que l'échec dit réellement : 42P01, table roles inexistante. C'est
       // PostgreSQL qui parle, pas la garde de seed.ts, qu'une base vierge
       // n'atteint jamais. L'assertion le nomme plutôt que de se contenter d'un
       // rejet quelconque ; la garde est couverte juste en dessous.
-      expect(erreur).toMatchObject({ code: '42P01' })
-      expect((erreur as Error).message).toMatch(/relation "roles" does not exist/)
+      expect(error).toMatchObject({ code: '42P01' })
+      expect((error as Error).message).toMatch(/relation "roles" does not exist/)
     } finally {
-      await vierge.fermer()
+      await blank.close()
     }
   })
 
@@ -166,13 +166,13 @@ describe.skipIf(!baseDisponible())('amorçage', () => {
     // schéma peut exister sans le rôle. On y applique les migrations, puis on
     // retire le rôle : c'est exactement la situation que la conception nomme,
     // une base dont les migrations ne sont pas celles qu'on croit.
-    let conteneur: StartedPostgreSqlContainer
+    let container: StartedPostgreSqlContainer
     let sql: postgres.Sql
 
     beforeAll(async () => {
-      conteneur = await new PostgreSqlContainer('postgres:16-alpine').start()
-      sql = postgres(conteneur.getConnectionUri(), { max: 1 })
-      await migrate(drizzle(sql), { migrationsFolder: DOSSIER_MIGRATIONS })
+      container = await new PostgreSqlContainer('postgres:16-alpine').start()
+      sql = postgres(container.getConnectionUri(), { max: 1 })
+      await migrate(drizzle(sql), { migrationsFolder: MIGRATIONS_DIR })
       // DROP OWNED BY retire aussi les privilèges accordés au rôle dans cette
       // base : sans lui, la suppression bute sur la table sites.
       await sql.unsafe('DROP OWNED BY etl')
@@ -181,11 +181,11 @@ describe.skipIf(!baseDisponible())('amorçage', () => {
 
     afterAll(async () => {
       await sql?.end()
-      await conteneur?.stop()
+      await container?.stop()
     })
 
     it('nomme le rôle manquant au lieu de laisser PostgreSQL parler à sa place', async () => {
-      await expect(amorcer(sql, OPTIONS)).rejects.toThrow(
+      await expect(seedDatabase(sql, OPTIONS)).rejects.toThrow(
         "Le rôle PostgreSQL « etl » n'existe pas : appliquer les migrations avant d'amorcer."
       )
     })

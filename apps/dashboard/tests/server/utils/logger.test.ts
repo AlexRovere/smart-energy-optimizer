@@ -18,31 +18,31 @@ describe('logger', () => {
     delete process.env.NUXT_LOG_LEVEL
   })
 
-  function dernièreLigneStdout(): unknown {
-    const appels = stdoutSpy.mock.calls
-    if (appels.length === 0) return null
-    return JSON.parse(appels[appels.length - 1][0] as string)
+  function lastStdoutLine(): unknown {
+    const calls = stdoutSpy.mock.calls
+    if (calls.length === 0) return null
+    return JSON.parse(calls[calls.length - 1][0] as string)
   }
 
-  function dernièreLigneStderr(): unknown {
-    const appels = stderrSpy.mock.calls
-    if (appels.length === 0) return null
-    return JSON.parse(appels[appels.length - 1][0] as string)
+  function lastStderrLine(): unknown {
+    const calls = stderrSpy.mock.calls
+    if (calls.length === 0) return null
+    return JSON.parse(calls[calls.length - 1][0] as string)
   }
 
   describe('niveau par défaut (info)', () => {
     it('loggue info sur stdout', async () => {
       const { logger } = await import('../../../server/utils/logger')
-      logger.info('démarrage', { composant: 'api' })
+      logger.info('démarrage', { component: 'api' })
 
       expect(stdoutSpy).toHaveBeenCalledOnce()
       expect(stderrSpy).not.toHaveBeenCalled()
 
-      const ligne = dernièreLigneStdout() as Record<string, unknown>
-      expect(ligne.level).toBe('info')
-      expect(ligne.message).toBe('démarrage')
-      expect(ligne.composant).toBe('api')
-      expect(typeof ligne.timestamp).toBe('string')
+      const row = lastStdoutLine() as Record<string, unknown>
+      expect(row.level).toBe('info')
+      expect(row.message).toBe('démarrage')
+      expect(row.component).toBe('api')
+      expect(typeof row.timestamp).toBe('string')
     })
 
     it('loggue warn sur stdout', async () => {
@@ -50,8 +50,8 @@ describe('logger', () => {
       logger.warn('attention')
 
       expect(stdoutSpy).toHaveBeenCalledOnce()
-      const ligne = dernièreLigneStdout() as Record<string, unknown>
-      expect(ligne.level).toBe('warn')
+      const row = lastStdoutLine() as Record<string, unknown>
+      expect(row.level).toBe('warn')
     })
 
     it('loggue error sur stderr', async () => {
@@ -61,9 +61,9 @@ describe('logger', () => {
       expect(stderrSpy).toHaveBeenCalledOnce()
       expect(stdoutSpy).not.toHaveBeenCalled()
 
-      const ligne = dernièreLigneStderr() as Record<string, unknown>
-      expect(ligne.level).toBe('error')
-      expect(ligne.message).toBe('erreur grave')
+      const row = lastStderrLine() as Record<string, unknown>
+      expect(row.level).toBe('error')
+      expect(row.message).toBe('erreur grave')
     })
 
     it('ne loggue pas debug si le niveau est info', async () => {
@@ -94,9 +94,9 @@ describe('logger', () => {
       logger.error('erreur critique', { route: '/api/sites/SITE001/history' })
 
       expect(stderrSpy).toHaveBeenCalledOnce()
-      const ligne = dernièreLigneStderr() as Record<string, unknown>
-      expect(ligne.level).toBe('error')
-      expect(ligne.route).toBe('/api/sites/SITE001/history')
+      const row = lastStderrLine() as Record<string, unknown>
+      expect(row.level).toBe('error')
+      expect(row.route).toBe('/api/sites/SITE001/history')
     })
   })
 
@@ -132,19 +132,19 @@ describe('logger', () => {
       const { logger } = await import('../../../server/utils/logger')
       logger.info('test format')
 
-      const ligne = dernièreLigneStdout() as Record<string, unknown>
-      expect(ligne).toHaveProperty('timestamp')
-      expect(ligne).toHaveProperty('level', 'info')
-      expect(ligne).toHaveProperty('message', 'test format')
+      const row = lastStdoutLine() as Record<string, unknown>
+      expect(row).toHaveProperty('timestamp')
+      expect(row).toHaveProperty('level', 'info')
+      expect(row).toHaveProperty('message', 'test format')
     })
 
     it('les champs de contexte sont aplatis dans la ligne', async () => {
       const { logger } = await import('../../../server/utils/logger')
       logger.info('avec contexte', { route: '/test', status: 503 })
 
-      const ligne = dernièreLigneStdout() as Record<string, unknown>
-      expect(ligne.route).toBe('/test')
-      expect(ligne.status).toBe(503)
+      const row = lastStdoutLine() as Record<string, unknown>
+      expect(row.route).toBe('/test')
+      expect(row.status).toBe(503)
     })
 
     it('ne contient pas de champ email ni sessionId', async () => {
@@ -153,10 +153,10 @@ describe('logger', () => {
       // logger ne les injecte pas lui-même
       logger.error('erreur', { route: '/api/auth/login' })
 
-      const ligne = dernièreLigneStderr() as Record<string, unknown>
-      expect(ligne).not.toHaveProperty('email')
-      expect(ligne).not.toHaveProperty('sessionId')
-      expect(ligne).not.toHaveProperty('password')
+      const row = lastStderrLine() as Record<string, unknown>
+      expect(row).not.toHaveProperty('email')
+      expect(row).not.toHaveProperty('sessionId')
+      expect(row).not.toHaveProperty('password')
     })
   })
 })

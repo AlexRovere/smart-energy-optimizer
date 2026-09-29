@@ -55,8 +55,8 @@ describe('EvPredictionChart', () => {
   })
 
   it("tait l'intervalle de confiance quand le modèle ne fournit pas de bornes", async () => {
-    const sansBornes = makeForecast().map(p => ({ ...p, confidence_lower: undefined, confidence_upper: undefined }))
-    const wrapper = await mountSuspended(EvPredictionChart, { props: { ...props, forecastPoints: sansBornes, confidenceLevel: 0 } })
+    const withoutBounds = makeForecast().map(p => ({ ...p, confidence_lower: undefined, confidence_upper: undefined }))
+    const wrapper = await mountSuspended(EvPredictionChart, { props: { ...props, forecastPoints: withoutBounds, confidenceLevel: 0 } })
     expect(wrapper.text()).not.toContain('intervalle de confiance')
   })
 })

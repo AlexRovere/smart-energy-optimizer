@@ -14,7 +14,7 @@ export interface AlertTrigger {
   thresholdKw: number
 }
 
-const TITRE: Record<AlertKind, string> = {
+const TITLE: Record<AlertKind, string> = {
   conso: 'Consommation moyenne élevée',
   pic: 'Pic de consommation détecté'
 }
@@ -31,7 +31,7 @@ const TYPE: Record<AlertKind, RecommendationType> = {
   pic: 'load_balancing'
 }
 
-const PRIORITÉ: Record<AlertKind, RecommendationPriority> = {
+const PRIORITY: Record<AlertKind, RecommendationPriority> = {
   conso: 'medium',
   pic: 'high'
 }
@@ -47,8 +47,8 @@ export function buildRecommendation(
     site_id: siteId,
     source,
     type: TYPE[alertKind],
-    priority: PRIORITÉ[alertKind],
-    title: TITRE[alertKind],
+    priority: PRIORITY[alertKind],
+    title: TITLE[alertKind],
     description: DESCRIPTION[alertKind],
     trigger: {
       timestamp: trigger.timestamp,

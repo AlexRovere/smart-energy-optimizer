@@ -18,7 +18,7 @@ const mockFetchPredictions = vi.mocked(fetchPredictions)
 const mockGetAlertThreshold = vi.mocked(getAlertThreshold)
 const mockQuerySiteHistory = vi.mocked(querySiteHistory)
 
-const RÉFÉRENCE = new Date('2026-09-18T10:00:00Z')
+const REFERENCE = new Date('2026-09-18T10:00:00Z')
 const DB = {} as never
 
 describe('detectConsumptionAlertsFromPredictions', () => {
@@ -34,7 +34,7 @@ describe('detectConsumptionAlertsFromPredictions', () => {
       { site_id: 'SITE001', timestamp: '2026-09-18T12:00:00', consumption_kwh: 100 }
     ])
 
-    await detectConsumptionAlertsFromPredictions(DB, 'SITE001', RÉFÉRENCE, 2)
+    await detectConsumptionAlertsFromPredictions(DB, 'SITE001', REFERENCE, 2)
 
     expect(mockFetchPredictions).toHaveBeenCalledWith([
       { site_id: 'SITE001', date: '2026-09-18', hour: 11 },
@@ -51,9 +51,9 @@ describe('detectConsumptionAlertsFromPredictions', () => {
       { site_id: 'SITE001', timestamp: '2026-09-18T13:00:00', consumption_kwh: 500 }
     ])
 
-    const résultat = await detectConsumptionAlertsFromPredictions(DB, 'SITE001', RÉFÉRENCE, 3)
+    const result = await detectConsumptionAlertsFromPredictions(DB, 'SITE001', REFERENCE, 3)
 
-    expect(résultat).toEqual([
+    expect(result).toEqual([
       { timestamp: '2026-09-18T11:00:00.000Z', alert: false, average: 100, thresholdKwh: 200 },
       { timestamp: '2026-09-18T12:00:00.000Z', alert: false, average: 100, thresholdKwh: 200 },
       { timestamp: '2026-09-18T13:00:00.000Z', alert: true, average: 700 / 3, thresholdKwh: 200 }
@@ -69,10 +69,10 @@ describe('detectConsumptionAlertsFromPredictions', () => {
       { site_id: 'SITE001', timestamp: '2026-09-18T11:00:00', consumption_kwh: 300 }
     ])
 
-    const résultat = await detectConsumptionAlertsFromPredictions(DB, 'SITE001', RÉFÉRENCE, 1)
+    const result = await detectConsumptionAlertsFromPredictions(DB, 'SITE001', REFERENCE, 1)
 
     // Moyenne des 3 dernières heures (duration = 3) au moment de 11h : 300, 300, 300 → dépasse.
-    expect(résultat).toEqual([
+    expect(result).toEqual([
       { timestamp: '2026-09-18T11:00:00.000Z', alert: true, average: 300, thresholdKwh: 200 }
     ])
   })
@@ -85,9 +85,9 @@ describe('detectConsumptionAlertsFromPredictions', () => {
       { site_id: 'SITE001', timestamp: '2026-09-18T11:00:00', consumption_kwh: 260 }
     ])
 
-    const résultat = await detectConsumptionAlertsFromPredictions(DB, 'SITE001', RÉFÉRENCE, 1)
+    const result = await detectConsumptionAlertsFromPredictions(DB, 'SITE001', REFERENCE, 1)
 
-    expect(résultat).toEqual([
+    expect(result).toEqual([
       { timestamp: '2026-09-18T11:00:00.000Z', alert: true, average: 260, thresholdKwh: 200 }
     ])
   })

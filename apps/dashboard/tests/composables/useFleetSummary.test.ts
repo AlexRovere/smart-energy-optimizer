@@ -118,8 +118,8 @@ describe('useFleetSummary', () => {
       await nextTick()
 
       expect(consoleSpy).toHaveBeenCalledOnce()
-      const [, données] = consoleSpy.mock.calls[0] as [string, Record<string, unknown>]
-      expect(données.message).toBe('503 Source indisponible')
+      const [, responseData] = consoleSpy.mock.calls[0] as [string, Record<string, unknown>]
+      expect(responseData.message).toBe('503 Source indisponible')
     })
   })
 })

@@ -9,7 +9,7 @@ mockNuxtImport('navigateTo', () => navigateToMock)
 registerEndpoint('/api/auth/login', { method: 'POST', handler: () => ({ success: true }) })
 registerEndpoint('/api/auth/session', () => ({ user: { id: '1', email: 'a@b.fr', role: 'ADMIN', sites: [] } }))
 
-async function seConnecter(wrapper: Awaited<ReturnType<typeof mountSuspended>>) {
+async function signIn(wrapper: Awaited<ReturnType<typeof mountSuspended>>) {
   await wrapper.find('input[type="email"]').setValue('a@b.fr')
   await wrapper.find('input[type="password"]').setValue('un-mot-de-passe')
   await wrapper.find('form').trigger('submit')
@@ -20,7 +20,7 @@ describe('page Connexion', () => {
   beforeEach(() => navigateToMock.mockReset())
 
   it('explique une déconnexion due à une session expirée', async () => {
-    const wrapper = await mountSuspended(LoginPage, { route: '/login?expiree=1' })
+    const wrapper = await mountSuspended(LoginPage, { route: '/login?expired=1' })
     expect(wrapper.text()).toContain('Session expirée, reconnectez-vous')
   })
 
@@ -30,14 +30,14 @@ describe('page Connexion', () => {
   })
 
   it('ramène sur la page consultée avant expiration', async () => {
-    const wrapper = await mountSuspended(LoginPage, { route: '/login?expiree=1&retour=%2Fsites%2FSITE001' })
-    await seConnecter(wrapper)
+    const wrapper = await mountSuspended(LoginPage, { route: '/login?expired=1&redirect=%2Fsites%2FSITE001' })
+    await signIn(wrapper)
     expect(navigateToMock).toHaveBeenCalledWith('/sites/SITE001')
   })
 
   it('ne suit pas une adresse de retour externe', async () => {
-    const wrapper = await mountSuspended(LoginPage, { route: '/login?retour=https%3A%2F%2Failleurs.example' })
-    await seConnecter(wrapper)
+    const wrapper = await mountSuspended(LoginPage, { route: '/login?redirect=https%3A%2F%2Failleurs.example' })
+    await signIn(wrapper)
     expect(navigateToMock).toHaveBeenCalledWith('/')
   })
 })

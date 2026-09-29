@@ -29,23 +29,23 @@ vi.mock('../../../../server/database', () => ({
   db: {}
 }))
 
-const compteFixture = { id: 'user-uuid', email: 'test@enervision.fr', role: 'OPERATOR' }
+const accountFixture = { id: 'user-uuid', email: 'test@enervision.fr', role: 'OPERATOR' }
 const mockEvent = {} as H3Event
 
 describe('GET /api/sites/[id]/recommendations', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockRequireSiteAccess.mockImplementation(async (_event: unknown, id: string) => ({ account: compteFixture, siteId: id }))
+    mockRequireSiteAccess.mockImplementation(async (_event: unknown, id: string) => ({ account: accountFixture, siteId: id }))
   })
 
   it('rend les recommandations calculées pour un site autorisé', async () => {
     mockGetRouterParam.mockReturnValue('SITE001')
-    const recommandation = { recommendation_id: 'REC-SITE001-conso-2026-09-18T10:00:00.000Z' }
-    mockRecommendationsForSite.mockResolvedValue({ recommendations: [recommandation], unavailable: ['forecast'] })
+    const recommendationItem = { recommendation_id: 'REC-SITE001-conso-2026-09-18T10:00:00.000Z' }
+    mockRecommendationsForSite.mockResolvedValue({ recommendations: [recommendationItem], unavailable: ['forecast'] })
 
-    const résultat = await handler(mockEvent)
+    const result = await handler(mockEvent)
 
-    expect(résultat).toEqual({ recommendations: [recommandation], unavailable: ['forecast'] })
+    expect(result).toEqual({ recommendations: [recommendationItem], unavailable: ['forecast'] })
     expect(mockRequireSiteAccess).toHaveBeenCalledWith(mockEvent, 'SITE001')
     expect(mockRecommendationsForSite).toHaveBeenCalledWith({}, 'SITE001', expect.any(Date))
   })

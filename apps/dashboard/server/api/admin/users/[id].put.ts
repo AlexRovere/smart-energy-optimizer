@@ -12,18 +12,18 @@ const uuidSchema = z.string().uuid()
 export default defineEventHandler(async (event) => {
   await requireRole(event, 'ADMIN')
 
-  const idBrut = getRouterParam(event, 'id')
-  const parsedId = uuidSchema.safeParse(idBrut)
+  const rawId = getRouterParam(event, 'id')
+  const parsedId = uuidSchema.safeParse(rawId)
   if (!parsedId.success) {
     throw createError({ statusCode: 422, message: 'Identifiant invalide' })
   }
   const id = parsedId.data
 
-  const entree = await readValidatedBody(event, updateUserSchema.safeParse)
-  if (!entree.success) {
+  const input = await readValidatedBody(event, updateUserSchema.safeParse)
+  if (!input.success) {
     throw createError({ statusCode: 422, message: 'Entrée invalide' })
   }
-  const { email, role, sites, is_active } = entree.data
+  const { email, role, sites, is_active } = input.data
 
   // Construire le patch uniquement avec les champs fournis
   const patch: Partial<{ email: string, roleId: number, isActive: boolean }> = {}

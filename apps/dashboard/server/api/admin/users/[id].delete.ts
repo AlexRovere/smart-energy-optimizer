@@ -10,19 +10,19 @@ const uuidSchema = z.string().uuid()
 export default defineEventHandler(async (event) => {
   await requireRole(event, 'ADMIN')
 
-  const idBrut = getRouterParam(event, 'id')
-  const parsedId = uuidSchema.safeParse(idBrut)
+  const rawId = getRouterParam(event, 'id')
+  const parsedId = uuidSchema.safeParse(rawId)
   if (!parsedId.success) {
     throw createError({ statusCode: 422, message: 'Identifiant invalide' })
   }
   const id = parsedId.data
 
-  const supprimés = await db
+  const deleted = await db
     .delete(schema.users)
     .where(eq(schema.users.id, id))
     .returning({ id: schema.users.id })
 
-  if (supprimés.length === 0) {
+  if (deleted.length === 0) {
     throw createError({ statusCode: 404, message: 'Compte introuvable' })
   }
 

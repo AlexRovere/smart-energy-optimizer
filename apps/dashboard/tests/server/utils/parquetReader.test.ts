@@ -15,7 +15,7 @@ vi.mock('@duckdb/node-api', () => ({
 }))
 
 
-const mesureFixture = {
+const readingFixture = {
   timestamp: new Date('2026-09-16T14:00:00Z'),
   site_id: 'SITE001',
   site_type: 'office',
@@ -35,32 +35,32 @@ function mockResultReader(rows: Record<string, unknown>[]) {
 }
 
 describe('querySiteHistory', () => {
-  const envSauvegarde = process.env.NUXT_PARQUET_DIR
+  const savedEnv = process.env.NUXT_PARQUET_DIR
 
   beforeEach(() => {
     resetInstanceForTests()
     process.env.NUXT_PARQUET_DIR = '/data/parquet'
     vi.clearAllMocks()
-    mockRunAndReadAll.mockResolvedValue(mockResultReader([mesureFixture]))
+    mockRunAndReadAll.mockResolvedValue(mockResultReader([readingFixture]))
     mockPrepare.mockResolvedValue({ runAndReadAll: mockRunAndReadAll })
     mockConnect.mockResolvedValue({ prepare: mockPrepare })
     mockCreate.mockResolvedValue({ connect: mockConnect })
   })
 
   afterEach(() => {
-    process.env.NUXT_PARQUET_DIR = envSauvegarde
+    process.env.NUXT_PARQUET_DIR = savedEnv
   })
 
   it('retourne les mesures pour une plage valide', async () => {
-    const résultat = await querySiteHistory('SITE001', '2026-09-16T00:00:00Z', '2026-09-17T00:00:00Z', 500)
-    expect(résultat).toHaveLength(1)
-    expect(résultat[0]!.site_id).toBe('SITE001')
+    const result = await querySiteHistory('SITE001', '2026-09-16T00:00:00Z', '2026-09-17T00:00:00Z', 500)
+    expect(result).toHaveLength(1)
+    expect(result[0]!.site_id).toBe('SITE001')
   })
 
   it('retourne un tableau vide si aucune mesure sur la période', async () => {
     mockRunAndReadAll.mockResolvedValue(mockResultReader([]))
-    const résultat = await querySiteHistory('SITE001', '2026-09-16T00:00:00Z', '2026-09-17T00:00:00Z', 500)
-    expect(résultat).toEqual([])
+    const result = await querySiteHistory('SITE001', '2026-09-16T00:00:00Z', '2026-09-17T00:00:00Z', 500)
+    expect(result).toEqual([])
   })
 
   it('lève une erreur si NUXT_PARQUET_DIR est absent', async () => {
@@ -90,13 +90,13 @@ describe('querySiteHistory', () => {
   })
 
   it('émet un avertissement quand une ligne est rejetée par le schéma', async () => {
-    const ligneInvalide = { ...mesureFixture, data_quality: 'inconnue' }
-    mockRunAndReadAll.mockResolvedValue(mockResultReader([ligneInvalide]))
+    const invalidRow = { ...readingFixture, data_quality: 'inconnue' }
+    mockRunAndReadAll.mockResolvedValue(mockResultReader([invalidRow]))
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-    const résultat = await querySiteHistory('SITE001', '2026-09-16T00:00:00Z', '2026-09-17T00:00:00Z', 500)
+    const result = await querySiteHistory('SITE001', '2026-09-16T00:00:00Z', '2026-09-17T00:00:00Z', 500)
 
-    expect(résultat).toHaveLength(0)
+    expect(result).toHaveLength(0)
     expect(warnSpy).toHaveBeenCalledOnce()
     expect(warnSpy.mock.calls[0]![0]).toContain('SITE001')
     warnSpy.mockRestore()

@@ -210,7 +210,7 @@ courant.
 
 **Côté interface**, une session expire au bout de deux heures. Le plugin
 `app/plugins/session-expiry.client.ts` enveloppe `$fetch` : un 401 d'une route `/api/*`, pour un
-compte qui était connecté, renvoie vers `/login?expiree=1&retour=<page>`. La page de connexion
+compte qui était connecté, renvoie vers `/login?expired=1&redirect=<page>`. La page de connexion
 affiche « Session expirée, reconnectez-vous », puis ramène sur la page d'origine. Le retour n'est
 suivi que s'il s'agit d'un chemin interne. Les 401 de `/api/auth/login` et `/api/auth/session`
 restent à leurs appelants : ce sont un mauvais mot de passe et un visiteur anonyme, pas une

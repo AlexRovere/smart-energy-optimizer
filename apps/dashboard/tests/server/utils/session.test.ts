@@ -9,19 +9,19 @@ import {
   revokeSession,
   allowedSites
 } from '../../../server/utils/session'
-import { baseDisponible, creerBaseDeTest, ligneAttendue, type BaseDeTest } from '../../database/base-de-test'
+import { databaseAvailable, createTestDatabase, expectedRow, type TestDatabase } from '../../database/test-database'
 
-describe.skipIf(!baseDisponible())('session', () => {
-  let testDb: BaseDeTest
+describe.skipIf(!databaseAvailable())('session', () => {
+  let testDb: TestDatabase
   let db: ReturnType<typeof drizzle<typeof schema>>
   let userId: string
 
   beforeAll(async () => {
-    testDb = await creerBaseDeTest()
+    testDb = await createTestDatabase()
     db = drizzle(testDb.sql, { schema })
 
     await testDb.sql`INSERT INTO roles (name) VALUES ('ADMIN'), ('OPERATOR'), ('VIEWER')`
-    const account = ligneAttendue(
+    const account = expectedRow(
       await testDb.sql<{ id: string }[]>`
         INSERT INTO users (role_id, email, password_hash)
         SELECT r.id, 'admin@enervision.local', 'digest'
@@ -34,7 +34,7 @@ describe.skipIf(!baseDisponible())('session', () => {
   })
 
   afterAll(async () => {
-    await testDb.fermer()
+    await testDb.close()
   })
 
   it('ouvre une session qui expire au bout de la durée prévue', async () => {
@@ -69,7 +69,7 @@ describe.skipIf(!baseDisponible())('session', () => {
   })
 
   it('refuse une session dont la date de fin est passée', async () => {
-    const session = ligneAttendue(
+    const session = expectedRow(
       await testDb.sql<{ id: string }[]>`
         INSERT INTO sessions (user_id, expires_at)
         VALUES (${userId}, NOW() - INTERVAL '1 minute')
@@ -82,7 +82,7 @@ describe.skipIf(!baseDisponible())('session', () => {
   })
 
   it('refuse la session ouverte d\'un account désactivé depuis', async () => {
-    const disabled = ligneAttendue(
+    const disabled = expectedRow(
       await testDb.sql<{ id: string }[]>`
         INSERT INTO users (role_id, email, password_hash)
         SELECT r.id, 'parti@enervision.local', 'digest'
@@ -122,7 +122,7 @@ describe.skipIf(!baseDisponible())('session', () => {
              ('SITE002', 'Usine B', 'usine', 800, 'active')
       ON CONFLICT DO NOTHING
     `
-    const viewer = ligneAttendue(
+    const viewer = expectedRow(
       await testDb.sql<{ id: string }[]>`
         INSERT INTO users (role_id, email, password_hash)
         SELECT r.id, 'viewer@enervision.local', 'digest'
@@ -141,7 +141,7 @@ describe.skipIf(!baseDisponible())('session', () => {
   })
 
   it('rend un tableau vide pour un compte non-ADMIN sans aucun user_sites', async () => {
-    const operator = ligneAttendue(
+    const operator = expectedRow(
       await testDb.sql<{ id: string }[]>`
         INSERT INTO users (role_id, email, password_hash)
         SELECT r.id, 'operator@enervision.local', 'digest'
@@ -155,7 +155,7 @@ describe.skipIf(!baseDisponible())('session', () => {
   })
 
   it('purge les sessions expirées du account sans toucher aux vivantes', async () => {
-    const owner = ligneAttendue(
+    const owner = expectedRow(
       await testDb.sql<{ id: string }[]>`
         INSERT INTO users (role_id, email, password_hash)
         SELECT r.id, 'purge@enervision.local', 'digest'
@@ -177,7 +177,7 @@ describe.skipIf(!baseDisponible())('session', () => {
       VALUES (${userId}, NOW() - INTERVAL '1 day')
     `
 
-    const expiredElsewhere = async () => Number(ligneAttendue(
+    const expiredElsewhere = async () => Number(expectedRow(
       await testDb.sql<{ count: string }[]>`
         SELECT COUNT(*) AS count FROM sessions
          WHERE user_id = ${userId} AND expires_at < NOW()

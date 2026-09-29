@@ -25,7 +25,7 @@ const ARGON2ID: Algorithm.Argon2id = 2
 // @node-rs/argon2 : le dépôt a tranché « Argon2id, et un seul » (data.md, #29),
 // et une primitive cryptographique choisie par le défaut d'une bibliothèque
 // change le jour où la bibliothèque change d'avis, sans que ce fichier bouge.
-export const PARAMETRES_ARGON2ID = {
+export const ARGON2ID_PARAMETERS = {
   algorithm: ARGON2ID,
   memoryCost: 19456,
   timeCost: 2,
@@ -34,7 +34,7 @@ export const PARAMETRES_ARGON2ID = {
 
 export const ROLES = ['ADMIN', 'OPERATOR', 'VIEWER'] as const
 
-export const COMPTES_DE_DEMONSTRATION = [
+export const DEMO_ACCOUNTS = [
   { email: 'admin@enervision.local', role: 'ADMIN' },
   { email: 'operator@enervision.local', role: 'OPERATOR' },
   { email: 'viewer@enervision.local', role: 'VIEWER' }
@@ -42,7 +42,7 @@ export const COMPTES_DE_DEMONSTRATION = [
 
 // Sites de démonstration uniquement : l'ETL est la source de vérité en
 // production (#21). Ce bloc permet de tester le dashboard sans ETL.
-export const SITES_DE_DEMONSTRATION = [
+export const DEMO_SITES = [
   { id: 'SITE001', name: 'Bureau Paris La Défense',  type: 'office',     location: 'Paris, France',     capacity_kw: 300,  status: 'active',      warning_threshold_kw: 240  },
   { id: 'SITE002', name: 'Usine Lyon Vénissieux',    type: 'factory',    location: 'Lyon, France',      capacity_kw: 1000, status: 'active',      warning_threshold_kw: 720  },
   { id: 'SITE003', name: 'Data Center Marseille',    type: 'datacenter', location: 'Marseille, France', capacity_kw: 800,  status: 'maintenance', warning_threshold_kw: null },
@@ -52,98 +52,98 @@ export const SITES_DE_DEMONSTRATION = [
   { id: 'SITE007', name: 'Laboratoire Grenoble',     type: 'lab',        location: 'Grenoble, France',  capacity_kw: 700,  status: 'active',      warning_threshold_kw: 560  },
 ] as const
 
-export interface OptionsAmorcage {
-  motDePasseDemonstration: string
-  motDePasseEtl: string
+export interface SeedOptions {
+  demoPassword: string
+  etlPassword: string
 }
 
-export interface ResultatAmorcage {
-  rolesCrees: number
-  comptesCrees: number
-  sitesCrees: number
-  accèsCrees: number
+export interface SeedResult {
+  createdRoles: number
+  createdAccounts: number
+  createdSites: number
+  createdAccess: number
 }
 
-export async function amorcer(
+export async function seedDatabase(
   sql: Sql,
-  options: OptionsAmorcage
-): Promise<ResultatAmorcage> {
-  let rolesCrees = 0
+  options: SeedOptions
+): Promise<SeedResult> {
+  let createdRoles = 0
   for (const role of ROLES) {
-    const inseres = await sql`
+    const inserted = await sql`
       INSERT INTO roles (name) VALUES (${role})
       ON CONFLICT (name) DO NOTHING
       RETURNING id
     `
-    rolesCrees += inseres.length
+    createdRoles += inserted.length
   }
 
-  let comptesCrees = 0
-  for (const compte of COMPTES_DE_DEMONSTRATION) {
+  let createdAccounts = 0
+  for (const account of DEMO_ACCOUNTS) {
     // Le hachage a lieu avant l'insertion, donc aussi quand le compte existe
     // déjà. Trois hachages Argon2id par passage, soit une fraction de seconde :
     // moins cher qu'une requête d'existence de plus, et sans course.
-    const empreinte = await hash(options.motDePasseDemonstration, PARAMETRES_ARGON2ID)
-    const inseres = await sql`
+    const passwordHash = await hash(options.demoPassword, ARGON2ID_PARAMETERS)
+    const inserted = await sql`
       INSERT INTO users (role_id, email, password_hash)
-      SELECT r.id, ${compte.email}, ${empreinte}
+      SELECT r.id, ${account.email}, ${passwordHash}
         FROM roles r
-       WHERE r.name = ${compte.role}
+       WHERE r.name = ${account.role}
       ON CONFLICT (email) DO NOTHING
       RETURNING id
     `
-    comptesCrees += inseres.length
+    createdAccounts += inserted.length
   }
 
-  await activerRoleEtl(sql, options.motDePasseEtl)
+  await enableEtlRole(sql, options.etlPassword)
 
-  let sitesCrees = 0
-  for (const site of SITES_DE_DEMONSTRATION) {
-    const inseres = await sql`
+  let createdSites = 0
+  for (const site of DEMO_SITES) {
+    const inserted = await sql`
       INSERT INTO sites (id, name, type, location, capacity_kw, status, warning_threshold_kw)
       VALUES (${site.id}, ${site.name}, ${site.type}, ${site.location}, ${site.capacity_kw}, ${site.status}, ${site.warning_threshold_kw})
       ON CONFLICT (id) DO NOTHING
       RETURNING id
     `
-    sitesCrees += inseres.length
+    createdSites += inserted.length
   }
 
   // Tous les comptes de démonstration accèdent à tous les sites de démonstration.
-  let accèsCrees = 0
-  for (const compte of COMPTES_DE_DEMONSTRATION) {
-    for (const site of SITES_DE_DEMONSTRATION) {
-      const inseres = await sql`
+  let createdAccess = 0
+  for (const account of DEMO_ACCOUNTS) {
+    for (const site of DEMO_SITES) {
+      const inserted = await sql`
         INSERT INTO user_sites (user_id, site_id)
         SELECT u.id, ${site.id}
           FROM users u
           JOIN roles r ON r.id = u.role_id
-         WHERE u.email = ${compte.email}
+         WHERE u.email = ${account.email}
         ON CONFLICT DO NOTHING
         RETURNING user_id
       `
-      accèsCrees += inseres.length
+      createdAccess += inserted.length
     }
   }
 
-  return { rolesCrees, comptesCrees, sitesCrees, accèsCrees }
+  return { createdRoles, createdAccounts, createdSites, createdAccess }
 }
 
 // La migration 0001 crée le rôle sans LOGIN ni mot de passe. C'est ici qu'il
 // devient utilisable, et seulement ici, parce que le secret vient de
 // l'environnement et ne doit apparaître dans aucun fichier commité.
-async function activerRoleEtl(sql: Sql, motDePasse: string): Promise<void> {
-  const [existe] = await sql<{ present: boolean }[]>`
+async function enableEtlRole(sql: Sql, password: string): Promise<void> {
+  const [exists] = await sql<{ present: boolean }[]>`
     SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'etl') AS present
   `
   // SELECT EXISTS rend toujours une ligne : n'en rendre aucune signifie que la
   // requête n'a pas été exécutée là où on croyait. On le dit plutôt que de lire
   // une propriété sur rien, l'erreur serait alors « of undefined », sans piste.
-  if (existe === undefined) {
+  if (exists === undefined) {
     throw new Error(
       "La recherche du rôle PostgreSQL « etl » n'a rendu aucune ligne : la connexion n'est pas celle attendue."
     )
   }
-  if (!existe.present) {
+  if (!exists.present) {
     throw new Error(
       "Le rôle PostgreSQL « etl » n'existe pas : appliquer les migrations avant d'amorcer."
     )
@@ -152,16 +152,16 @@ async function activerRoleEtl(sql: Sql, motDePasse: string): Promise<void> {
   // PostgreSQL n'accepte pas de paramètre lié dans ALTER ROLE ... PASSWORD, et
   // un bloc DO n'en accepte pas davantage. L'échappement se fait donc côté
   // serveur, par quote_literal, avant d'assembler la commande.
-  const [echappe] = await sql<{ literal: string }[]>`
-    SELECT quote_literal(${motDePasse}) AS literal
+  const [escaped] = await sql<{ literal: string }[]>`
+    SELECT quote_literal(${password}) AS literal
   `
   // Même raison qu'au-dessus, et une conséquence plus lourde : sans littéral,
   // la commande assemblée plus bas serait tronquée et poserait n'importe quoi
   // comme mot de passe. On s'arrête avant de l'assembler.
-  if (echappe === undefined) {
+  if (escaped === undefined) {
     throw new Error(
       "L'échappement du mot de passe du rôle « etl » n'a rendu aucune ligne : commande ALTER ROLE non assemblée."
     )
   }
-  await sql.unsafe(`ALTER ROLE etl WITH LOGIN PASSWORD ${echappe.literal}`)
+  await sql.unsafe(`ALTER ROLE etl WITH LOGIN PASSWORD ${escaped.literal}`)
 }

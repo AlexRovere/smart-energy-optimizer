@@ -9,12 +9,12 @@ export default defineEventHandler(async (event) => {
   const permittedIds = await allowedSites(db, account)
 
   try {
-    const entrées = await listAlertThresholds(db, permittedIds)
-    return entrées.map(entrée => ({
-      site_id: entrée.siteId,
-      type: entrée.type,
-      duration: entrée.duration,
-      threshold: entrée.threshold
+    const entries = await listAlertThresholds(db, permittedIds)
+    return entries.map(entry => ({
+      site_id: entry.siteId,
+      type: entry.type,
+      duration: entry.duration,
+      threshold: entry.threshold
     }))
   } catch (error_) {
     throw createError({ statusCode: 503, message: 'Règles d\'alerte indisponibles', cause: error_ })

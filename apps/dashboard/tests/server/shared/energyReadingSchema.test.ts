@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { energyReadingSchema } from '../../../shared/energyReadingSchema'
 
-const mesureValide = {
+const validReading = {
   timestamp: '2026-09-16T14:00:00Z',
   site_id: 'SITE001',
   site_type: 'office',
@@ -19,7 +19,7 @@ const mesureValide = {
 
 describe('energyReadingSchema', () => {
   it('valide une mesure complète', () => {
-    expect(energyReadingSchema.safeParse(mesureValide).success).toBe(true)
+    expect(energyReadingSchema.safeParse(validReading).success).toBe(true)
   })
 
   it('accepte tous les champs optionnels absents', () => {
@@ -34,29 +34,29 @@ describe('energyReadingSchema', () => {
   })
 
   it('accepte les champs numériques à null', () => {
-    const avecNulls = {
-      ...mesureValide,
+    const withNulls = {
+      ...validReading,
       voltage_v: null,
       current_a: null,
       power_factor: null,
       temperature_celsius: null,
       humidity_percent: null
     }
-    expect(energyReadingSchema.safeParse(avecNulls).success).toBe(true)
+    expect(energyReadingSchema.safeParse(withNulls).success).toBe(true)
   })
 
   it('rejette une valeur inconnue dans data_quality', () => {
-    const invalide = { ...mesureValide, data_quality: 'excellent' }
-    expect(energyReadingSchema.safeParse(invalide).success).toBe(false)
+    const invalid = { ...validReading, data_quality: 'excellent' }
+    expect(energyReadingSchema.safeParse(invalid).success).toBe(false)
   })
 
   it('rejette un timestamp non ISO 8601', () => {
-    const invalide = { ...mesureValide, timestamp: '16/09/2026 14:00' }
-    expect(energyReadingSchema.safeParse(invalide).success).toBe(false)
+    const invalid = { ...validReading, timestamp: '16/09/2026 14:00' }
+    expect(energyReadingSchema.safeParse(invalid).success).toBe(false)
   })
 
   it('rejette un site_id absent', () => {
-    const { site_id: _, ...sansSiteId } = mesureValide
-    expect(energyReadingSchema.safeParse(sansSiteId).success).toBe(false)
+    const { site_id: _, ...withoutSiteId } = validReading
+    expect(energyReadingSchema.safeParse(withoutSiteId).success).toBe(false)
   })
 })

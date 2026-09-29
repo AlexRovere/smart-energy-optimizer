@@ -2,9 +2,9 @@ import { useFetch, useRoute } from 'nuxt/app'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { ParkSummary } from '~~/shared/parkSummarySchema'
 import type { StatsSummary, SiteId } from '../types/api'
-import { observerErreurFetch } from '../utils/erreurFetch'
+import { watchFetchError } from '../utils/fetchError'
 
-function normaliser(raw: ParkSummary): StatsSummary {
+function normalize(raw: ParkSummary): StatsSummary {
   return {
     timestamp: raw.timestamp,
     total_consumption_kw: raw.total_consumption_kw,
@@ -34,13 +34,13 @@ export function useFleetSummary() {
     onUnmounted(() => clearInterval(timer))
   })
 
-  observerErreurFetch(error, {
+  watchFetchError(error, {
     url: '/api/stats/summary',
     route: () => route.path,
   })
 
   const summary = computed<StatsSummary | null>(() =>
-    data.value ? normaliser(data.value) : null
+    data.value ? normalize(data.value) : null
   )
   return { summary, pending, error, refreshedAt, refreshFailed, refresh }
 }

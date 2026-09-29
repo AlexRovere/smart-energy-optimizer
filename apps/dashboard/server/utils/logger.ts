@@ -1,16 +1,16 @@
-const NIVEAUX = { error: 0, warn: 1, info: 2, debug: 3 } as const
-type Niveau = keyof typeof NIVEAUX
+const LEVELS = { error: 0, warn: 1, info: 2, debug: 3 } as const
+type Level = keyof typeof LEVELS
 
-function niveauActuel(): Niveau {
+function currentLevel(): Level {
   const val = (process.env.NUXT_LOG_LEVEL ?? 'info').toLowerCase()
-  return (val in NIVEAUX ? val : 'info') as Niveau
+  return (val in LEVELS ? val : 'info') as Level
 }
 
-function log(niveau: Niveau, message: string, ctx?: Record<string, unknown>) {
-  if (NIVEAUX[niveau] > NIVEAUX[niveauActuel()]) return
-  const ligne = JSON.stringify({ timestamp: new Date().toISOString(), level: niveau, message, ...ctx })
-  if (niveau === 'error') process.stderr.write(ligne + '\n')
-  else process.stdout.write(ligne + '\n')
+function log(level: Level, message: string, ctx?: Record<string, unknown>) {
+  if (LEVELS[level] > LEVELS[currentLevel()]) return
+  const row = JSON.stringify({ timestamp: new Date().toISOString(), level: level, message, ...ctx })
+  if (level === 'error') process.stderr.write(row + '\n')
+  else process.stdout.write(row + '\n')
 }
 
 export const logger = {

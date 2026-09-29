@@ -34,12 +34,12 @@ describe('EvAlertThresholdSettings', () => {
     setup()
     const wrapper = await mountSuspended(EvAlertThresholdSettings)
 
-    const lignes = wrapper.findAll('[data-testid="ligne-seuil"]').map(l => l.text())
-    expect(lignes[0]).toContain('Bureau Paris')
-    expect(lignes[0]).toContain('CONSO')
-    expect(lignes[1]).toContain('Bureau Paris')
-    expect(lignes[1]).toContain('PIC')
-    expect(lignes[2]).toContain('Usine Lyon')
+    const rows = wrapper.findAll('[data-testid="threshold-row"]').map(l => l.text())
+    expect(rows[0]).toContain('Bureau Paris')
+    expect(rows[0]).toContain('CONSO')
+    expect(rows[1]).toContain('Bureau Paris')
+    expect(rows[1]).toContain('PIC')
+    expect(rows[2]).toContain('Usine Lyon')
   })
 
   it('affiche le seuil pic en pourcentage et le seuil conso en kWh', async () => {
@@ -54,10 +54,10 @@ describe('EvAlertThresholdSettings', () => {
     setup()
     const wrapper = await mountSuspended(EvAlertThresholdSettings)
 
-    await wrapper.findAll('[data-testid="editer-btn"]')[0]!.trigger('click')
-    await wrapper.find('[data-testid="seuil-input"]').setValue('400')
+    await wrapper.findAll('[data-testid="edit-btn"]')[0]!.trigger('click')
+    await wrapper.find('[data-testid="threshold-input"]').setValue('400')
     await wrapper.find('[data-testid="points-input"]').setValue('10')
-    await wrapper.find('[data-testid="valider-btn"]').trigger('click')
+    await wrapper.find('[data-testid="validate-btn"]').trigger('click')
 
     expect(saveMock).toHaveBeenCalledWith('SITE001', 'conso', { duration: 10, threshold: 400 })
   })
@@ -66,10 +66,10 @@ describe('EvAlertThresholdSettings', () => {
     setup()
     const wrapper = await mountSuspended(EvAlertThresholdSettings)
 
-    await wrapper.findAll('[data-testid="editer-btn"]')[0]!.trigger('click')
+    await wrapper.findAll('[data-testid="edit-btn"]')[0]!.trigger('click')
     expect(wrapper.find('dialog').exists()).toBe(true)
 
-    await wrapper.find('[data-testid="valider-btn"]').trigger('click')
+    await wrapper.find('[data-testid="validate-btn"]').trigger('click')
     await wrapper.vm.$nextTick()
 
     expect(wrapper.find('dialog').exists()).toBe(false)

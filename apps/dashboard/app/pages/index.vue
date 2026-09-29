@@ -27,7 +27,7 @@ type AlertFilter = 'all' | AlertSeverity
 const alertFilter = ref<AlertFilter>('all')
 const toast = useToast()
 
-function exporter() {
+function exportReport() {
   toast.add({ title: 'Fonctionnalité non disponible dans cette version', color: 'warning' })
 }
 
@@ -53,7 +53,7 @@ const filteredAlerts = computed(() =>
         </div>
         <div class="flex gap-3 shrink-0 mt-1">
           <EvButton variant="secondary" @click="refresh()">Rafraîchir</EvButton>
-          <EvButton data-testid="exporter-btn" variant="primary" @click="exporter()">Exporter le relevé</EvButton>
+          <EvButton data-testid="export-btn" variant="primary" @click="exportReport()">Exporter le relevé</EvButton>
         </div>
       </header>
 

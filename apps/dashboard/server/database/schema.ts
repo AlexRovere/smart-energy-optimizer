@@ -3,7 +3,7 @@
 //
 // Transcription littérale des six tables de docs/data.md. Toute différence
 // entre ce fichier et le document est un défaut, et
-// tests/database/schema-conforme-au-document.test.ts la fait échouer.
+// tests/database/schema-matches-document.test.ts la fait échouer.
 //
 // Les noms de colonnes sont écrits explicitement plutôt que déduits par
 // l'option `casing` de Drizzle : cette option se règle à deux endroits, la

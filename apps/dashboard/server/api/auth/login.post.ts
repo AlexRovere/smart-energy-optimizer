@@ -15,11 +15,11 @@ const DECOY_HASH
     + 'Qq0TQeCPTqRP4rCDyFJKBoqNJzqbc4hqO9VZBNjCEKg'
 
 export default defineEventHandler(async (event) => {
-  const entree = await readValidatedBody(event, loginSchema.safeParse)
-  if (!entree.success) {
+  const input = await readValidatedBody(event, loginSchema.safeParse)
+  if (!input.success) {
     throw createError({ statusCode: 422, message: 'Entrée invalide' })
   }
-  const { email, password } = entree.data
+  const { email, password } = input.data
 
   const { trustProxy } = useRuntimeConfig()
   // `xForwardedFor` n'est lu que derrière un proxy DE CONFIANCE. Activé sans

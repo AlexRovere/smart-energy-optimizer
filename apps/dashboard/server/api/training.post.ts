@@ -7,29 +7,29 @@ import { trainingState } from '../utils/trainingState'
 export default defineEventHandler(async (event) => {
   await requireRole(event, 'ADMIN')
 
-  if (trainingState.enCours) {
+  if (trainingState.inProgress) {
     throw createError({ statusCode: 409, message: 'Entraînement déjà en cours' })
   }
 
-  const début = new Date()
-  trainingState.enCours = true
-  trainingState.debut = début
+  const startedAt = new Date()
+  trainingState.inProgress = true
+  trainingState.startedAt = startedAt
 
   triggerTraining()
     .then(() => {
-      trainingState.dernier = { statut: 'succès', début, fin: new Date() }
+      trainingState.lastRun = { status: 'success', startedAt, finishedAt: new Date() }
     })
     .catch((err: unknown) => {
       const message = err instanceof Error ? err.message : String(err)
-      trainingState.dernier = { statut: 'erreur', début, fin: new Date(), message }
+      trainingState.lastRun = { status: 'error', startedAt, finishedAt: new Date(), message }
       logger.error('Entraînement ML échoué ou service indisponible', {
         route: event.path,
         message,
       })
     })
     .finally(() => {
-      trainingState.enCours = false
+      trainingState.inProgress = false
     })
 
-  return { status: 'démarré' }
+  return { status: 'started' }
 })

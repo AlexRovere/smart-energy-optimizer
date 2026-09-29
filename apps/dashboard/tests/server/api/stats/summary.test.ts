@@ -27,22 +27,22 @@ vi.mock('../../../../server/utils/logger', () => ({
   logger: { error: mockLoggerError, warn: vi.fn(), info: vi.fn(), debug: vi.fn() }
 }))
 
-const compteFixture = { id: 'user-uuid', email: 'test@enervision.fr', role: 'OPERATOR' }
+const accountFixture = { id: 'user-uuid', email: 'test@enervision.fr', role: 'OPERATOR' }
 
-function site(id: string, consommation: number | null, capacité: number) {
+function site(id: string, consumption: number | null, capacity: number) {
   return {
     site_id: id,
     site_name: `Site ${id}`,
-    current_consumption_kw: consommation,
-    capacity_kw: capacité,
-    load_percent: consommation === null ? null : Math.round((consommation / capacité) * 1000) / 10,
-    data_quality: consommation === null ? 'critical' as const : 'good' as const
+    current_consumption_kw: consumption,
+    capacity_kw: capacity,
+    load_percent: consumption === null ? null : Math.round((consumption / capacity) * 1000) / 10,
+    data_quality: consumption === null ? 'critical' as const : 'good' as const
   }
 }
 
 // Quatre sites au parc : SITE003 est sans mesure et listé, SITE004 est exclu
 // sans figurer dans `sites`. Les deux formes doivent être comptées.
-const summaryParc = {
+const parkSummary = {
   timestamp: '2026-09-16T14:32:00Z',
   total_sites: 4,
   excluded_sites: ['SITE003', 'SITE004'],
@@ -57,16 +57,16 @@ const mockEvent = {} as Parameters<typeof handler>[0]
 describe('GET /api/stats/summary', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockRequireAccount.mockResolvedValue(compteFixture)
+    mockRequireAccount.mockResolvedValue(accountFixture)
     mockAllowedSites.mockResolvedValue(['SITE001', 'SITE002', 'SITE003', 'SITE004'])
   })
 
   it('rend la synthèse du parc entier quand tout le parc est autorisé', async () => {
-    mockFetchMockApi.mockResolvedValue(summaryParc)
+    mockFetchMockApi.mockResolvedValue(parkSummary)
 
-    const résultat = await handler(mockEvent)
+    const result = await handler(mockEvent)
 
-    expect(résultat).toMatchObject({
+    expect(result).toMatchObject({
       timestamp: '2026-09-16T14:32:00Z',
       total_sites: 4,
       excluded_sites: ['SITE003', 'SITE004'],
@@ -74,27 +74,27 @@ describe('GET /api/stats/summary', () => {
       total_capacity_kw: 600,
       average_load_percent: 66.7
     })
-    expect(résultat.sites).toHaveLength(3)
-    expect(mockAllowedSites).toHaveBeenCalledWith({}, compteFixture)
+    expect(result.sites).toHaveLength(3)
+    expect(mockAllowedSites).toHaveBeenCalledWith({}, accountFixture)
   })
 
   it('ne rend que les sites du périmètre du compte', async () => {
     mockAllowedSites.mockResolvedValue(['SITE001', 'SITE003'])
-    mockFetchMockApi.mockResolvedValue(summaryParc)
+    mockFetchMockApi.mockResolvedValue(parkSummary)
 
-    const résultat = await handler(mockEvent)
+    const result = await handler(mockEvent)
 
-    expect(résultat.sites.map(s => s.site_id)).toEqual(['SITE001', 'SITE003'])
-    expect(résultat.excluded_sites).toEqual(['SITE003'])
+    expect(result.sites.map(s => s.site_id)).toEqual(['SITE001', 'SITE003'])
+    expect(result.excluded_sites).toEqual(['SITE003'])
   })
 
   it('recalcule totaux et moyenne sur le seul périmètre, sans les sites exclus', async () => {
     mockAllowedSites.mockResolvedValue(['SITE001', 'SITE003'])
-    mockFetchMockApi.mockResolvedValue(summaryParc)
+    mockFetchMockApi.mockResolvedValue(parkSummary)
 
-    const résultat = await handler(mockEvent)
+    const result = await handler(mockEvent)
 
-    expect(résultat).toMatchObject({
+    expect(result).toMatchObject({
       total_sites: 2,
       total_consumption_kw: 100,
       total_capacity_kw: 200,
@@ -104,14 +104,14 @@ describe('GET /api/stats/summary', () => {
 
   it('nomme comme exclu un site sans mesure que la source n\'a pas nommé', async () => {
     mockFetchMockApi.mockResolvedValue({
-      ...summaryParc,
+      ...parkSummary,
       excluded_sites: [],
       sites: [site('SITE001', 100, 200), site('SITE003', null, 500)]
     })
 
-    const résultat = await handler(mockEvent)
+    const result = await handler(mockEvent)
 
-    expect(résultat).toMatchObject({
+    expect(result).toMatchObject({
       total_sites: 2,
       excluded_sites: ['SITE003'],
       total_consumption_kw: 100,
@@ -121,11 +121,11 @@ describe('GET /api/stats/summary', () => {
 
   it('rend une synthèse vide, sans total inventé, pour un compte sans site', async () => {
     mockAllowedSites.mockResolvedValue([])
-    mockFetchMockApi.mockResolvedValue(summaryParc)
+    mockFetchMockApi.mockResolvedValue(parkSummary)
 
-    const résultat = await handler(mockEvent)
+    const result = await handler(mockEvent)
 
-    expect(résultat).toMatchObject({
+    expect(result).toMatchObject({
       total_sites: 0,
       excluded_sites: [],
       total_consumption_kw: null,
@@ -136,16 +136,16 @@ describe('GET /api/stats/summary', () => {
   })
 
   it('inclut excluded_sites dans la réponse même si la source l\'omet', async () => {
-    const { excluded_sites: _omis, ...sansExclus } = summaryParc
-    mockFetchMockApi.mockResolvedValue({ ...sansExclus, sites: [site('SITE001', 100, 200)] })
+    const { excluded_sites: _omitted, ...withoutExcluded } = parkSummary
+    mockFetchMockApi.mockResolvedValue({ ...withoutExcluded, sites: [site('SITE001', 100, 200)] })
 
-    const résultat = await handler(mockEvent)
+    const result = await handler(mockEvent)
 
-    expect(résultat.excluded_sites).toEqual([])
+    expect(result.excluded_sites).toEqual([])
   })
 
   it('lève une erreur 502 si la source renvoie une forme inattendue', async () => {
-    mockFetchMockApi.mockResolvedValue({ inattendu: true })
+    mockFetchMockApi.mockResolvedValue({ unexpected: true })
     await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 502 })
   })
 
@@ -155,13 +155,13 @@ describe('GET /api/stats/summary', () => {
   })
 
   it('loggue l\'erreur source avant de lancer 503', async () => {
-    const messageErreur = 'API Mock injoignable'
-    mockFetchMockApi.mockRejectedValue(new Error(messageErreur))
+    const errorMessage = 'API Mock injoignable'
+    mockFetchMockApi.mockRejectedValue(new Error(errorMessage))
 
     await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 503 })
 
     expect(mockLoggerError).toHaveBeenCalledOnce()
-    const [, contexte] = mockLoggerError.mock.calls[0] as [string, Record<string, unknown>]
-    expect(contexte.message).toBe(messageErreur)
+    const [, context] = mockLoggerError.mock.calls[0] as [string, Record<string, unknown>]
+    expect(context.message).toBe(errorMessage)
   })
 })

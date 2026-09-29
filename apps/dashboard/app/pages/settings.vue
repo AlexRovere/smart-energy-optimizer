@@ -7,7 +7,7 @@ const { notifications, updateNotification } = useSettings()
 
 const toast = useToast()
 
-function basculerNotification(key: keyof typeof notifications.value) {
+function toggleNotification(key: keyof typeof notifications.value) {
   updateNotification(key, !notifications.value[key])
   toast.add({ title: 'Fonctionnalité non disponible dans cette version', color: 'warning' })
 }
@@ -33,9 +33,9 @@ const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   viewer:   'Lecture seule du parc et des alertes.',
 }
 
-const rôleActif = computed<UserRole>(() => (account.value?.role?.toLowerCase() as UserRole) ?? 'viewer')
-const roleCapabilities = computed(() => ROLE_CAPABILITIES[rôleActif.value] ?? [])
-const labelRôle = computed(() => roleLabel(account.value?.role))
+const activeRole = computed<UserRole>(() => (account.value?.role?.toLowerCase() as UserRole) ?? 'viewer')
+const roleCapabilities = computed(() => ROLE_CAPABILITIES[activeRole.value] ?? [])
+const roleText = computed(() => roleLabel(account.value?.role))
 
 const NOTIFICATIONS: { key: keyof typeof notifications.value; label: string; description: string }[] = [
   { key: 'critical_alerts', label: 'Alertes critical et high',       description: 'e-mail immédiat + notification navigateur' },
@@ -59,13 +59,13 @@ const NOTIFICATIONS: { key: keyof typeof notifications.value; label: string; des
     <EvCard>
       <template #title>
         <span class="font-ev text-base font-semibold">Rôle actif (RBAC)</span>
-        <span class="font-ev text-xs text-ev-text-3 mt-0.5">{{ ROLE_DESCRIPTIONS[rôleActif] }}</span>
+        <span class="font-ev text-xs text-ev-text-3 mt-0.5">{{ ROLE_DESCRIPTIONS[activeRole] }}</span>
       </template>
       <template #actions>
         <span
           class="font-ev text-sm font-semibold px-4 py-1.5 rounded-ev-btn border"
           style="background: var(--ev-green); border-color: var(--ev-green); color: #000"
-        >{{ labelRôle }}</span>
+        >{{ roleText }}</span>
       </template>
 
       <!-- Capacités -->
@@ -113,7 +113,7 @@ const NOTIFICATIONS: { key: keyof typeof notifications.value; label: string; des
               :style="notifications[notif.key]
                 ? 'background: var(--ev-green)'
                 : 'background: var(--ev-border)'"
-              @click="basculerNotification(notif.key)"
+              @click="toggleNotification(notif.key)"
             >
               <span
                 class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"
@@ -137,7 +137,7 @@ const NOTIFICATIONS: { key: keyof typeof notifications.value; label: string; des
           </div>
           <div class="flex gap-2">
             <span class="text-ev-text-3 w-24 shrink-0">rôle</span>
-            <span class="font-semibold" style="color: var(--ev-green)">{{ labelRôle }}</span>
+            <span class="font-semibold" style="color: var(--ev-green)">{{ roleText }}</span>
           </div>
         </div>
 

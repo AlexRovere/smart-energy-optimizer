@@ -10,27 +10,27 @@ import { fileURLToPath } from 'node:url'
 import { hash } from '@node-rs/argon2'
 import { fetch, setup } from '@nuxt/test-utils/e2e'
 import { beforeAll, describe, expect, it } from 'vitest'
-import { PARAMETRES_ARGON2ID } from '../../server/database/seed'
-import { baseDisponible, creerBaseDeTest, type BaseDeTest } from '../database/base-de-test'
+import { ARGON2ID_PARAMETERS } from '../../server/database/seed'
+import { databaseAvailable, createTestDatabase, type TestDatabase } from '../database/test-database'
 
 const EMAIL = 'admin@enervision.local'
 const PASSWORD = 'mot-de-passe-de-demonstration'
 
-let testDb: BaseDeTest
+let testDb: TestDatabase
 
 // Enregistré AVANT celui que `setup` pose : les crochets partent dans l'ordre
 // de déclaration, et le serveur Nuxt doit démarrer avec l'URL de base déjà en
 // environnement.
 beforeAll(async () => {
-  if (!baseDisponible()) return
-  testDb = await creerBaseDeTest()
+  if (!databaseAvailable()) return
+  testDb = await createTestDatabase()
   process.env.NUXT_DATABASE_URL = testDb.url
   process.env.NUXT_SESSION_PASSWORD = 'mot-de-passe-de-test-de-trente-deux-signes'
   // Une source qui refuse la connexion tout de suite : la route de #20 doit
   // échouer vite et de façon prévisible, pas dépendre d'un réseau.
   process.env.NUXT_MOCK_API_URL = 'http://127.0.0.1:1'
 
-  const digest = await hash(PASSWORD, PARAMETRES_ARGON2ID)
+  const digest = await hash(PASSWORD, ARGON2ID_PARAMETERS)
   await testDb.sql`INSERT INTO roles (name) VALUES ('ADMIN')`
   await testDb.sql`
     INSERT INTO users (role_id, email, password_hash)
@@ -54,7 +54,7 @@ async function signIn(email: string, password: string): Promise<Response> {
   })
 }
 
-describe.skipIf(!baseDisponible())('authentification', async () => {
+describe.skipIf(!databaseAvailable())('authentification', async () => {
   await setup({
     rootDir: fileURLToPath(new URL('../..', import.meta.url)),
     server: true,
