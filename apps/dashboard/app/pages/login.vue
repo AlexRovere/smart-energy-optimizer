@@ -8,6 +8,8 @@ definePageMeta({
 })
 
 const { refresh } = useAccountSession()
+const route = useRoute()
+const sessionExpired = computed(() => route.query.expiree === '1')
 
 const state = reactive<LoginInput>({
   email: '',
@@ -25,7 +27,7 @@ async function onSubmit(event: FormSubmitEvent<LoginInput>) {
     // cookie, que ce code ne peut pas lire et n'a pas à lire.
     await $fetch('/api/auth/login', { method: 'POST', body: event.data })
     await refresh()
-    await navigateTo('/')
+    await navigateTo(safeReturnPath(route.query.retour))
   }
   catch (err) {
     const failure = err as FetchError
@@ -100,6 +102,15 @@ async function onSubmit(event: FormSubmitEvent<LoginInput>) {
           <p class="font-ev text-sm text-ev-text-2 mt-2">
             Identifiants fournis par votre administrateur de site.
           </p>
+        </div>
+
+        <!-- Session expirée : l'utilisateur doit savoir pourquoi il est ici -->
+        <div
+          v-if="sessionExpired && !errorMessage"
+          role="status"
+          class="bg-ev-amber-bg border border-ev-amber-bd rounded-ev-sm px-4 py-3"
+        >
+          <span class="font-ev text-sm font-semibold text-ev-amber">Session expirée, reconnectez-vous</span>
         </div>
 
         <!-- Erreur globale -->
