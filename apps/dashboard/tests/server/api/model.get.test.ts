@@ -27,7 +27,7 @@ const championModel = {
   version: '4',
   alias: 'champion',
   creation_timestamp: 1_700_000_000_000,
-  metriques: { training_rows: 5000 },
+  metrics: { training_rows: 5000 },
 }
 
 describe('GET /api/model', () => {

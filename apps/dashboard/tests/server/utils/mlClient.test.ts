@@ -69,20 +69,20 @@ describe('fetchModelInfo', () => {
     expect(result).toEqual(response)
   })
 
-  it('transmet les champs enrichis creation_timestamp et metriques', async () => {
+  it('transmet les champs enrichis creation_timestamp et metrics', async () => {
     const response = {
       name: 'enervision',
       version: '3',
       alias: 'champion',
       creation_timestamp: 1_700_000_000_000,
-      metriques: { training_rows: 5000 },
+      metrics: { training_rows: 5000 },
     }
     mocked$fetch.mockResolvedValueOnce(response)
 
     const result = await fetchModelInfo(BASE_URL)
 
     expect(result.creation_timestamp).toBe(1_700_000_000_000)
-    expect(result.metriques).toEqual({ training_rows: 5000 })
+    expect(result.metrics).toEqual({ training_rows: 5000 })
   })
 
   it("propage l'erreur si le service ML est indisponible", async () => {

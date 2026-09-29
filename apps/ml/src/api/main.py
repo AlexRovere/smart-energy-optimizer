@@ -109,7 +109,7 @@ def get_model_info() -> dict[str, object]:
         "version": int(version.version),
         "alias": "champion",
         "creation_timestamp": run.info.start_time,
-        "metriques": run.data.metrics,
+        "metrics": run.data.metrics,
     }
 
 

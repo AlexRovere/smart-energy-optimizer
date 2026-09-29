@@ -145,10 +145,10 @@ def test_training_pose_lalias_champion(tmp_path):
 
 def test_training_ecrit_ses_artefacts_sous_la_racine_configuree(tmp_path, monkeypatch):
     data_path = _make_csv(tmp_path)
-    racine = tmp_path / "artefacts"
-    monkeypatch.setenv("MLFLOW_ARTIFACT_ROOT", str(racine))
+    root_dir = tmp_path / "artefacts"
+    monkeypatch.setenv("MLFLOW_ARTIFACT_ROOT", str(root_dir))
     mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
 
     train_model(data_path)
 
-    assert list(racine.rglob("*.cb")) or list(racine.rglob("*model*"))
+    assert list(root_dir.rglob("*.cb")) or list(root_dir.rglob("*model*"))

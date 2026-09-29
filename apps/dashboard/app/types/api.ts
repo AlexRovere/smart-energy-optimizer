@@ -184,5 +184,5 @@ export interface ModelInfo {
   version: string
   alias: string
   creation_timestamp?: number
-  metriques?: Record<string, number>
+  metrics?: Record<string, number>
 }
