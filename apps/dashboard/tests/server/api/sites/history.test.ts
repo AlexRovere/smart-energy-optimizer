@@ -63,7 +63,7 @@ describe('GET /api/sites/[id]/history', () => {
     const result = await handler(mockEvent)
     expect(result).toHaveLength(1)
     expect(mockRequireSiteAccess).toHaveBeenCalledWith(mockEvent, 'SITE001')
-    expect(mockQuerySiteHistory).toHaveBeenCalledWith('SITE001', '2026-09-16T00:00:00Z', '2026-09-17T00:00:00Z', 500)
+    expect(mockQuerySiteHistory).toHaveBeenCalledWith('SITE001', '2026-09-16T00:00:00Z', '2026-09-17T00:00:00Z', 24)
   })
 
   it('retourne 403 sans lire l\'historique pour un site hors périmètre', async () => {
@@ -114,7 +114,7 @@ describe('GET /api/sites/[id]/history', () => {
     configureEvent('SITE001', {
       from: '2026-09-16T00:00:00Z',
       to: '2026-09-17T00:00:00Z',
-      limit: '2000'
+      limit: '5000'
     })
     await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 422 })
   })
@@ -153,5 +153,36 @@ describe('GET /api/sites/[id]/history', () => {
     })
     await handler(mockEvent)
     expect(mockQuerySiteHistory).toHaveBeenCalledWith('SITE001', expect.any(String), expect.any(String), 100)
+  })
+
+  describe('bornes de la plage (#46)', () => {
+    it('prend par défaut un point par heure de la plage, pour ne rien tronquer', async () => {
+      mockQuerySiteHistory.mockResolvedValue([])
+      configureEvent('SITE001', { from: '2026-06-01T00:00:00Z', to: '2026-09-01T00:00:00Z' })
+
+      await handler(mockEvent)
+
+      expect(mockQuerySiteHistory).toHaveBeenCalledWith('SITE001', '2026-06-01T00:00:00Z', '2026-09-01T00:00:00Z', 2208)
+    })
+
+    it('refuse une fin qui ne suit pas le début', async () => {
+      configureEvent('SITE001', { from: '2026-09-17T00:00:00Z', to: '2026-09-16T00:00:00Z' })
+
+      await expect(handler(mockEvent)).rejects.toMatchObject({
+        statusCode: 422,
+        statusMessage: 'La fin de la plage doit suivre son début',
+      })
+      expect(mockQuerySiteHistory).not.toHaveBeenCalled()
+    })
+
+    it('refuse une plage de plus de 92 jours', async () => {
+      configureEvent('SITE001', { from: '2026-06-01T00:00:00Z', to: '2026-09-02T00:00:00Z' })
+
+      await expect(handler(mockEvent)).rejects.toMatchObject({
+        statusCode: 422,
+        statusMessage: 'Plage trop longue : 92 jours au plus',
+      })
+      expect(mockQuerySiteHistory).not.toHaveBeenCalled()
+    })
   })
 })

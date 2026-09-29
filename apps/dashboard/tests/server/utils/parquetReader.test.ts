@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { querySiteHistory, resetInstanceForTests } from '../../../server/utils/parquetReader'
+import { dayFiles, querySiteHistory, resetInstanceForTests } from '../../../server/utils/parquetReader'
 
 // vi.hoisted garantit que ces variables sont initialisées avant le hissage de vi.mock
 const { mockRunAndReadAll, mockPrepare, mockConnect, mockCreate } = vi.hoisted(() => {
@@ -13,6 +13,10 @@ const { mockRunAndReadAll, mockPrepare, mockConnect, mockCreate } = vi.hoisted((
 vi.mock('@duckdb/node-api', () => ({
   DuckDBInstance: { create: mockCreate }
 }))
+
+// Chaque jour demandé « existe » : ces tests portent sur la requête, pas sur les fichiers.
+const { mockExistsSync } = vi.hoisted(() => ({ mockExistsSync: vi.fn((_path: unknown) => true) }))
+vi.mock('node:fs', () => ({ existsSync: mockExistsSync }))
 
 
 const readingFixture = {
@@ -106,5 +110,26 @@ describe('querySiteHistory', () => {
     await querySiteHistory('SITE001', '2026-09-16T00:00:00Z', '2026-09-17T00:00:00Z', 500)
     await querySiteHistory('SITE001', '2026-09-16T00:00:00Z', '2026-09-17T00:00:00Z', 500)
     expect(mockCreate).toHaveBeenCalledOnce()
+  })
+})
+
+describe('dayFiles', () => {
+  beforeEach(() => mockExistsSync.mockReturnValue(true))
+
+  it('vise le dossier de chaque jour de la plage, mois et jour sur deux chiffres', () => {
+    expect(dayFiles('/data', 'SITE001', '2026-09-08T00:00:00Z', '2026-09-10T00:00:00Z')).toEqual([
+      '/data/site_id=SITE001/year=2026/month=09/day=08/*.parquet',
+      '/data/site_id=SITE001/year=2026/month=09/day=09/*.parquet',
+    ])
+  })
+
+  it('inclut le jour entamé au début de la plage et celui où elle finit', () => {
+    const files = dayFiles('/data', 'SITE001', '2026-09-08T14:00:00Z', '2026-09-09T06:00:00Z')
+    expect(files.map(f => f.split('/').at(-2))).toEqual(['day=08', 'day=09'])
+  })
+
+  it('écarte les jours sans fichier', () => {
+    mockExistsSync.mockImplementation((path: unknown) => String(path).includes('day=09'))
+    expect(dayFiles('/data', 'SITE001', '2026-09-08T00:00:00Z', '2026-09-10T00:00:00Z')).toHaveLength(1)
   })
 })
