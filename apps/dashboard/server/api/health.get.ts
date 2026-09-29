@@ -21,7 +21,8 @@ async function lastCollect(): Promise<{ parquet: Availability; last_data_at: str
   try {
     const dir = process.env.NUXT_PARQUET_DIR
     if (!dir) throw new Error("NUXT_PARQUET_DIR n'est pas défini")
-    const dates = Object.values(await latestDataPerSite(dir)).sort()
+    // Horodatages ISO en UTC : l'ordre des chaînes est l'ordre chronologique.
+    const dates = Object.values(await latestDataPerSite(dir)).sort((a, b) => a.localeCompare(b))
     return { parquet: 'ok', last_data_at: dates.at(-1) ?? null }
   } catch {
     return { parquet: 'unavailable', last_data_at: null }
