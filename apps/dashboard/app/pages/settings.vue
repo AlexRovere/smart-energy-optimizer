@@ -2,7 +2,7 @@
 import type { UserRole } from '~/types/api'
 import { useSettings } from '~/composables/useSettings'
 
-const { account } = useAccountSession()
+const { account, logout } = useAccountSession()
 const { notifications, updateNotification } = useSettings()
 
 const toast = useToast()
@@ -27,12 +27,6 @@ const ROLE_CAPABILITIES: Record<UserRole, string[]> = {
   ],
 }
 
-const LABEL_RÔLE: Record<string, string> = {
-  ADMIN: 'Administrateur',
-  OPERATOR: 'Opérateur',
-  VIEWER: 'Lecteur',
-}
-
 const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   admin:    'Accès complet : lecture, écriture des seuils, simulation de pic et export du relevé.',
   operator: 'Lecture du parc et écriture des seuils.',
@@ -41,7 +35,7 @@ const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
 
 const rôleActif = computed<UserRole>(() => (account.value?.role?.toLowerCase() as UserRole) ?? 'viewer')
 const roleCapabilities = computed(() => ROLE_CAPABILITIES[rôleActif.value] ?? [])
-const labelRôle = computed(() => LABEL_RÔLE[account.value?.role ?? ''] ?? account.value?.role ?? '')
+const labelRôle = computed(() => roleLabel(account.value?.role))
 
 const NOTIFICATIONS: { key: keyof typeof notifications.value; label: string; description: string }[] = [
   { key: 'critical_alerts', label: 'Alertes critical et high',       description: 'e-mail immédiat + notification navigateur' },
@@ -148,7 +142,7 @@ const NOTIFICATIONS: { key: keyof typeof notifications.value; label: string; des
         </div>
 
         <div class="pt-3">
-          <EvButton variant="danger">Déconnexion</EvButton>
+          <EvButton variant="danger" @click="logout">Déconnexion</EvButton>
         </div>
       </EvCard>
 

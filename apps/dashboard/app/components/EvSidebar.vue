@@ -2,15 +2,9 @@
 import type { NavigationMenuItem } from '@nuxt/ui'
 
 const { sites } = useSites()
-const { account } = useAccountSession()
+const { account, logout } = useAccountSession()
 const toast = useToast()
 const { pending, dernierEntrainement, déclencher } = useTraining()
-
-const LABEL_RÔLE: Record<string, string> = {
-  ADMIN: 'Administrateur',
-  OPERATOR: 'Opérateur',
-  VIEWER: 'Lecteur',
-}
 
 const initiales = computed(() => {
   const local = account.value?.email.split('@')[0] ?? ''
@@ -21,7 +15,7 @@ const initiales = computed(() => {
   return local.slice(0, 2).toUpperCase() || '?'
 })
 
-const labelRôle = computed(() => LABEL_RÔLE[account.value?.role ?? ''] ?? account.value?.role ?? '')
+const labelRôle = computed(() => roleLabel(account.value?.role))
 const { modele, rafraichirModele, disponible: modeleDisponible } = useModeleML()
 
 watch(dernierEntrainement, (val) => {
@@ -164,6 +158,17 @@ const systemeItems: NavigationMenuItem[] = [
             <span class="font-ev text-[13px] font-semibold leading-none truncate">{{ account?.email }}</span>
             <span class="font-ev text-[11px] leading-none text-ev-text-4">{{ labelRôle }}</span>
           </div>
+          <UButton
+            v-if="!collapsed"
+            icon="i-heroicons-arrow-right-on-rectangle"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            class="ml-auto cursor-pointer"
+            aria-label="Se déconnecter"
+            title="Se déconnecter"
+            @click="logout"
+          />
         </div>
       </div>
     </template>

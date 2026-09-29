@@ -28,7 +28,7 @@ const SITES: SiteApiItem[] = [
   { site_id: 'SITE001', site_name: 'Bureau Paris', site_type: 'office', location: null, capacity_kw: 300, status: 'active', warning_threshold_kw: null, present_in_source: true }
 ]
 
-function setupSettingsMocks(updateNotificationSpy = vi.fn()) {
+function setupSettingsMocks(updateNotificationSpy = vi.fn(), logout = vi.fn()) {
   useToastMock.mockReturnValue({ add: vi.fn() })
   useSettingsMock.mockReturnValue({
     notifications: ref({ critical_alerts: true, daily_summary: true, sensor_fault: false }),
@@ -38,7 +38,7 @@ function setupSettingsMocks(updateNotificationSpy = vi.fn()) {
   useSitesListMock.mockReturnValue({ sites: ref(SITES), pending: ref(false), error: ref(null) })
   useAccountSessionMock.mockReturnValue({
     account: ref({ id: '1', email: 'admin@test.fr', role: 'ADMIN', sites: [] }),
-    logout: vi.fn(),
+    logout,
   })
 }
 
@@ -78,5 +78,15 @@ describe('page Paramétrages', () => {
 
     expect(wrapper.text()).not.toContain('Opérateur')
     expect(wrapper.text()).not.toContain('Lecteur')
+  })
+
+  it('déconnecte le compte au clic sur Déconnexion', async () => {
+    const logout = vi.fn()
+    setupSettingsMocks(vi.fn(), logout)
+    const wrapper = await mountSuspended(SettingsPage)
+
+    await wrapper.findAll('button').find(b => b.text() === 'Déconnexion')!.trigger('click')
+
+    expect(logout).toHaveBeenCalledOnce()
   })
 })
