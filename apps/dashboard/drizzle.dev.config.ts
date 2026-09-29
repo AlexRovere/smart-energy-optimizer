@@ -1,5 +1,7 @@
-// Configuration de drizzle-kit pour la boucle locale : elle ne diffère de
-// `drizzle.config.ts` que par le fichier chargé, `.env.dev` au lieu de `.env`.
+// Configuration de drizzle-kit pour la pile de dev : elle ne diffère de
+// `drizzle.config.ts` que par les fichiers chargés, `.env.local` puis `dev.env`
+// au lieu de `.env`. Le premier l'emporte, `loadEnvFile` n'écrasant jamais une
+// variable déjà posée.
 //
 // Un second fichier plutôt qu'une condition dans le premier : `--config` est le
 // seul endroit où `drizzle-kit migrate` peut dire quelle base il vise. Et un
@@ -14,13 +16,17 @@ import { loadEnvFile } from 'node:process'
 import { defineConfig } from 'drizzle-kit'
 import { databaseUrlFromEnv } from './server/database/databaseUrl'
 
-const ENV_DEV = resolve(process.cwd(), '../../.env.dev')
+const ENV_LOCAL = resolve(process.cwd(), '../../.env.local')
+const ENV_DEV = resolve(process.cwd(), '../../dev.env')
+if (existsSync(ENV_LOCAL)) {
+  loadEnvFile(ENV_LOCAL)
+}
 if (existsSync(ENV_DEV)) {
   loadEnvFile(ENV_DEV)
 }
 else if (!process.env.NUXT_DATABASE_URL) {
   throw new Error(
-    '.env.dev est introuvable. Ce fichier est versionné : un clone complet le porte.'
+    'dev.env est introuvable. Ce fichier est versionné : un clone complet le porte.'
   )
 }
 

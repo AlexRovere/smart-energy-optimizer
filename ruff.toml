@@ -1,4 +1,5 @@
-# Configuration unique pour tout le Python du dépôt : `apps/etl` et `apps/ml`.
+# Configuration unique pour tout le Python du dépôt : `apps/etl`, `apps/ml` et
+# `apps/mock-api`.
 #
 # Un seul fichier plutôt qu'un par application. Deux jeux de règles séparés
 # finissent toujours par diverger, et jamais pour une bonne raison : on désactive
@@ -14,7 +15,7 @@
 # et chacune est réellement trop longue.
 line-length = 100
 
-# Les deux applications déclarent requires-python >=3.12,<3.13.
+# Les applications déclarent requires-python >=3.12,<3.13.
 target-version = "py312"
 
 # Le notebook d'exploration est exclu du lint. Un notebook n'est pas du code de
@@ -66,6 +67,7 @@ known-first-party = [
   "features",
   "load",
   "main",
+  "mock_api",
   "models",
   "progress",
   "run_log",
@@ -79,6 +81,11 @@ known-first-party = [
 # multilignes. E501 mesurerait la source embarquée plutôt que la lisibilité du
 # Python ; les autres règles restent actives sur ces fichiers.
 "apps/etl/insights/build*_html.py" = ["E501"]
+
+# Le tableau de calibration du simulateur garde un profil de 24 heures par
+# ligne, pour se relire valeur par valeur contre la capture de l'API réelle.
+# Coupé à 100 colonnes, il ne se compare plus à l'œil.
+"apps/mock-api/src/mock_api/catalog.py" = ["E501"]
 
 # DTZ001 exige un fuseau sur tout `datetime`. La règle vise le code qui écrit ou
 # compare des horodatages réels : un décalage y passe inaperçu jusqu'au

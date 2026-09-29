@@ -89,6 +89,8 @@ Sur échec : trois tentatives avec attente croissante, puis `503`.
 
 **Limite de la source : 500 points par heure et par client.** Elle contraint le chargement de l'historique, pas le temps réel.
 
+**Simulateur.** [`apps/mock-api`](../apps/mock-api/README.md) rejoue ce contrat, calé sur des réponses réelles enregistrées le 29 septembre 2026. Il sert la pile de développement et les tests de charge, et prend la relève si la source disparaît : seule `MOCK_API_URL` change.
+
 ---
 
 ## 3. Applicatif et service ML vers les fichiers Parquet
@@ -306,6 +308,6 @@ Deux nommages coexistent volontairement : `.env` porte des noms neutres, la comp
 
 **L'URL de connexion ne se transporte pas, elle s'assemble.** L'applicatif la construit depuis ces morceaux, comme l'ETL, parce que l'hôte et le port ne sont pas des secrets et changent selon d'où l'on appelle. `NUXT_DATABASE_URL` reste une surcharge explicite, pour la boucle locale et les tests, et l'emporte quand elle est posée (#158).
 
-**Hors composition**, personne ne traduit : l'applicatif lit directement les noms `NUXT_`. La boucle de développement les pose donc tels quels dans `.env.dev`, versionné parce qu'il ne contient aucun secret (voir le README et [`secrets.md`](./secrets.md)).
+**Hors composition**, personne ne traduit : l'applicatif lit directement les noms `NUXT_`. La pile de développement les pose donc tels quels dans `dev.env`, versionné parce qu'il ne contient aucun secret (voir le README et [`secrets.md`](./secrets.md)).
 
 Aucun secret en clair dans un fichier versionné : SOPS et age.

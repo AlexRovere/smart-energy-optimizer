@@ -63,7 +63,7 @@ Caddy n'est pas sur `data` : il ne peut pas atteindre postgres ni ml, même en c
 
 Pourquoi **TRUST_PROXY** ? Sans proxy, l'IP du client est connue directement. Avec un proxy, Nuxt reçoit l'IP de Caddy, pas celle du navigateur, et la vraie arrive dans `X-Forwarded-For`. `TRUST_PROXY=true` dit à Nuxt de croire cet en-tête, et cela n'est vrai que si le proxy est le **seul** chemin : le dashboard ne publie donc plus de port. Sinon l'en-tête se forge et la limitation des tentatives de #29 ne limite plus rien.
 
-Le fichier d'exemple laisse `true`, et ce n'est pas une inattention : il ne sert que la composition, où le dashboard est derrière Caddy y compris sur un poste. La boucle de développement lit `.env.dev`, tourne sans proxy, et garde le défaut `false` de `nuxt.config.ts`. Sur la machine, `DOMAIN` et `TRUST_PROXY` sont posés par le playbook dans le `.env` : ce sont des réglages, pas des secrets, et #197 a sorti les réglages de `secrets.enc.yaml`. `DOMAIN` garde un défaut `localhost`, pour qu'un `.env` antérieur à cette branche ne bloque pas le lancement.
+Le fichier d'exemple laisse `true`, et ce n'est pas une inattention : il ne sert que la composition, où le dashboard est derrière Caddy y compris sur un poste. La pile de développement lit `dev.env`, tourne sans proxy et pose `TRUST_PROXY=false`. Sur la machine, `DOMAIN` et `TRUST_PROXY` sont posés par le playbook dans le `.env` : ce sont des réglages, pas des secrets, et #197 a sorti les réglages de `secrets.enc.yaml`. `DOMAIN` garde un défaut `localhost`, pour qu'un `.env` antérieur à cette branche ne bloque pas le lancement.
 
 ## Comportement par environnement
 

@@ -7,11 +7,10 @@ Mesures de charge et de performance pour le service ML (`/predictions` par horiz
 | Fichier | Rôle |
 |---|---|
 | `fixtures/synthetic_history.py` | Écrit un historique Parquet synthétique, hive-partitionné, utilisable par le service ML (entraînement) et par le dashboard (lecture d'historique) |
-| `mock_api_stub.py` | Stub de `/api/v1/sites/{id}/current` : même forme, même latence, même plafond (500 pts/h) que l'API Mock réelle. **CI et local uniquement, jamais la source réelle** |
 | `locustfiles/ml_predictions.py` | `POST /predictions`, trois requêtes nommées `predictions_1h`, `predictions_24h`, `predictions_168h` |
 | `locustfiles/ml_training.py` | `POST /training`, poids faible (coûteux, mute le registre MLflow partagé) |
 | `locustfiles/dashboard_history.py` | Connexion puis `GET /sites/{id}/history` (Parquet direct) |
-| `locustfiles/dashboard_mock.py` | Connexion puis `GET /sites/{id}/current` (API Mock ou son stub) |
+| `locustfiles/dashboard_mock.py` | Connexion puis `GET /sites/{id}/current` (API Mock ou son simulateur) |
 | `thresholds.py` | Seuils de 95e percentile (ms) par requête nommée, une seule source |
 | `check_thresholds.py` | Lit le CSV `--csv` de Locust d'un rapport nommé (`ml` ou `dashboard-history`, dans `rapport-qualite/`), compare à `thresholds.py`, sort en erreur sur dépassement |
 
@@ -33,7 +32,7 @@ cd ../../load-tests
 uv run locust -f locustfiles/ml_predictions.py -f locustfiles/ml_training.py --host http://localhost:8000
 ```
 
-Pour le dashboard, démarrer en plus `mock_api_stub.py` (`uv run uvicorn mock_api_stub:app --port 9999`) et le dashboard lui-même (`NUXT_MOCK_API_URL=http://localhost:9999`), puis :
+Pour le dashboard, démarrer en plus le simulateur de l'API Mock, réglé comme la source réelle (depuis `apps/mock-api` : `MOCK_LATENCY_MS=150 MOCK_RATE_LIMIT_PER_HOUR=500 uv run uvicorn mock_api.app:app --port 9999`, voir son [README](../apps/mock-api/README.md)), et le dashboard lui-même (`NUXT_MOCK_API_URL=http://127.0.0.1:9999`), puis :
 
 ```bash
 uv run locust -f locustfiles/dashboard_history.py -f locustfiles/dashboard_mock.py --host http://localhost:3000
@@ -49,4 +48,4 @@ uv run locust -f locustfiles/dashboard_history.py -f locustfiles/dashboard_mock.
 
 ## Constater le bottleneck réel de l'API Mock
 
-`dashboard_mock.py` tape en CI sur `mock_api_stub.py`, jamais sur l'API Mock réelle (`MOCK_API_URL`, quota partagé de 500 points/heure/client, identifiants dans `.env`). Pour constater le bottleneck réel, lancer le dashboard en local avec `NUXT_MOCK_API_URL` pointé sur la vraie source, puis le même run Locust. À ne jamais automatiser sur push : le quota est partagé avec le reste de la formation.
+`dashboard_mock.py` tape en CI sur le simulateur (`apps/mock-api`), jamais sur l'API Mock réelle (`MOCK_API_URL`, quota partagé de 500 points/heure/client, identifiants dans `.env`). Pour constater le bottleneck réel, lancer le dashboard en local avec `NUXT_MOCK_API_URL` pointé sur la vraie source, puis le même run Locust. À ne jamais automatiser sur push : le quota est partagé avec le reste de la formation.
