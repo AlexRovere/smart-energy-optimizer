@@ -2,6 +2,8 @@
 
 MVP d'optimisation énergétique par l'IA, pour EnerVision. Projet piscine EADL, 2 semaines, 5 personnes.
 
+> **Reprise du projet.** Livré en `v1.0.0` par l'équipe EADL Nantes G1 (Alex Rovere, Antoine Coulon, Hugo Mrnth, Tanguy Raguenes, Pierrick Anceaux) dans le dépôt de l'école, `EADL-2026/enerVision`. Depuis le 29 septembre 2026, Alex Rovere le poursuit seul ici, historique complet conservé. Les issues ouvertes ont été reprises avec de nouveaux numéros, chacune renvoyant à son original. L'infrastructure de l'école (VM, runner auto-hébergé) n'est plus utilisée et doit laisser place à Kubernetes ; en attendant, la CI est réduite tant que le dépôt reste privé.
+
 Collecter les données de consommation de sites industriels, anticiper les pics via un modèle prédictif, recommander des actions correctives, et exposer le tout par une API sécurisée et un tableau de bord.
 
 ## Structure
@@ -135,7 +137,7 @@ Exemple : `EADL_2025_NANTES_G1/feat-18-ingestion-etl`.
 
 **Commits.** Même préfixe que la branche, en conventional commits : `feat(etl): ...`, `fix(ml): ...`.
 
-**Pull requests.** Une seule branche durable, `main`. Sa protection par règle n'est pas activable tant que le dépôt est privé sur une organisation en offre gratuite (point ouvert de la séance de cadrage) : la revue tient donc par convention, pas par contrainte technique. Toute évolution passe par une PR avec revue. Le fichier `.github/CODEOWNERS` route automatiquement la revue vers le propriétaire du répertoire touché.
+**Pull requests.** Une seule branche durable, `main`. Sa protection par règle n'est pas activable tant que le dépôt est privé sur une organisation en offre gratuite (point ouvert de la séance de cadrage) : la revue tient donc par convention, pas par contrainte technique. Toute évolution passe par une PR avec revue. Depuis la reprise en solo, `.github/CODEOWNERS` est retiré : la revue est une relecture de sa propre PR, CI verte et liste de vérification remplie, avant de fusionner.
 
 **Labels.** `domain:*` qualifie la zone du système, le type d'issue qualifie la nature du travail. Les deux sont indépendants.
 

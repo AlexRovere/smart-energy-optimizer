@@ -57,7 +57,7 @@ Exemple : `EADL_2025_NANTES_G1/feat-18-ingestion-etl`. Le type `Epic` ne porte p
 - **Aucun trailer d'attribution d'outil.** L'historique doit rester nominatif, comme la règle qui interdit de commiter depuis la machine.
 - Français accentué, y compris dans le sujet du commit.
 
-**Toute évolution passe par une pull request avec revue.** `.github/CODEOWNERS` route la revue vers le propriétaire du répertoire touché. La description dit ce qui change **et pourquoi**, et la liste de vérification du gabarit est remplie honnêtement : une case cochée qui ne correspond à rien vaut moins que la case décochée avec sa raison à côté.
+**Toute évolution passe par une pull request avec revue.** Le projet se poursuit en solo depuis le 29 septembre 2026 : plus de `CODEOWNERS`, la revue est une relecture de sa propre PR, CI verte, avant de fusionner. La description dit ce qui change **et pourquoi**, et la liste de vérification du gabarit est remplie honnêtement : une case cochée qui ne correspond à rien vaut moins que la case décochée avec sa raison à côté.
 
 Une PR qui contredit `architecture.md`, `data.md` ou `api.md` met le document à jour **dans la même PR**. Un écart non écrit se redécouvre à l'intégration.
 
@@ -66,10 +66,6 @@ Une PR qui contredit `architecture.md`, `data.md` ou `api.md` met le document à
 ## Suppressions
 
 Ne jamais supprimer définitivement un fichier. Sur Windows, passer par la corbeille. Avant toute suppression, vérifier que le contenu est bien suivi par git : ce qui est non suivi n'est pas récupérable.
-
-## Périmètres
-
-`.github/CODEOWNERS` dit qui relit quoi.
 
 ## Méthodologies
 
