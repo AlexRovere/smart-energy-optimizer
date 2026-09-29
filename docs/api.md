@@ -308,6 +308,6 @@ Deux nommages coexistent volontairement : `.env` porte des noms neutres, la comp
 
 **L'URL de connexion ne se transporte pas, elle s'assemble.** L'applicatif la construit depuis ces morceaux, comme l'ETL, parce que l'hôte et le port ne sont pas des secrets et changent selon d'où l'on appelle. `NUXT_DATABASE_URL` reste une surcharge explicite, pour la boucle locale et les tests, et l'emporte quand elle est posée (#158).
 
-**Hors composition**, personne ne traduit : l'applicatif lit directement les noms `NUXT_`. La boucle de développement les pose donc tels quels dans `.env.dev`, versionné parce qu'il ne contient aucun secret (voir le README et [`secrets.md`](./secrets.md)).
+**Hors composition**, personne ne traduit : l'applicatif lit directement les noms `NUXT_`. La pile de développement les pose donc tels quels dans `dev.env`, versionné parce qu'il ne contient aucun secret (voir le README et [`secrets.md`](./secrets.md)).
 
 Aucun secret en clair dans un fichier versionné : SOPS et age.

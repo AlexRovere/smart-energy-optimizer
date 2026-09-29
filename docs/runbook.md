@@ -12,13 +12,14 @@ rejouée sur la VM pour écrire ce document. Les procédures qui n'existent qu'i
 ### Poste de développement
 
 ```bash
-corepack pnpm@10.11.0 --dir apps/dashboard install
-corepack pnpm@10.11.0 --dir apps/dashboard dev:db   # base, migrations, amorçage
-corepack pnpm@10.11.0 --dir apps/dashboard dev      # http://localhost:3000
+node scripts/dev-stack.mjs up      # toute la pile, données fictives, http://localhost:3000
+node scripts/dev-stack.mjs reset   # repart de zéro
 ```
 
-Connexion : `admin@enervision.local` et le `SEED_PASSWORD` de `.env.dev`. Pile complète sur le
-poste : [`README.md`](../README.md#déployer). Port 5432 déjà pris : `POSTGRES_PUBLISHED_PORT=15432`
+Connexion : `admin@enervision.local` et le `SEED_PASSWORD` de `dev.env`. Dashboard avec
+rechargement à chaud : [`README.md`](../README.md#développer). Port 55432 déjà pris :
+`POSTGRES_PUBLISHED_PORT` et `NUXT_DATABASE_URL` dans `.env.local`. Pile de production sur le
+poste : [`README.md`](../README.md#déployer), port 5432 déjà pris : `POSTGRES_PUBLISHED_PORT=15432`
 dans `.env`.
 
 ### VM, première fois

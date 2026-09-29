@@ -31,30 +31,51 @@ aucun fichier de valeurs.
 
 ### Développer
 
-Un PostgreSQL dans Docker, l'applicatif sur le poste avec rechargement à chaud.
-Prérequis : Docker et Node 22 ou plus. `pnpm` passe par corepack, il n'a pas à
-être installé.
+Toute la pile sur le poste, avec des données fictives : le simulateur de l'API
+Mock ([`apps/mock-api`](./apps/mock-api/README.md)), PostgreSQL migré et amorcé,
+l'ETL réel qui écrit un an d'historique Parquet puis le tient à jour d'heure en
+heure, le ML entraîné sur cet historique, et le dashboard. Aucun secret, aucun
+appel vers l'extérieur. Prérequis : Docker et Node 22 ou plus.
 
 ```bash
-corepack pnpm@10.11.0 --dir apps/dashboard install
-corepack pnpm@10.11.0 --dir apps/dashboard dev:db   # base, migrations, amorçage
-corepack pnpm@10.11.0 --dir apps/dashboard dev      # http://localhost:3000
+node scripts/dev-stack.mjs up        # http://localhost:3000, quelques minutes la première fois
+node scripts/dev-stack.mjs down      # arrête, garde les données
+node scripts/dev-stack.mjs reset     # repart de zéro
 ```
 
-**Rien à copier, rien à renseigner** : les valeurs de la boucle locale vivent
-dans [`.env.dev`](./.env.dev), versionné parce qu'il ne contient aucun secret.
-Depuis `apps/dashboard/`, les mêmes commandes s'écrivent `pnpm install`,
-`pnpm dev:db`, `pnpm dev`.
+Connexion avec `admin@enervision.local` et le `SEED_PASSWORD` de
+[`dev.env`](./dev.env). Deux autres comptes existent, `operator@` et `viewer@`.
+Le cookie de session est `Secure` : Chrome, Edge et Firefox l'acceptent sur
+`http://localhost`, pas Safari.
 
-La connexion se fait avec `admin@enervision.local` et le `SEED_PASSWORD` de
-`.env.dev`. Deux autres comptes existent, `operator@` et `viewer@`.
+**Travailler sur le dashboard**, avec le rechargement à chaud : démarrer la pile
+sans lui, puis Nuxt sur le poste, branché sur le reste.
 
-`pnpm dev:db` est rejouable : un second passage ne casse rien.
-`pnpm dev:db:stop` arrête la base et libère le port, `pnpm dev:db:reset` jette
-en plus le volume et rend une base vide au passage suivant.
+```bash
+node scripts/dev-stack.mjs up --without-dashboard
+corepack pnpm@10.11.0 --dir apps/dashboard install
+corepack pnpm@10.11.0 --dir apps/dashboard dev
+```
 
-La version longue des commandes est dans le [README du
-dashboard](./apps/dashboard/README.md).
+Dans ce mode, l'historique fictif est écrit dans `data/parquet-dev`, que Nuxt
+lit depuis le poste, et non dans le volume nommé de la pile complète : il est
+amorcé une seconde fois au premier passage (trois minutes sous Windows). Le ML
+y relit aussi l'historique à travers le montage : sous Windows, une prédiction
+prend alors une minute et demie contre moins d'une seconde dans le volume, et
+les écrans qui en dépendent se replient sur les seules recommandations à seuil.
+
+Depuis `apps/dashboard/`, les mêmes commandes s'écrivent `pnpm dev:stack`,
+`pnpm dev:stack:backend`, `pnpm dev:stack:stop`, `pnpm dev:stack:reset` et
+`pnpm dev`.
+
+**Rien à copier, rien à renseigner** : les valeurs vivent dans
+[`dev.env`](./dev.env), versionné parce qu'il ne contient aucun secret. Une
+surcharge propre au poste va dans `.env.local`, ignoré par git, qui l'emporte :
+par exemple `POSTGRES_PUBLISHED_PORT` et `NUXT_DATABASE_URL` si le port 55432
+est déjà pris. La pile de développement est une surcharge de
+[`docker-compose.yml`](./docker-compose.yml) par
+[`docker-compose.dev.yml`](./docker-compose.dev.yml) : les services ne sont
+décrits qu'une fois.
 
 ### Déployer
 
