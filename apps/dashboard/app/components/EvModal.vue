@@ -22,7 +22,7 @@ watch(() => props.open, async (open) => {
   <dialog
     v-if="open"
     ref="dialog"
-    class="fixed bg-ev-surface-2 border border-ev-border rounded-ev-md p-6 w-full max-w-md text-ev-text"
+    class="fixed inset-0 m-auto h-fit max-h-[85vh] overflow-y-auto bg-ev-surface-2 border border-ev-border rounded-ev-md p-6 w-[calc(100%-2rem)] max-w-md text-ev-text"
     @click.self="emit('close')"
     @keydown.esc.stop.prevent="emit('close')"
   >
