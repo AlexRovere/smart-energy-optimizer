@@ -2,7 +2,7 @@
 
 Les valeurs sensibles de la pile vivent chiffrées dans [`secrets.enc.yaml`](../secrets.enc.yaml) avec **SOPS** et **age** ; [`.sops.yaml`](../.sops.yaml) dit en clair qui peut les déchiffrer. Ce document existe pour que n'importe quel membre chiffre et déchiffre **sans demander d'aide** : un mécanisme qui ne marche que sur le poste de qui l'a posé ne protège rien, il déplace le problème sur une personne (issue #99, fermée en doublon avec #52).
 
-Ce que ça protège : un accès en lecture au dépôt (clone, capture d'écran, dépôt passé public par erreur) ne rend que du chiffré. Ce que ça ne protège pas : le moteur Docker, qui garde les variables d'environnement en clair une fois le conteneur lancé, et, **depuis le 17 septembre 2026, une clé de déchiffrement dort sur la machine sur site**. Ce n'était pas le cas jusque là et ce n'est pas un détail : la décision, son motif et ce qu'elle coûte sont dans « Pour aller plus loin ».
+Ce que ça protège : un accès en lecture au dépôt (clone, capture d'écran, dépôt passé public par erreur) ne rend que du chiffré. Ce que ça ne protège pas : le moteur Docker, qui garde les variables d'environnement en clair une fois le conteneur lancé, et une clé de machine, le temps qu'elle a existé (du 17 au 29 septembre 2026) : la décision, son motif et son retrait sont dans « Pour aller plus loin ».
 
 ## Installation
 
@@ -78,7 +78,7 @@ Sans conséquence dans un profil utilisateur normal, sauf poste réellement part
 
 ### Se faire ajouter comme destinataire
 
-Aujourd'hui `.sops.yaml` porte **sept** destinataires : les postes d'Alex Rovere, d'Antoine Coulon, d'Hugo Mrnth, de Tanguy Raguenes et de Pierrick Anceaux, la CI, et la machine sur site depuis le 17 septembre 2026. L'équipe est donc au complet. Cette section reste utile pour une arrivée dans l'équipe : tant qu'une clé n'est pas dans la liste, `sops decrypt` échoue normalement :
+Depuis la reprise en solo du 29 septembre 2026, `.sops.yaml` ne porte plus que **deux** destinataires : le poste d'Alex Rovere et la CI. Les quatre autres postes de l'équipe et la machine sur site ont été retirés (voir « Rotation et révocation »). Cette section reste utile pour une arrivée : tant qu'une clé n'est pas dans la liste, `sops decrypt` échoue normalement :
 
 ```
 Failed to get the data key required to decrypt the SOPS file.
@@ -241,9 +241,9 @@ Le jour où quelqu'un ajoute une vraie valeur à `.env.dev`, c'est la revue qui 
 
 **La clé de la CI** ne suit pas la procédure ordinaire, parce qu'elle n'appartient à personne : écrite ici pour être **refaisable**, pas pour être rejouée. Elle a dû être générée sur un poste, puisque GitHub Actions ne garde pas de secret d'un job à l'autre sans qu'on le lui donne : partie privée collée dans `SOPS_AGE_KEY`, partie publique ajoutée à `.sops.yaml`, fichier temporaire du poste effacé. Exception assumée et bornée à cet usage, une rotation ne coûtant qu'un `updatekeys`. `SOPS_AGE_KEY` porte le **contenu** de la clé, `SOPS_AGE_KEY_FILE` un **chemin** ; la CI utilise le premier, et les postes n'ont besoin ni de l'un ni de l'autre, `sops` lisant `~/.config/sops/age/keys.txt` par défaut.
 
-**Il y a une clé de machine depuis le 17 septembre 2026**, et c'est un renversement de la décision du 16, qui disait exactement l'inverse. Le motif du renversement : le runner auto-hébergé ne tient pas ses promesses, le déploiement se fait donc à la main depuis la VM, et la seule alternative écrite était qu'un membre déchiffre sur son poste puis recopie les valeurs dans un `.env` temporaire sur la machine. Entre une clé assumée et des secrets recopiés à la main dans un fichier qu'on espère supprimer, la clé est le moindre mal.
+**Il y a eu une clé de machine du 17 au 29 septembre 2026**, et c'était un renversement de la décision du 16, qui disait exactement l'inverse. Le motif du renversement : le runner auto-hébergé ne tient pas ses promesses, le déploiement se fait donc à la main depuis la VM, et la seule alternative écrite était qu'un membre déchiffre sur son poste puis recopie les valeurs dans un `.env` temporaire sur la machine. Entre une clé assumée et des secrets recopiés à la main dans un fichier qu'on espère supprimer, la clé est le moindre mal.
 
-Ce que ça coûte, et qui n'a pas disparu : le compte `apprenant` est partagé par les cinq, donc cette clé privée est lisible par tout le monde sur la VM, et elle ouvre aussi **les versions passées** du fichier chiffré, que git conserve. Deux conséquences à tenir : la clé est générée **sur** la VM et n'en sort jamais, et le jour où le déploiement automatisé fonctionne, la retirer ne suffit pas, il faut **changer les valeurs** (voir « Rotation et révocation » plus bas).
+Ce que ça coûte, et qui n'a pas disparu : le compte `apprenant` est partagé par les cinq, donc cette clé privée est lisible par tout le monde sur la VM, et elle ouvre aussi **les versions passées** du fichier chiffré, que git conserve. Deux conséquences à tenir : la clé est générée **sur** la VM et n'en sort jamais, et le jour où le déploiement automatisé fonctionne, la retirer ne suffit pas, il faut **changer les valeurs** (voir « Rotation et révocation » plus bas). Elle a été retirée à la reprise du 29 septembre, la VM de l'école n'étant plus utilisée.
 
 ### Rotation et révocation
 
@@ -254,11 +254,13 @@ Ce que ça coûte, et qui n'a pas disparu : le compte `apprenant` est partagé p
 - **Départ prévu d'un membre** : retirer la clé suffit, on remet la liste en accord avec l'équipe réelle.
 - **Incident réel** (clé fuitée, poste perdu, valeur affichée) : le vrai travail est de **changer les valeurs** (nouveau mot de passe Postgres, nouveau secret de session qui déconnecte tout le monde volontairement, nouveau mot de passe Grafana, chacun via `--value-stdin`), redéployer, et **ensuite** retirer la clé. La révocation est le geste d'hygiène, pas la réponse à l'incident.
 
+**Reprise du 29 septembre 2026**, projet continué en solo : cinq destinataires retirés (quatre postes, la machine sur site), un départ prévu donc, sans changement de valeurs. L'historique les garde lisibles par ces clés, mais aucune pile ne tourne plus avec elles : **changer les valeurs au premier déploiement** qui suivra, sauf `MOCK_API_URL`, fournie par la formation. gitleaks sur tout l'historique, fusions comprises, ne trouve rien en clair. La clé de la CI est gardée : sa partie privée n'a jamais été lisible que par GitHub.
+
 Pas de rotation de routine au MVP, la pile ne vivant que le temps de la piscine ; une exploitation réelle poserait une échéance et un responsable.
 
 ### Limites connues
 
-**Une coupure ne demande pas de clé, un `docker compose up` complet si.** Les conteneurs redémarrent seuls avec l'environnement que Docker a gardé à leur création, et `docker restart`, `docker logs` ou `docker inspect` n'en ont pas besoin non plus. Recréer la pile entière demande en revanche les valeurs déchiffrées, donc la clé de la machine, désormais présente sur place.
+**Une coupure ne demande pas de clé, un `docker compose up` complet si.** Les conteneurs redémarrent seuls avec l'environnement que Docker a gardé à leur création, et `docker restart`, `docker logs` ou `docker inspect` n'en ont pas besoin non plus. Recréer la pile entière demande en revanche les valeurs déchiffrées, donc une clé destinataire là où la pile tourne.
 
 **Les ports de la supervision sont ouverts trop largement** : `docker-compose.yml` publie Prometheus sur `9090:9090` et Grafana sur `3001:3000` sur toutes les interfaces, contrairement à `postgres` lié à la boucle locale ; `GRAFANA_PASSWORD` garde donc une interface d'administration joignable depuis le réseau. Le rayon est borné au réseau de l'école, aucune entité extérieure ne pouvant joindre la machine : c'est un défaut, pas une exposition publique. Corriger `docker-compose.yml` relève de #47, signalé ici pour ne pas laisser croire le contraire.
 
@@ -268,7 +270,7 @@ Pas de rotation de routine au MVP, la pile ne vivant que le temps de la piscine 
 
 ### Les garde-fous de la CI, et leur sortie de secours
 
-Dans [`security.yml`](../.github/workflows/security.yml), sur chaque pull request vers `main` et chaque push, quelle que soit la branche (le reste du pipeline, dans [`ci.yml`](../.github/workflows/ci.yml), reste lié aux pull requests, pour le coût sur une offre gratuite plafonnée).
+Dans [`security.yml`](../.github/workflows/security.yml), sur chaque pull request vers `main` et chaque push sur `main`, en attendant de revenir à tout push une fois le dépôt public (le reste du pipeline, dans [`ci.yml`](../.github/workflows/ci.yml), reste lié aux pull requests, pour le coût sur une offre gratuite plafonnée).
 
 | Contrôle | Ce qu'il refuse |
 |---|---|
@@ -280,7 +282,7 @@ Le dernier surprend : un secret commité puis retiré au commit suivant fait qua
 
 **Sortie de secours d'un faux positif** (gitleaks se trompe déjà : une clé publique age classée `generic-api-key`, vérifié sur ce projet) : un commentaire `gitleaks:allow` sur la ligne (préféré pour une valeur documentée à l'avance), ou une entrée dans `.gitleaksignore` à la racine (à créer le jour du premier cas, format `<commit>:<chemin>:<règle>:<ligne>` tel que gitleaks le rend). Légitime pour un faux positif vérifié un par un, jamais pour faire taire un vrai secret : la différence se voit en revue, pas dans la syntaxe.
 
-**Sortie de secours du déploiement** : depuis que la machine est destinataire, elle se recrée sur place avec la séquence `sops exec-env` documentée plus haut, sans dépendre de GitHub ni recopier une valeur à la main. C'est aussi ce qui a motivé la clé. Un `workflow_dispatch` sur le workflow de déploiement reste le chemin propre quand le runner répond, sans pousser de commit et en laissant une trace.
+**Sortie de secours du déploiement** : du 17 au 29 septembre, la machine sur site étant destinataire, elle se recréait sur place avec la séquence `sops exec-env` documentée plus haut. La clé retirée, cette sortie tombe avec la VM de l'école. Un `workflow_dispatch` sur le workflow de déploiement reste le chemin propre quand le runner répond, sans pousser de commit et en laissant une trace.
 
 ### Le détail du hook `pre-push`
 
