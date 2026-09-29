@@ -10,11 +10,13 @@ name: CI
 # parce qu'il lui faut les images. docs/ci-cd.md décrit le pipeline entier,
 # ses écarts assumés et comment le rejouer.
 
+# Temporaire, tant que le dépôt est privé et que les minutes gratuites sont
+# comptées : plus de rejeu sur main après fusion (la PR a déjà tout vérifié),
+# et les tests de charge ne partent qu'à la main, via workflow_dispatch.
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -386,7 +388,8 @@ jobs:
   # le quota de paquets privés de l'offre gratuite (voir le commentaire au-dessus d'image-etl).
   load-test-ml:
     needs: changes
-    if: needs.changes.outputs.ml == 'true' || needs.changes.outputs.loadtest == 'true'
+    # Temporaire : lancement manuel seulement (voir le déclencheur en tête de fichier).
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -458,7 +461,8 @@ jobs:
   # source réelle (quota partagé de 500 pts/h, docs/api.md). Voir docs/ci-cd.md pour le motif.
   load-test-dashboard:
     needs: changes
-    if: needs.changes.outputs.dashboard == 'true' || needs.changes.outputs.loadtest == 'true'
+    # Temporaire : lancement manuel seulement (voir le déclencheur en tête de fichier).
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
