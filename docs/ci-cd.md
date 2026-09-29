@@ -23,10 +23,12 @@ Le premier job de `ci.yml`, `changes`, compare les fichiers modifiés à cinq en
 | Domaine | Chemins écoutés | Jobs déclenchés |
 |---|---|---|
 | `etl` | `apps/etl/**` | `etl`, `image-etl` |
-| `ml` | `apps/ml/**` | `ml`, `image-ml`, `load-test-ml` |
-| `dashboard` | `apps/dashboard/**` | `dashboard`, `image-dashboard`, `load-test-dashboard` |
-| `infra` | `infra/**`, `docker-compose.yml` | `infra` |
-| `loadtest` | `load-tests/**` | `load-test-ml`, `load-test-dashboard` |
+| `ml` | `apps/ml/**` | `ml`, `image-ml` |
+| `mockapi` | `apps/mock-api/**` | `mock-api`, `image-mock-api` |
+| `dashboard` | `apps/dashboard/**` | `dashboard`, `image-dashboard` |
+| `infra` | `infra/**`, `docker-compose.yml`, `docker-compose.dev.yml`, `dev.env` | `infra` |
+
+Les tests de charge ne dépendent d'aucun chemin : ils ne partent qu'à la demande (voir plus bas).
 
 Les cinq écoutent aussi `.github/workflows/ci.yml` lui-même, sans quoi une pull request qui ne touche que la CI ne déclencherait aucun job, exactement le moment où l'on voudrait une preuve.
 
@@ -44,7 +46,7 @@ L'enchaînement est **par domaine** : lint, puis tests, puis construction de l'i
 | 3 | Tests | `dashboard` : `vitest` ; `etl`, `ml` : `pytest` | Un test rouge | En place |
 | 4 | Composition | `infra` : `docker compose config` | Un `docker-compose.yml` invalide | En place |
 | 5 | Images | `image-*` : `docker build`, puis Trivy | Un Dockerfile cassé, une vulnérabilité **critique** dans l'image | En place |
-| 6 | Charge et performance | `load-test-ml`, `load-test-dashboard` : Locust | Un dépassement de seuil sur `/predictions`, `/training`, l'historique du dashboard. **Jamais** sur l'accès à l'API Mock (voir plus bas) | En place |
+| 6 | Charge et performance | `load-test-ml`, `load-test-dashboard` : Locust | Un dépassement de seuil sur `/predictions`, `/training`, l'historique du dashboard. **Jamais** sur l'accès à l'API Mock (voir plus bas) | À la demande seulement |
 | 7 | Scan du code | `security.yml` : Trivy, gitleaks, SOPS | Une vulnérabilité critique **ou élevée**, un secret, un destinataire oublié | En place, hors chaîne (voir plus bas) |
 | 8 | Déploiement | `deploy.yml` sur le runner de la VM | Ne s'exécute qu'après une CI verte sur `main` | Suspendu depuis le 29 septembre 2026 (VM de l'école abandonnée) |
 
@@ -102,7 +104,11 @@ Conséquence assumée : l'applicatif est construit deux fois sur une pull reques
 
 ## Les mesures de charge et de performance
 
-Deux jobs Locust, dans [`load-tests/`](../load-tests/README.md) : `load-test-ml` et `load-test-dashboard`. Chacun reconstruit son image → démarre dans le runner → historique Parquet **synthétique** ([`fixtures/synthetic_history.py`](../load-tests/fixtures/synthetic_history.py), jamais l'ETL ni l'API Mock réelle) → run Locust headless.
+Deux jobs Locust, dans [`load-tests/`](../load-tests/README.md) : `load-test-ml` et `load-test-dashboard`.
+
+**Ils ne tournent jamais sur une pull request.** Quatre à cinq minutes chacun, pour une mesure utile avant ou après une évolution de performance, pas à chaque correctif. Pour les lancer : onglet Actions, workflow `CI`, « Run workflow » sur la branche voulue, puis choisir `tests_de_charge` (`ml`, `dashboard`, `tous`, ou `aucun` pour rejouer la CI seule). Un seuil dépassé fait échouer le run, sans rien bloquer d'autre.
+
+ Chacun reconstruit son image → démarre dans le runner → historique Parquet **synthétique** ([`fixtures/synthetic_history.py`](../load-tests/fixtures/synthetic_history.py), jamais l'ETL ni l'API Mock réelle) → run Locust headless.
 
 ```mermaid
 flowchart TB

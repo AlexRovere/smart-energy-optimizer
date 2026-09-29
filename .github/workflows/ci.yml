@@ -10,11 +10,20 @@ name: CI
 # parce qu'il lui faut les images. docs/ci-cd.md décrit le pipeline entier,
 # ses écarts assumés et comment le rejouer.
 
+# Les tests de charge ne partent qu'à la demande : « Run workflow » dans
+# l'onglet Actions, en choisissant la cible. Une PR ne les joue jamais.
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      tests_de_charge:
+        description: Tests de charge à jouer
+        type: choice
+        options: [aucun, ml, dashboard, tous]
+        default: tous
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -46,7 +55,6 @@ jobs:
       mockapi: ${{ steps.filter.outputs.mockapi }}
       dashboard: ${{ steps.filter.outputs.dashboard }}
       infra: ${{ steps.filter.outputs.infra }}
-      loadtest: ${{ steps.filter.outputs.loadtest }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -78,9 +86,6 @@ jobs:
               - 'dev.env'
               - '.github/workflows/ci.yml'
               - '.github/workflows/deploy.yml'
-            loadtest:
-              - 'load-tests/**'
-              - '.github/workflows/ci.yml'
 
   etl:
     needs: changes
@@ -467,7 +472,9 @@ jobs:
   # le quota de paquets privés de l'offre gratuite (voir le commentaire au-dessus d'image-etl).
   load-test-ml:
     needs: changes
-    if: needs.changes.outputs.ml == 'true' || needs.changes.outputs.loadtest == 'true'
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      contains(fromJSON('["ml", "tous"]'), inputs.tests_de_charge)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -540,9 +547,8 @@ jobs:
   load-test-dashboard:
     needs: changes
     if: >-
-      needs.changes.outputs.dashboard == 'true' ||
-      needs.changes.outputs.loadtest == 'true' ||
-      needs.changes.outputs.mockapi == 'true'
+      github.event_name == 'workflow_dispatch' &&
+      contains(fromJSON('["dashboard", "tous"]'), inputs.tests_de_charge)
     runs-on: ubuntu-latest
     permissions:
       contents: read
