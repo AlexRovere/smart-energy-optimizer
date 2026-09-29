@@ -30,7 +30,7 @@ async function latestPartition(dir: string, key: string): Promise<string | null>
 
 async function latestTimestamp(dayDir: string): Promise<string | null> {
   const connexion = await (await getInstance()).connect()
-  const pattern = join(dayDir, '*.parquet').replace(/\\/g, '/')
+  const pattern = join(dayDir, '*.parquet').replaceAll('\\', '/')
   const result = await connexion.runAndReadAll(`SELECT max(timestamp) AS last FROM read_parquet('${pattern}')`)
   const last = result.getRowObjectsJS()[0]?.last
   return last instanceof Date ? last.toISOString() : null
