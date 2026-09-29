@@ -45,7 +45,7 @@ describe('GET /api/admin/users', () => {
   it('retourne un tableau pour un ADMIN', async () => {
     mockRequireRole.mockResolvedValue({ id: 'uuid-admin', email: 'admin@enervision.local', role: 'ADMIN' })
     mockAllowedSites.mockResolvedValue([])
-    const résultat = await handler(mockEvent)
-    expect(Array.isArray(résultat)).toBe(true)
+    const result = await handler(mockEvent)
+    expect(Array.isArray(result)).toBe(true)
   })
 })

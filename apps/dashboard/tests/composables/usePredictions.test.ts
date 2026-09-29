@@ -4,12 +4,12 @@ import type { Ref } from 'vue'
 import type { PredictionPoint, Reading, Recommendation, SiteId } from '../../app/types/api'
 import { usePredictions } from '../../app/composables/usePredictions'
 
-const { mockUseFetch, mockUseSitePrediction, mockUseSiteHistory, points, lectures } = vi.hoisted(() => ({
+const { mockUseFetch, mockUseSitePrediction, mockUseSiteHistory, points, readingsFixture } = vi.hoisted(() => ({
   mockUseFetch: vi.fn(),
   mockUseSitePrediction: vi.fn(),
   mockUseSiteHistory: vi.fn(),
-  points: { valeur: [] as PredictionPoint[] },
-  lectures: { valeur: [] as Reading[] },
+  points: { value: [] as PredictionPoint[] },
+  readingsFixture: { value: [] as Reading[] },
 }))
 
 vi.mock('nuxt/app', () => ({
@@ -45,8 +45,8 @@ const recommendationFixture: Recommendation = {
   window: 'N/A'
 }
 
-function prévision(valeurs: number[]): PredictionPoint[] {
-  return valeurs.map((kw, i) => ({
+function forecast(values: number[]): PredictionPoint[] {
+  return values.map((kw, i) => ({
     timestamp: new Date(Date.UTC(2026, 8, 23, 11 + i)).toISOString(),
     predicted_consumption_kw: kw
   }))
@@ -60,61 +60,61 @@ describe('usePredictions', () => {
       pending: ref(false),
       error: ref(null)
     })
-    points.valeur = []
-    lectures.valeur = []
+    points.value = []
+    readingsFixture.value = []
     mockUseSitePrediction.mockReset()
     mockUseSitePrediction.mockImplementation(() => ({
-      forecastPoints: computed(() => points.valeur),
+      forecastPoints: computed(() => points.value),
       modelVersion: ref('3'),
       confidenceLevel: ref(0),
       predictedAt: ref(null),
-      nbPoints: computed(() => points.valeur.length),
+      nbPoints: computed(() => points.value.length),
       available: ref(true),
-      lancer: vi.fn(),
-      lancee: ref(false),
-      dureeMs: ref(null),
+      launch: vi.fn(),
+      launched: ref(false),
+      durationMs: ref(null),
       pending: ref(false),
       error: ref(null)
     }))
     mockUseSiteHistory.mockReset()
     mockUseSiteHistory.mockImplementation(() => ({
-      readings: computed(() => lectures.valeur),
+      readings: computed(() => readingsFixture.value),
       pending: ref(false),
       error: ref(null)
     }))
   })
 
   it('sélectionne SITE001 par défaut, horizon 24 h', () => {
-    const { selectedSiteId, horizonHeures } = usePredictions()
+    const { selectedSiteId, horizonHours } = usePredictions()
     expect(selectedSiteId.value).toBe('SITE001')
-    expect(horizonHeures.value).toBe(24)
+    expect(horizonHours.value).toBe(24)
   })
 
   it('branche la prévision du service ML sur le site et l\'horizon sélectionnés', () => {
-    const { selectedSiteId, horizonHeures } = usePredictions()
+    const { selectedSiteId, horizonHours } = usePredictions()
     const [siteArg, horizonArg] = mockUseSitePrediction.mock.calls[0]! as [Ref<SiteId>, Ref<number>]
     expect(siteArg).toBe(selectedSiteId)
-    expect(horizonArg).toBe(horizonHeures)
+    expect(horizonArg).toBe(horizonHours)
   })
 
   it("prend l'historique réel des 24 dernières heures du site sélectionné", () => {
     const { selectedSiteId } = usePredictions()
-    const [siteArg, fenêtreArg] = mockUseSiteHistory.mock.calls[0]! as [Ref<SiteId>, Ref<string>]
+    const [siteArg, timeWindowArg] = mockUseSiteHistory.mock.calls[0]! as [Ref<SiteId>, Ref<string>]
     expect(siteArg).toBe(selectedSiteId)
-    expect(fenêtreArg.value).toBe('24h')
+    expect(timeWindowArg.value).toBe('24h')
   })
 
   it('expose les points historiques rendus par useSiteHistory', () => {
-    lectures.valeur = [{ timestamp: '2026-09-23T10:00:00Z', consumption_kw: 80 } as Reading]
+    readingsFixture.value = [{ timestamp: '2026-09-23T10:00:00Z', consumption_kw: 80 } as Reading]
     const { historicalPoints } = usePredictions()
-    expect(historicalPoints.value).toEqual(lectures.valeur)
+    expect(historicalPoints.value).toEqual(readingsFixture.value)
   })
 
   it('expose le déclencheur et le retour de la prédiction', () => {
-    const résultat = usePredictions()
-    expect(typeof résultat.lancer).toBe('function')
-    expect(résultat.lancee.value).toBe(false)
-    expect(résultat.modelVersion.value).toBe('3')
+    const result = usePredictions()
+    expect(typeof result.launch).toBe('function')
+    expect(result.launched.value).toBe(false)
+    expect(result.modelVersion.value).toBe('3')
   })
 
   describe('indicateurs', () => {
@@ -127,32 +127,32 @@ describe('usePredictions', () => {
     })
 
     it('peakKw est le maximum de la prévision', () => {
-      points.valeur = prévision([80, 95, 90])
+      points.value = forecast([80, 95, 90])
       const { peakKw } = usePredictions()
       expect(peakKw.value).toBe(95)
     })
 
     it('marginKw = seuil du site - pic', () => {
-      points.valeur = prévision([80, 95, 90])
+      points.value = forecast([80, 95, 90])
       const { marginKw, thresholdKw } = usePredictions()
       expect(thresholdKw.value).toBe(100)
       expect(marginKw.value).toBe(5)
     })
 
     it('peakTime donne l\'heure du pic', () => {
-      points.valeur = prévision([80, 95, 90])
+      points.value = forecast([80, 95, 90])
       const { peakTime } = usePredictions()
       expect(peakTime.value).toMatch(/^\d{2}:\d{2}$/)
     })
 
     it('exceedanceExpected=false quand tout reste sous le seuil', () => {
-      points.valeur = prévision([80, 95, 90])
+      points.value = forecast([80, 95, 90])
       const { exceedanceExpected } = usePredictions()
       expect(exceedanceExpected.value).toBe(false)
     })
 
     it('exceedanceExpected=true dès qu\'un point atteint le seuil', () => {
-      points.valeur = prévision([80, 100, 90])
+      points.value = forecast([80, 100, 90])
       const { exceedanceExpected } = usePredictions()
       expect(exceedanceExpected.value).toBe(true)
     })

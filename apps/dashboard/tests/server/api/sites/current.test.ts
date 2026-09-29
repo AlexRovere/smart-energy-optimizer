@@ -29,7 +29,7 @@ vi.mock('../../../../server/utils/logger', () => ({
 
 const mockEvent = {} as H3Event
 
-const lectureValide = {
+const validReading = {
   timestamp: '2026-09-16T14:00:00Z',
   site_id: 'SITE001',
   site_type: 'office',
@@ -53,10 +53,10 @@ describe('GET /api/sites/[id]/current', () => {
 
   it('retourne la lecture courante pour un site autorisé', async () => {
     mockGetRouterParam.mockReturnValue('SITE001')
-    mockFetchMockApi.mockResolvedValue(lectureValide)
+    mockFetchMockApi.mockResolvedValue(validReading)
 
-    const résultat = await handler(mockEvent)
-    expect(résultat).toMatchObject({ site_id: 'SITE001', consumption_kw: 87.34 })
+    const result = await handler(mockEvent)
+    expect(result).toMatchObject({ site_id: 'SITE001', consumption_kw: 87.34 })
     expect(mockRequireSiteAccess).toHaveBeenCalledWith(mockEvent, 'SITE001')
   })
 
@@ -83,21 +83,21 @@ describe('GET /api/sites/[id]/current', () => {
   })
 
   it('loggue l\'erreur source avant de lancer 503', async () => {
-    const messageErreur = 'API Mock hors service'
+    const errorMessage = 'API Mock hors service'
     mockGetRouterParam.mockReturnValue('SITE001')
-    mockFetchMockApi.mockRejectedValue(new Error(messageErreur))
+    mockFetchMockApi.mockRejectedValue(new Error(errorMessage))
 
     await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 503 })
 
     expect(mockLoggerError).toHaveBeenCalledOnce()
-    const [, contexte] = mockLoggerError.mock.calls[0] as [string, Record<string, unknown>]
-    expect(contexte.message).toBe(messageErreur)
-    expect(contexte.siteId).toBe('SITE001')
+    const [, context] = mockLoggerError.mock.calls[0] as [string, Record<string, unknown>]
+    expect(context.message).toBe(errorMessage)
+    expect(context.siteId).toBe('SITE001')
   })
 
   it('retourne 422 sans loguer si la source renvoie une forme invalide', async () => {
     mockGetRouterParam.mockReturnValue('SITE001')
-    mockFetchMockApi.mockResolvedValue({ inattendu: true })
+    mockFetchMockApi.mockResolvedValue({ unexpected: true })
 
     await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 422 })
     expect(mockLoggerError).not.toHaveBeenCalled()

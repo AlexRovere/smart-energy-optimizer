@@ -30,14 +30,14 @@ describe('fetchPredictions', () => {
   })
 
   it('rend les prédictions telles que rendues par le service', async () => {
-    const réponse = [
+    const response = [
       { site_id: 'SITE001', timestamp: '2026-09-18T14:00:00', consumption_kwh: 235.5 }
     ]
-    mocked$fetch.mockResolvedValueOnce(réponse)
+    mocked$fetch.mockResolvedValueOnce(response)
 
-    const résultat = await fetchPredictions([{ site_id: 'SITE001', date: '2026-09-18', hour: 14 }], BASE_URL)
+    const result = await fetchPredictions([{ site_id: 'SITE001', date: '2026-09-18', hour: 14 }], BASE_URL)
 
-    expect(résultat).toEqual(réponse)
+    expect(result).toEqual(response)
   })
 })
 
@@ -61,28 +61,28 @@ describe('fetchModelInfo', () => {
   })
 
   it('rend le ModelInfo tel que rendu par le service', async () => {
-    const réponse = { name: 'enervision', version: '3', alias: 'champion' }
-    mocked$fetch.mockResolvedValueOnce(réponse)
+    const response = { name: 'enervision', version: '3', alias: 'champion' }
+    mocked$fetch.mockResolvedValueOnce(response)
 
-    const résultat = await fetchModelInfo(BASE_URL)
+    const result = await fetchModelInfo(BASE_URL)
 
-    expect(résultat).toEqual(réponse)
+    expect(result).toEqual(response)
   })
 
   it('transmet les champs enrichis creation_timestamp et metriques', async () => {
-    const réponse = {
+    const response = {
       name: 'enervision',
       version: '3',
       alias: 'champion',
       creation_timestamp: 1_700_000_000_000,
       metriques: { training_rows: 5000 },
     }
-    mocked$fetch.mockResolvedValueOnce(réponse)
+    mocked$fetch.mockResolvedValueOnce(response)
 
-    const résultat = await fetchModelInfo(BASE_URL)
+    const result = await fetchModelInfo(BASE_URL)
 
-    expect(résultat.creation_timestamp).toBe(1_700_000_000_000)
-    expect(résultat.metriques).toEqual({ training_rows: 5000 })
+    expect(result.creation_timestamp).toBe(1_700_000_000_000)
+    expect(result.metriques).toEqual({ training_rows: 5000 })
   })
 
   it("propage l'erreur si le service ML est indisponible", async () => {
@@ -112,12 +112,12 @@ describe('triggerTraining', () => {
   })
 
   it('rend la réponse telle que rendue par le service', async () => {
-    const réponse = { status: 'started' }
-    mocked$fetch.mockResolvedValueOnce(réponse)
+    const response = { status: 'started' }
+    mocked$fetch.mockResolvedValueOnce(response)
 
-    const résultat = await triggerTraining(BASE_URL)
+    const result = await triggerTraining(BASE_URL)
 
-    expect(résultat).toEqual(réponse)
+    expect(result).toEqual(response)
   })
 
   it("propage l'erreur si le service ML est indisponible", async () => {

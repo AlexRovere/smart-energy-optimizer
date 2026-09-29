@@ -13,7 +13,7 @@ mockNuxtImport('useFleetOverview', () => useFleetOverviewMock)
 const navigateToMock = vi.hoisted(() => vi.fn())
 mockNuxtImport('navigateTo', () => navigateToMock)
 
-const fleetDefaut = {
+const fleetDefault = {
   stats: ref(null),
   totalConsumptionDisplay: ref('—'),
   totalCapacityDisplay: ref('—'),
@@ -40,7 +40,7 @@ const SITE = {
 describe('page Vue d\'ensemble', () => {
   it('affiche le bouton Exporter le relevé', async () => {
     useToastMock.mockReturnValue({ add: vi.fn() })
-    useFleetOverviewMock.mockReturnValue(fleetDefaut)
+    useFleetOverviewMock.mockReturnValue(fleetDefault)
     const wrapper = await mountSuspended(IndexPage)
     expect(wrapper.text()).toContain('Exporter le relevé')
   })
@@ -48,9 +48,9 @@ describe('page Vue d\'ensemble', () => {
   it('affiche un toast au clic sur Exporter le relevé', async () => {
     const toastAdd = vi.fn()
     useToastMock.mockReturnValue({ add: toastAdd })
-    useFleetOverviewMock.mockReturnValue(fleetDefaut)
+    useFleetOverviewMock.mockReturnValue(fleetDefault)
     const wrapper = await mountSuspended(IndexPage)
-    await wrapper.find('[data-testid="exporter-btn"]').trigger('click')
+    await wrapper.find('[data-testid="export-btn"]').trigger('click')
     expect(toastAdd).toHaveBeenCalledWith(expect.objectContaining({
       title: 'Fonctionnalité non disponible dans cette version',
       color: 'warning',
@@ -59,7 +59,7 @@ describe('page Vue d\'ensemble', () => {
 
   it("affiche l'heure du dernier rafraîchissement réussi", async () => {
     useToastMock.mockReturnValue({ add: vi.fn() })
-    useFleetOverviewMock.mockReturnValue({ ...fleetDefaut, refreshedAt: ref(new Date(2026, 8, 29, 14, 32).getTime()) })
+    useFleetOverviewMock.mockReturnValue({ ...fleetDefault, refreshedAt: ref(new Date(2026, 8, 29, 14, 32).getTime()) })
     const wrapper = await mountSuspended(IndexPage)
 
     expect(wrapper.text()).toContain('Actualisé à 14:32')
@@ -69,7 +69,7 @@ describe('page Vue d\'ensemble', () => {
   it('rafraîchit les données au clic sur Rafraîchir', async () => {
     const refresh = vi.fn()
     useToastMock.mockReturnValue({ add: vi.fn() })
-    useFleetOverviewMock.mockReturnValue({ ...fleetDefaut, refresh })
+    useFleetOverviewMock.mockReturnValue({ ...fleetDefault, refresh })
     const wrapper = await mountSuspended(IndexPage)
 
     await wrapper.findAll('button').find(b => b.text() === 'Rafraîchir')!.trigger('click')
@@ -79,7 +79,7 @@ describe('page Vue d\'ensemble', () => {
 
   it("ouvre le détail d'un site au clic sur sa ligne", async () => {
     useToastMock.mockReturnValue({ add: vi.fn() })
-    useFleetOverviewMock.mockReturnValue({ ...fleetDefaut, siteSummary: ref([SITE]) })
+    useFleetOverviewMock.mockReturnValue({ ...fleetDefault, siteSummary: ref([SITE]) })
     const wrapper = await mountSuspended(IndexPage)
 
     await wrapper.find('tbody tr').trigger('click')
@@ -90,7 +90,7 @@ describe('page Vue d\'ensemble', () => {
   it("n'affiche plus de nom de champ technique", async () => {
     useToastMock.mockReturnValue({ add: vi.fn() })
     useFleetOverviewMock.mockReturnValue({
-      ...fleetDefaut,
+      ...fleetDefault,
       stats: ref({ sites_total: 7, sites_counted: 7, excluded_sites: [], timestamp: '2026-09-29T12:00:00Z' }),
     })
     const wrapper = await mountSuspended(IndexPage)

@@ -10,9 +10,9 @@ export default defineEventHandler(async (event): Promise<SensorsStatus> => {
   const account = await requireAccount(event)
   const permittedIds = new Set(await allowedSites(db, account))
 
-  let réponse: unknown
+  let response: unknown
   try {
-    réponse = await fetchMockApi('/api/v1/sensors/status')
+    response = await fetchMockApi('/api/v1/sensors/status')
   } catch (error_) {
     logger.error('État des capteurs indisponible', {
       route: event.path,
@@ -21,7 +21,7 @@ export default defineEventHandler(async (event): Promise<SensorsStatus> => {
     throw createError({ status: 503, statusText: 'État des capteurs indisponible', cause: error_ })
   }
 
-  const parse = sensorsStatusSchema.safeParse(réponse)
+  const parse = sensorsStatusSchema.safeParse(response)
   if (!parse.success) {
     throw createError({ status: 502, statusText: 'Réponse inattendue de la source' })
   }

@@ -16,12 +16,12 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 422, message: 'Type de règle invalide' })
   }
 
-  const entree = await readValidatedBody(event, alertThresholdInputSchema.safeParse)
-  if (!entree.success) {
+  const input = await readValidatedBody(event, alertThresholdInputSchema.safeParse)
+  if (!input.success) {
     throw createError({ statusCode: 422, message: 'Entrée invalide' })
   }
 
-  await upsertAlertThreshold(db, id, parsedType.data, entree.data)
+  await upsertAlertThreshold(db, id, parsedType.data, input.data)
 
-  return { site_id: id, type: parsedType.data, duration: entree.data.duration, threshold: entree.data.threshold }
+  return { site_id: id, type: parsedType.data, duration: input.data.duration, threshold: input.data.threshold }
 })

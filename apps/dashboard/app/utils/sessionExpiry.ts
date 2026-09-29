@@ -13,8 +13,8 @@ export function expiredSessionRedirect(
   if (status !== 401 || !loggedIn) return null
   const path = url.split('?')[0] ?? ''
   if (!path.startsWith('/api/') || AUTH_ROUTES.has(path)) return null
-  if (currentPath.startsWith('/login')) return '/login?expiree=1'
-  return `/login?expiree=1&retour=${encodeURIComponent(currentPath)}`
+  if (currentPath.startsWith('/login')) return '/login?expired=1'
+  return `/login?expired=1&redirect=${encodeURIComponent(currentPath)}`
 }
 
 // Le retour vient de l'URL, donc de n'importe qui : seul un chemin interne est

@@ -5,23 +5,23 @@ import { detectConsumptionAlert, type ConsumptionAlertEvaluation } from './consu
 import type { AppDatabase } from './session'
 import type { TimestampedValue } from './rollingAverage'
 
-const DÉFAUTS_CONSO = { duration: 5, threshold: 200 }
-const LIMITE_LECTURE = 1000
+const CONSUMPTION_DEFAULTS = { duration: 5, threshold: 200 }
+const READ_LIMIT = 1000
 
 export async function detectConsumptionAlertFromHistory(
   db: AppDatabase,
   siteId: string,
   reference: Date
 ): Promise<ConsumptionAlertEvaluation> {
-  const réglage = await getAlertThreshold(db, siteId, 'conso', DÉFAUTS_CONSO)
+  const setting = await getAlertThreshold(db, siteId, 'conso', CONSUMPTION_DEFAULTS)
 
-  const début = new Date(reference.getTime() - réglage.duration * 3_600_000)
-  const fin = new Date(reference.getTime() + 1)
-  const mesures = await querySiteHistory(siteId, début.toISOString(), fin.toISOString(), LIMITE_LECTURE)
+  const startedAt = new Date(reference.getTime() - setting.duration * 3_600_000)
+  const finishedAt = new Date(reference.getTime() + 1)
+  const readingRows = await querySiteHistory(siteId, startedAt.toISOString(), finishedAt.toISOString(), READ_LIMIT)
 
-  const valeurs: TimestampedValue[] = mesures
-    .filter(mesure => mesure.consumption_kwh !== null && mesure.consumption_kwh !== undefined)
-    .map(mesure => ({ timestamp: mesure.timestamp, value: mesure.consumption_kwh! }))
+  const values: TimestampedValue[] = readingRows
+    .filter(reading => reading.consumption_kwh !== null && reading.consumption_kwh !== undefined)
+    .map(reading => ({ timestamp: reading.timestamp, value: reading.consumption_kwh! }))
 
-  return detectConsumptionAlert(valeurs, reference, réglage)
+  return detectConsumptionAlert(values, reference, setting)
 }

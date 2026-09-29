@@ -13,7 +13,7 @@ vi.mock('nuxt/app', () => ({
   useRoute: () => ({ path: '/sites/SITE001' })
 }))
 
-const mesureFixture = {
+const readingFixture = {
   timestamp: '2026-09-16T14:00:00Z',
   site_id: 'SITE001',
   consumption_kw: 87.34,
@@ -37,12 +37,12 @@ describe('useSiteHistory', () => {
 
   it('retourne les mesures quand data est fourni', () => {
     mockUseFetch.mockReturnValue({
-      data: ref([mesureFixture]),
+      data: ref([readingFixture]),
       pending: ref(false),
       error: ref(null)
     })
     const { readings } = useSiteHistory(ref<SiteId>('SITE001'), ref('24h'))
-    expect(readings.value).toEqual([mesureFixture])
+    expect(readings.value).toEqual([readingFixture])
   })
 
   it("l'URL pour '24h' couvre les 24 dernières heures", () => {
@@ -54,8 +54,8 @@ describe('useSiteHistory', () => {
     const toMatch = url.match(/to=([^&]+)/)!
     const from = new Date(decodeURIComponent(fromMatch[1]!))
     const to = new Date(decodeURIComponent(toMatch[1]!))
-    const diffHeures = (to.getTime() - from.getTime()) / (1000 * 60 * 60)
-    expect(diffHeures).toBeCloseTo(24, 0)
+    const diffHours = (to.getTime() - from.getTime()) / (1000 * 60 * 60)
+    expect(diffHours).toBeCloseTo(24, 0)
   })
 
   it("l'URL pour '7j' couvre 7 jours", () => {
@@ -66,17 +66,17 @@ describe('useSiteHistory', () => {
     const toMatch = url.match(/to=([^&]+)/)!
     const from = new Date(decodeURIComponent(fromMatch[1]!))
     const to = new Date(decodeURIComponent(toMatch[1]!))
-    const diffJours = (to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24)
-    expect(diffJours).toBeCloseTo(7, 0)
+    const diffDays = (to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24)
+    expect(diffDays).toBeCloseTo(7, 0)
   })
 
   it('passe watch: [siteId, fenêtre] à useFetch', () => {
     const siteId = ref<SiteId>('SITE001')
-    const fenêtre = ref<'24h' | '7j'>('24h')
-    useSiteHistory(siteId, fenêtre)
+    const timeWindow = ref<'24h' | '7j'>('24h')
+    useSiteHistory(siteId, timeWindow)
     const opts = mockUseFetch.mock.calls[0]![1] as { watch: unknown[] }
     expect(opts.watch).toContain(siteId)
-    expect(opts.watch).toContain(fenêtre)
+    expect(opts.watch).toContain(timeWindow)
   })
 
   it("l'URL s'adapte quand siteId change", () => {
@@ -108,10 +108,10 @@ describe('useSiteHistory', () => {
       await nextTick()
 
       expect(consoleSpy).toHaveBeenCalledOnce()
-      const [, données] = consoleSpy.mock.calls[0] as [string, Record<string, unknown>]
-      expect(données.message).toBe('503 Service Unavailable')
-      expect(typeof données.route).toBe('string')
-      expect(typeof données.url).toBe('string')
+      const [, responseData] = consoleSpy.mock.calls[0] as [string, Record<string, unknown>]
+      expect(responseData.message).toBe('503 Service Unavailable')
+      expect(typeof responseData.route).toBe('string')
+      expect(typeof responseData.url).toBe('string')
     })
 
     it('ne loggue pas quand error reste null', async () => {

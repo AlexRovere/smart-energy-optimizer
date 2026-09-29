@@ -40,6 +40,9 @@ La colonne « Rôle » décrit le mécanisme complet. **Un seul rôle est exploi
 | POST | `/api/auth/logout` | | `{ success: true }` | 401 | authentifié |
 | GET | `/api/auth/session` | | `{ user: { id, email, role, sites } }` | 401 | authentifié |
 | GET | `/api/health` | | `Health` | | public |
+| GET | `/api/model` | | modèle champion du registre MLflow | 401, 403, 503 | `ADMIN` |
+| GET | `/api/training` | | `TrainingStatus` | 401, 403 | `ADMIN` |
+| POST | `/api/training` | | `{ status: "started" }` | 401, 403, 409 | `ADMIN` |
 | GET | `/api/admin/users` | | `User[]` | 401, 403 | `ADMIN` |
 | POST | `/api/admin/users` | `{ email, password, role, sites }` | `User` | 401, 403, 409, 422 | `ADMIN` |
 | PUT | `/api/admin/users/{id}` | `{ email?, role?, sites?, is_active? }` | `User` | 401, 403, 404, 422 | `ADMIN` |
@@ -228,6 +231,21 @@ La route ne garde que les sites du périmètre du compte. Les états (`status`, 
 ```
 
 `status` vaut `down` si la base ne répond pas, `degraded` si seul le Parquet est illisible (l'historique manque, le temps réel fonctionne), `ok` sinon. La réponse est toujours un `200` : c'est son contenu qui dit l'état. `uptime` est en secondes. `last_data_at` est la dernière collecte, tous sites confondus. La route étant publique, elle ne nomme aucun site. `version` vient de `NUXT_APP_VERSION`, et vaut `dev` à défaut.
+
+### `TrainingStatus`
+
+```json
+{
+  "in_progress": false,
+  "last": {
+    "status": "success",
+    "started_at": "2026-09-29T10:00:00.000Z",
+    "finished_at": "2026-09-29T10:02:00.000Z"
+  }
+}
+```
+
+`POST /api/training` répond tout de suite `{ "status": "started" }` et laisse l'entraînement tourner, ou `409` s'il y en a déjà un en cours. `GET` en suit l'état : `last` vaut `null` tant qu'aucun entraînement n'a fini, `status` vaut `success` ou `error`, et `message` accompagne une erreur. L'état vit en mémoire du processus : un redémarrage l'oublie.
 
 ### `ParkSummary`
 

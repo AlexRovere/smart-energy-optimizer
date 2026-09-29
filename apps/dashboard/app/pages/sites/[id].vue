@@ -17,9 +17,9 @@ const { data: reading, pending: readingPending, error: readingError } = useSiteC
 const { recommendations, unavailable, pending } = useSiteRecommendations(id)
 const SOURCE_LABELS = { history: 'historique indisponible', forecast: 'prévision indisponible' } as const
 const unavailableLabel = computed(() => unavailable.value.map(source => SOURCE_LABELS[source]).join(', '))
-const popupFermée = ref(false)
-watch(id, () => { popupFermée.value = false })
-const popupOuverte = computed(() => recommendations.value.length > 0 && !popupFermée.value)
+const popupDismissed = ref(false)
+watch(id, () => { popupDismissed.value = false })
+const popupOpen = computed(() => recommendations.value.length > 0 && !popupDismissed.value)
 
 // Mesure courante, ou dernière valeur connue de l'historique si le capteur est muet.
 const consumption = computed(() => displayedConsumption(reading.value, readings.value))
@@ -45,12 +45,12 @@ const health = computed(() => getSiteHealth(id.value))
 
 const chartWindow = ref<'24h' | '7j'>('24h')
 const { readings } = useSiteHistory(id, chartWindow)
-const horizonHeures = ref(24)
+const horizonHours = ref(24)
 const {
   forecastPoints, modelVersion, confidenceLevel, predictedAt, nbPoints,
-  available: predictionDisponible, failureMessage: predictionFailure, lancer: lancerPrediction, lancee: predictionLancee,
-  dureeMs: predictionDureeMs, pending: predictionPending
-} = useSitePrediction(id, horizonHeures)
+  available: predictionAvailable, failureMessage: predictionFailure, launch: launchPrediction, launched: predictionLaunched,
+  durationMs: predictionDurationMs, pending: predictionPending
+} = useSitePrediction(id, horizonHours)
 
 // ── Formatters ──────────────────────────────────────────────────────
 
@@ -59,7 +59,7 @@ function fmtNum(v: number | null, decimals = 1): string {
   return v.toLocaleString('fr-FR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
 }
 
-function fmtConso(kw: number | null): string {
+function fmtConsumption(kw: number | null): string {
   if (kw == null) return '—'
   return kw.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 }
@@ -87,7 +87,7 @@ function tempColor(c: number | null): string {
 
 const toast = useToast()
 
-function configurerSeuils() {
+function configureThresholds() {
   toast.add({ title: 'Fonctionnalité non disponible dans cette version', color: 'warning' })
 }
 
@@ -185,7 +185,7 @@ function sensorStatusColor(status: string): string {
 
         <!-- Actions -->
         <div class="flex gap-3 shrink-0 mt-1">
-          <EvButton data-testid="configurer-seuils-btn" variant="secondary" @click="configurerSeuils()">Configurer les seuils</EvButton>
+          <EvButton data-testid="configure-thresholds-btn" variant="secondary" @click="configureThresholds()">Configurer les seuils</EvButton>
         </div>
       </header>
 
@@ -193,7 +193,7 @@ function sensorStatusColor(status: string): string {
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-(--ev-gap-card) transition-opacity" :class="{ 'opacity-40': readingPending }">
         <EvGauge
           label="CONSOMMATION"
-          :value="fmtConso(consumption?.kw ?? null)"
+          :value="fmtConsumption(consumption?.kw ?? null)"
           unit="kW"
           :note="consumptionNote"
           :ratio="loadPercent != null ? loadPercent / 100 : null"
@@ -249,27 +249,27 @@ function sensorStatusColor(status: string): string {
                   v-for="h in [24, 48]"
                   :key="h"
                   size="xs"
-                  :variant="horizonHeures === h ? 'solid' : 'ghost'"
+                  :variant="horizonHours === h ? 'solid' : 'ghost'"
                   color="primary"
-                  @click="horizonHeures = h"
+                  @click="horizonHours = h"
                 >{{ h }}h</UButton>
               </div>
               <EvPredictionTrigger
                 :site-id="id"
-                :lancee="predictionLancee"
+                :launched="predictionLaunched"
                 :pending="predictionPending"
-                :available="predictionDisponible"
+                :available="predictionAvailable"
                 :predicted-at="predictedAt"
                 :nb-points="nbPoints"
                 :model-version="modelVersion"
-                :duree-ms="predictionDureeMs"
-                @lancer="lancerPrediction"
+                :duration-ms="predictionDurationMs"
+                @launch="launchPrediction"
               />
             </div>
           </div>
         </template>
 
-        <div v-if="!predictionLancee" class="py-10 text-center font-ev text-sm text-ev-text-3">
+        <div v-if="!predictionLaunched" class="py-10 text-center font-ev text-sm text-ev-text-3">
           Choisissez un horizon puis cliquez sur « Lancer la prédiction ».
         </div>
 
@@ -278,7 +278,7 @@ function sensorStatusColor(status: string): string {
         </div>
 
         <div
-          v-else-if="!predictionDisponible"
+          v-else-if="!predictionAvailable"
           class="flex items-center gap-2.5 px-4 py-3 rounded-ev-md border text-sm font-ev"
           style="border-color: var(--ev-amber-bd); background: var(--ev-amber-bg); color: var(--ev-amber)"
         >
@@ -443,10 +443,10 @@ function sensorStatusColor(status: string): string {
     </template>
 
     <EvAlertPopup
-      :open="popupOuverte"
+      :open="popupOpen"
       :site-name="site?.site_name ?? String(id)"
       :recommendations="recommendations"
-      @close="popupFermée = true"
+      @close="popupDismissed = true"
     />
   </div>
 </template>

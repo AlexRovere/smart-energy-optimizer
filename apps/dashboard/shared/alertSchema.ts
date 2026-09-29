@@ -3,7 +3,7 @@ import { z } from 'zod'
 // Sévérité et type laissés en `string` volontairement : l'API Mock peut
 // renvoyer une valeur inconnue, et le contrat dit que l'affichage ne doit
 // pas crasher dans ce cas (#34).
-export const alerteSchema = z.object({
+export const alertSchema = z.object({
   alert_id: z.string(),
   site_id: z.string(),
   severity: z.string(),
@@ -15,6 +15,6 @@ export const alerteSchema = z.object({
   acknowledged: z.boolean().optional(),
 })
 
-export const alertesSchema = z.array(alerteSchema)
+export const alertsSchema = z.array(alertSchema)
 
-export type AlerteRaw = z.infer<typeof alerteSchema>
+export type AlertRaw = z.infer<typeof alertSchema>

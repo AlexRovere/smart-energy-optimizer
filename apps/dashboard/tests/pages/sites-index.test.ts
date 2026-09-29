@@ -15,7 +15,7 @@ function site(site_id: string, health: string) {
   return { site_id, site_name: site_id, site_type: 'office', current_consumption_kw: 10, capacity_kw: 100, load_percent: 10, data_quality: 'good', health, last_data_at: null }
 }
 
-function monter(refresh = vi.fn()) {
+function mountPage(refresh = vi.fn()) {
   useSitesMock.mockReturnValue({
     sites: ref([site('SITE001', 'ok'), site('SITE002', 'degraded'), site('SITE003', 'critical')]),
     getSiteAlerts: () => [],
@@ -27,7 +27,7 @@ function monter(refresh = vi.fn()) {
 
 describe('page Sites et capteurs', () => {
   it('résume la santé du parc en français', async () => {
-    const wrapper = await monter()
+    const wrapper = await mountPage()
 
     expect(wrapper.text()).toContain('1 sain')
     expect(wrapper.text()).toContain('1 dégradé')
@@ -37,7 +37,7 @@ describe('page Sites et capteurs', () => {
 
   it('rafraîchit les données au clic sur Rafraîchir', async () => {
     const refresh = vi.fn()
-    const wrapper = await monter(refresh)
+    const wrapper = await mountPage(refresh)
 
     await wrapper.findAll('button').find(b => b.text() === 'Rafraîchir')!.trigger('click')
 

@@ -11,7 +11,7 @@ vi.mock('nuxt/app', () => ({
   useRoute: () => ({ path: '/' }),
 }))
 
-const alertesFixture = [
+const alertsFixture = [
   { alert_id: 'ALT-001', site_id: 'SITE001', severity: 'critical', type: 'outage', message: 'Test', timestamp: '2026-09-22T10:00:00Z' },
   { alert_id: 'ALT-002', site_id: 'SITE002', severity: 'high', type: 'threshold', message: 'Seuil', timestamp: '2026-09-22T09:00:00Z' },
 ]
@@ -33,7 +33,7 @@ describe('useAlerts', () => {
 
   it('retourne les alertes quand data est renseigné', () => {
     mockUseFetch.mockReturnValue({
-      data: ref(alertesFixture),
+      data: ref(alertsFixture),
       pending: ref(false),
       error: ref(null),
       refresh: vi.fn(),
@@ -80,8 +80,8 @@ describe('useAlerts', () => {
       await nextTick()
 
       expect(consoleSpy).toHaveBeenCalledOnce()
-      const [, données] = consoleSpy.mock.calls[0] as [string, Record<string, unknown>]
-      expect(données.message).toBe('503 Alertes indisponibles')
+      const [, responseData] = consoleSpy.mock.calls[0] as [string, Record<string, unknown>]
+      expect(responseData.message).toBe('503 Alertes indisponibles')
     })
   })
 })

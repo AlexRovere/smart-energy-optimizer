@@ -65,14 +65,14 @@ describe('useSitesList', () => {
   })
 
   it('expose error tel quel', () => {
-    const erreur = new Error('réseau')
+    const failure = new Error('réseau')
     mockUseFetch.mockReturnValue({
       data: ref(null),
       pending: ref(false),
-      error: ref(erreur)
+      error: ref(failure)
     })
     const { error } = useSitesList()
-    expect(error.value).toBe(erreur)
+    expect(error.value).toBe(failure)
   })
 
   describe('journalisation des erreurs', () => {
@@ -89,8 +89,8 @@ describe('useSitesList', () => {
       await nextTick()
 
       expect(consoleSpy).toHaveBeenCalledOnce()
-      const [, données] = consoleSpy.mock.calls[0] as [string, Record<string, unknown>]
-      expect(données.message).toBe('503 sites indisponibles')
+      const [, responseData] = consoleSpy.mock.calls[0] as [string, Record<string, unknown>]
+      expect(responseData.message).toBe('503 sites indisponibles')
     })
   })
 })

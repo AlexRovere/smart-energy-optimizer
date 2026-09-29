@@ -28,10 +28,10 @@ vi.mock('../../../../server/utils/logger', () => ({
 
 vi.mock('../../../../server/database', () => ({ db: {} }))
 
-const compteFixture = { id: 'user-uuid', email: 'test@enervision.fr', role: 'OPERATOR' }
+const accountFixture = { id: 'user-uuid', email: 'test@enervision.fr', role: 'OPERATOR' }
 const mockEvent = { path: '/api/alerts' } as H3Event
 
-const alertesFixture = [
+const alertsFixture = [
   { alert_id: 'ALT-001', site_id: 'SITE001', severity: 'critical', type: 'outage',    message: 'Capteur muet', timestamp: '2026-09-22T10:00:00Z' },
   { alert_id: 'ALT-002', site_id: 'SITE002', severity: 'high',     type: 'threshold', message: 'Seuil dépassé',  timestamp: '2026-09-22T09:00:00Z', value: 781, threshold: 720 },
   { alert_id: 'ALT-003', site_id: 'SITE003', severity: 'medium',   type: 'spike',     message: 'Pic détecté',   timestamp: '2026-09-22T08:00:00Z' },
@@ -40,31 +40,31 @@ const alertesFixture = [
 describe('GET /api/alerts', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockRequireAccount.mockResolvedValue(compteFixture)
+    mockRequireAccount.mockResolvedValue(accountFixture)
   })
 
   it('rend les alertes filtrées par les sites autorisés', async () => {
     mockAllowedSites.mockResolvedValue(['SITE001', 'SITE002'])
-    mockFetchMockApi.mockResolvedValue(alertesFixture)
+    mockFetchMockApi.mockResolvedValue(alertsFixture)
 
-    const résultat = await handler(mockEvent)
+    const result = await handler(mockEvent)
 
-    expect(résultat).toHaveLength(2)
-    expect((résultat as typeof alertesFixture)[0]?.alert_id).toBe('ALT-001')
-    expect((résultat as typeof alertesFixture)[1]?.alert_id).toBe('ALT-002')
+    expect(result).toHaveLength(2)
+    expect((result as typeof alertsFixture)[0]?.alert_id).toBe('ALT-001')
+    expect((result as typeof alertsFixture)[1]?.alert_id).toBe('ALT-002')
   })
 
   it('exclut les alertes de sites hors périmètre', async () => {
     mockAllowedSites.mockResolvedValue(['SITE001'])
-    mockFetchMockApi.mockResolvedValue(alertesFixture)
+    mockFetchMockApi.mockResolvedValue(alertsFixture)
 
-    const résultat = await handler(mockEvent) as typeof alertesFixture
-    expect(résultat.every(a => a.site_id === 'SITE001')).toBe(true)
+    const result = await handler(mockEvent) as typeof alertsFixture
+    expect(result.every(a => a.site_id === 'SITE001')).toBe(true)
   })
 
   it('retourne un tableau vide quand aucun site n\'est autorisé', async () => {
     mockAllowedSites.mockResolvedValue([])
-    mockFetchMockApi.mockResolvedValue(alertesFixture)
+    mockFetchMockApi.mockResolvedValue(alertsFixture)
 
     expect(await handler(mockEvent)).toEqual([])
   })
@@ -85,7 +85,7 @@ describe('GET /api/alerts', () => {
 
   it('retourne 502 si la réponse n\'est pas un tableau d\'objets valides', async () => {
     mockAllowedSites.mockResolvedValue(['SITE001'])
-    mockFetchMockApi.mockResolvedValue({ inattendu: true })
+    mockFetchMockApi.mockResolvedValue({ unexpected: true })
 
     await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 502 })
   })
@@ -96,8 +96,8 @@ describe('GET /api/alerts', () => {
       { alert_id: 'ALT-X', site_id: 'SITE001', severity: 'unknown_severity', type: 'anomaly', message: 'Test', timestamp: '2026-09-22T10:00:00Z' },
     ])
 
-    const résultat = await handler(mockEvent) as Array<{ severity: string }>
-    expect(résultat).toHaveLength(1)
-    expect(résultat[0]?.severity).toBe('unknown_severity')
+    const result = await handler(mockEvent) as Array<{ severity: string }>
+    expect(result).toHaveLength(1)
+    expect(result[0]?.severity).toBe('unknown_severity')
   })
 })

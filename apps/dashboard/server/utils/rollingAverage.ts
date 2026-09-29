@@ -5,16 +5,16 @@ export interface TimestampedValue {
 }
 
 export function rollingAverage(
-  valeurs: TimestampedValue[],
+  values: TimestampedValue[],
   reference: Date,
-  dureeHeures: number
+  durationHours: number
 ): number | null {
-  const début = reference.getTime() - dureeHeures * 3_600_000
-  const fenêtre = valeurs.filter(({ timestamp }) => {
+  const startedAt = reference.getTime() - durationHours * 3_600_000
+  const timeWindow = values.filter(({ timestamp }) => {
     const instant = new Date(timestamp).getTime()
-    return instant > début && instant <= reference.getTime()
+    return instant > startedAt && instant <= reference.getTime()
   })
 
-  if (fenêtre.length === 0) return null
-  return fenêtre.reduce((somme, { value }) => somme + value, 0) / fenêtre.length
+  if (timeWindow.length === 0) return null
+  return timeWindow.reduce((sum, { value }) => sum + value, 0) / timeWindow.length
 }

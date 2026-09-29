@@ -53,20 +53,20 @@ vi.mock('../../../../server/utils/logger', () => ({
   logger: { error: mockLoggerError, warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }))
 
-const heure1 = new Date('2026-09-23T11:00:00Z')
-const heure2 = new Date('2026-09-23T12:00:00Z')
-const modèleFixture = { name: 'enervision', version: '3', alias: 'champion' }
-const compteFixture = { id: 'user-uuid', email: 'test@enervision.fr', role: 'OPERATOR' }
+const hour1 = new Date('2026-09-23T11:00:00Z')
+const hour2 = new Date('2026-09-23T12:00:00Z')
+const modelFixture = { name: 'enervision', version: '3', alias: 'champion' }
+const accountFixture = { id: 'user-uuid', email: 'test@enervision.fr', role: 'OPERATOR' }
 const mockEvent = {} as H3Event
 
 describe('POST /api/sites/[id]/prediction', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockRequireSiteAccess.mockImplementation(async (_event: unknown, id: string) => ({ account: compteFixture, siteId: id }))
+    mockRequireSiteAccess.mockImplementation(async (_event: unknown, id: string) => ({ account: accountFixture, siteId: id }))
     mockGetRouterParam.mockReturnValue('SITE001')
     mockReadValidatedBody.mockResolvedValue({ success: true, data: { horizon_hours: 24 } })
-    mockHoursInHorizon.mockReturnValue([heure1, heure2])
-    mockFetchModelInfo.mockResolvedValue(modèleFixture)
+    mockHoursInHorizon.mockReturnValue([hour1, hour2])
+    mockFetchModelInfo.mockResolvedValue(modelFixture)
     mockFetchPredictions.mockResolvedValue([
       { site_id: 'SITE001', timestamp: '2026-09-23T11:00:00Z', consumption_kwh: 87.5 },
       { site_id: 'SITE001', timestamp: '2026-09-23T12:00:00Z', consumption_kwh: 91.0 },
@@ -125,23 +125,23 @@ describe('POST /api/sites/[id]/prediction', () => {
   })
 
   it('mappe consumption_kwh vers predicted_consumption_kw', async () => {
-    const résultat = await handler(mockEvent)
+    const result = await handler(mockEvent)
 
-    expect(résultat.predictions[0]).toMatchObject({ predicted_consumption_kw: 87.5 })
-    expect(résultat.predictions[1]).toMatchObject({ predicted_consumption_kw: 91.0 })
+    expect(result.predictions[0]).toMatchObject({ predicted_consumption_kw: 87.5 })
+    expect(result.predictions[1]).toMatchObject({ predicted_consumption_kw: 91.0 })
   })
 
   it('retourne une Prediction conforme avec model_version', async () => {
-    const résultat = await handler(mockEvent)
+    const result = await handler(mockEvent)
 
-    expect(résultat).toMatchObject({
+    expect(result).toMatchObject({
       site_id: 'SITE001',
       horizon_hours: 24,
       granularity: 'hour',
       model_version: '3',
     })
-    expect(typeof résultat.predicted_at).toBe('string')
-    expect(résultat.predictions).toHaveLength(2)
+    expect(typeof result.predicted_at).toBe('string')
+    expect(result.predictions).toHaveLength(2)
   })
 
   it('retourne 503 si fetchPredictions échoue', async () => {
@@ -165,12 +165,12 @@ describe('POST /api/sites/[id]/prediction', () => {
 
   describe('relaie le motif du service ML', () => {
     // Forme d'une erreur ofetch : le code HTTP et le corps FastAPI `{ detail }`.
-    function erreurML(statusCode: number, detail: string) {
+    function mlError(statusCode: number, detail: string) {
       return Object.assign(new Error(`[POST] /predictions: ${statusCode}`), { statusCode, data: { detail } })
     }
 
     it('422 du ML : historique insuffisant ou trop ancien', async () => {
-      mockFetchPredictions.mockRejectedValue(erreurML(422, 'The latest 168 hours are incomplete'))
+      mockFetchPredictions.mockRejectedValue(mlError(422, 'The latest 168 hours are incomplete'))
 
       await expect(handler(mockEvent)).rejects.toMatchObject({
         statusCode: 422,
@@ -179,7 +179,7 @@ describe('POST /api/sites/[id]/prediction', () => {
     })
 
     it('503 du ML sans modèle champion : aucun modèle entraîné', async () => {
-      mockFetchModelInfo.mockRejectedValue(erreurML(503, 'Aucun modèle champion disponible'))
+      mockFetchModelInfo.mockRejectedValue(mlError(503, 'Aucun modèle champion disponible'))
 
       await expect(handler(mockEvent)).rejects.toMatchObject({
         statusCode: 503,
@@ -188,7 +188,7 @@ describe('POST /api/sites/[id]/prediction', () => {
     })
 
     it("503 du ML pour une autre raison : historique illisible par le service", async () => {
-      mockFetchPredictions.mockRejectedValue(erreurML(503, 'Expected a Parquet directory: /data'))
+      mockFetchPredictions.mockRejectedValue(mlError(503, 'Expected a Parquet directory: /data'))
 
       await expect(handler(mockEvent)).rejects.toMatchObject({
         statusCode: 503,

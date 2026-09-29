@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { parkSummarySchema } from '../../../shared/parkSummarySchema'
 
-const summaryValide = {
+const validSummary = {
   timestamp: '2026-09-16T14:32:00Z',
   total_sites: 7,
   excluded_sites: ['SITE004'],
@@ -22,42 +22,42 @@ const summaryValide = {
 
 describe('parkSummarySchema', () => {
   it('valide une réponse complète', () => {
-    expect(parkSummarySchema.safeParse(summaryValide).success).toBe(true)
+    expect(parkSummarySchema.safeParse(validSummary).success).toBe(true)
   })
 
   it('accepte total_consumption_kw à null', () => {
-    const avecNull = { ...summaryValide, total_consumption_kw: null }
-    expect(parkSummarySchema.safeParse(avecNull).success).toBe(true)
+    const withNull = { ...validSummary, total_consumption_kw: null }
+    expect(parkSummarySchema.safeParse(withNull).success).toBe(true)
   })
 
   it('accepte excluded_sites vide', () => {
-    const sansExclus = { ...summaryValide, excluded_sites: [] }
-    expect(parkSummarySchema.safeParse(sansExclus).success).toBe(true)
+    const withoutExcluded = { ...validSummary, excluded_sites: [] }
+    expect(parkSummarySchema.safeParse(withoutExcluded).success).toBe(true)
   })
 
   it('accepte load_percent à null sur un site', () => {
-    const avecNull = {
-      ...summaryValide,
-      sites: [{ ...summaryValide.sites[0], load_percent: null }]
+    const withNull = {
+      ...validSummary,
+      sites: [{ ...validSummary.sites[0], load_percent: null }]
     }
-    expect(parkSummarySchema.safeParse(avecNull).success).toBe(true)
+    expect(parkSummarySchema.safeParse(withNull).success).toBe(true)
   })
 
   it('rejette un champ data_quality inconnu', () => {
-    const invalide = {
-      ...summaryValide,
-      sites: [{ ...summaryValide.sites[0], data_quality: 'excellent' }]
+    const invalid = {
+      ...validSummary,
+      sites: [{ ...validSummary.sites[0], data_quality: 'excellent' }]
     }
-    expect(parkSummarySchema.safeParse(invalide).success).toBe(false)
+    expect(parkSummarySchema.safeParse(invalid).success).toBe(false)
   })
 
   it('rejette un timestamp non ISO 8601', () => {
-    const invalide = { ...summaryValide, timestamp: '16-09-2026' }
-    expect(parkSummarySchema.safeParse(invalide).success).toBe(false)
+    const invalid = { ...validSummary, timestamp: '16-09-2026' }
+    expect(parkSummarySchema.safeParse(invalid).success).toBe(false)
   })
 
   it('rejette total_sites non entier', () => {
-    const invalide = { ...summaryValide, total_sites: 7.5 }
-    expect(parkSummarySchema.safeParse(invalide).success).toBe(false)
+    const invalid = { ...validSummary, total_sites: 7.5 }
+    expect(parkSummarySchema.safeParse(invalid).success).toBe(false)
   })
 })

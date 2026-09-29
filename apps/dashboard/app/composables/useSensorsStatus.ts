@@ -1,7 +1,7 @@
 import { useFetch, useRoute } from 'nuxt/app'
 import { computed, onMounted, onUnmounted } from 'vue'
 import type { SensorsStatus } from '~~/shared/sensorStatusSchema'
-import { observerErreurFetch } from '../utils/erreurFetch'
+import { watchFetchError } from '../utils/fetchError'
 import { normalizeSensors } from '../utils/sensors'
 import { POLLING_INTERVAL_MS } from './useFleetSummary'
 
@@ -14,7 +14,7 @@ export function useSensorsStatus() {
     onUnmounted(() => clearInterval(timer))
   })
 
-  observerErreurFetch(error, { url: '/api/sensors/status', route: () => route.path })
+  watchFetchError(error, { url: '/api/sensors/status', route: () => route.path })
 
   const sensors = computed(() => normalizeSensors(data.value))
   return { sensors, pending, error, refresh }

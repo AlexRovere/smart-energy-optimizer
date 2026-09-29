@@ -23,25 +23,25 @@ describe('EvAlertThresholdModal', () => {
     const wrapper = await mountSuspended(EvAlertThresholdModal, {
       props: { open: true, siteName: 'Bureau Paris', type: 'pic', initial: { duration: 5, threshold: 1.5 } }
     })
-    const seuil = wrapper.find('[data-testid="seuil-input"]')
-    expect((seuil.element as HTMLInputElement).value).toBe('150')
+    const threshold = wrapper.find('[data-testid="threshold-input"]')
+    expect((threshold.element as HTMLInputElement).value).toBe('150')
   })
 
   it('affiche le seuil conso directement en kWh', async () => {
     const wrapper = await mountSuspended(EvAlertThresholdModal, {
       props: { open: true, siteName: 'Bureau Paris', type: 'conso', initial: { duration: 5, threshold: 200 } }
     })
-    const seuil = wrapper.find('[data-testid="seuil-input"]')
-    expect((seuil.element as HTMLInputElement).value).toBe('200')
+    const threshold = wrapper.find('[data-testid="threshold-input"]')
+    expect((threshold.element as HTMLInputElement).value).toBe('200')
   })
 
   it('émet save avec le seuil pic reconverti en facteur', async () => {
     const wrapper = await mountSuspended(EvAlertThresholdModal, {
       props: { open: true, siteName: 'Bureau Paris', type: 'pic', initial: { duration: 5, threshold: 1.5 } }
     })
-    await wrapper.find('[data-testid="seuil-input"]').setValue('180')
+    await wrapper.find('[data-testid="threshold-input"]').setValue('180')
     await wrapper.find('[data-testid="points-input"]').setValue('8')
-    await wrapper.find('[data-testid="valider-btn"]').trigger('click')
+    await wrapper.find('[data-testid="validate-btn"]').trigger('click')
 
     expect(wrapper.emitted('save')).toHaveLength(1)
     expect(wrapper.emitted('save')![0]).toEqual([{ duration: 8, threshold: 1.8 }])
@@ -51,8 +51,8 @@ describe('EvAlertThresholdModal', () => {
     const wrapper = await mountSuspended(EvAlertThresholdModal, {
       props: { open: true, siteName: 'Bureau Paris', type: 'conso', initial: { duration: 5, threshold: 200 } }
     })
-    await wrapper.find('[data-testid="seuil-input"]').setValue('250')
-    await wrapper.find('[data-testid="valider-btn"]').trigger('click')
+    await wrapper.find('[data-testid="threshold-input"]').setValue('250')
+    await wrapper.find('[data-testid="validate-btn"]').trigger('click')
 
     expect(wrapper.emitted('save')![0]).toEqual([{ duration: 5, threshold: 250 }])
   })

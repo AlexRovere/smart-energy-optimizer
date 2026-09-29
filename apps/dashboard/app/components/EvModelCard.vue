@@ -2,11 +2,11 @@
 import type { ModelInfo } from '~/types/api'
 
 const props = defineProps<{
-  modele?: ModelInfo | null
-  disponible?: boolean
+  model?: ModelInfo | null
+  available?: boolean
 }>()
 
-function formaterDate(ms: number): string {
+function formatDate(ms: number): string {
   return new Date(ms).toLocaleString('fr-FR', {
     day: '2-digit',
     month: '2-digit',
@@ -22,38 +22,38 @@ function formaterDate(ms: number): string {
     <span class="font-ev-mono text-[10px] font-medium tracking-[0.16em] text-ev-text-muted">MODÈLE ACTIF</span>
 
     <div
-      v-if="!props.disponible"
+      v-if="!props.available"
       class="font-ev text-xs text-ev-text-muted"
     >
       Aucun modèle disponible
     </div>
 
-    <template v-else-if="props.modele">
+    <template v-else-if="props.model">
       <div class="flex flex-col gap-0.5">
         <span
           data-testid="model-name"
           class="font-ev-mono text-[11px] font-medium text-ev-text"
-        >{{ props.modele.name }}</span>
+        >{{ props.model.name }}</span>
         <span
           data-testid="model-version"
           class="font-ev-mono text-[10px] text-ev-text-muted"
-        >v{{ props.modele.version }} · {{ props.modele.alias }}</span>
+        >v{{ props.model.version }} · {{ props.model.alias }}</span>
       </div>
 
       <div
-        v-if="props.modele.creation_timestamp"
+        v-if="props.model.creation_timestamp"
         data-testid="model-date"
         class="font-ev-mono text-[10px] text-ev-text-muted"
       >
-        Entraîné le {{ formaterDate(props.modele.creation_timestamp) }}
+        Entraîné le {{ formatDate(props.model.creation_timestamp) }}
       </div>
 
       <div
-        v-if="props.modele.metriques?.training_rows"
+        v-if="props.model.metriques?.training_rows"
         data-testid="model-metrics"
         class="font-ev-mono text-[10px] text-ev-text-muted"
       >
-        {{ props.modele.metriques.training_rows.toLocaleString('fr-FR') }} lignes d'entraînement
+        {{ props.model.metriques.training_rows.toLocaleString('fr-FR') }} lignes d'entraînement
       </div>
     </template>
   </div>

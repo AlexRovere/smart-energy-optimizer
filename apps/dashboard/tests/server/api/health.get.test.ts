@@ -25,9 +25,9 @@ describe('GET /api/health', () => {
   })
 
   it('dit tout sain, avec la version, la durée de fonctionnement et la dernière collecte', async () => {
-    const résultat = await handler(event)
+    const result = await handler(event)
 
-    expect(résultat).toEqual({
+    expect(result).toEqual({
       status: 'ok',
       db: 'ok',
       parquet: 'ok',

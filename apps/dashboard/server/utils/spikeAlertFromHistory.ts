@@ -5,9 +5,9 @@ import { detectSpikeAlert, type SpikeAlertEvaluation } from './spikeAlertDetecti
 import type { AppDatabase } from './session'
 import type { TimestampedValue } from './rollingAverage'
 
-const DÉFAUTS_PIC = { duration: 5, threshold: 1.5 }
-const LIMITE_LECTURE = 1000
-const AUCUNE_DONNÉE: SpikeAlertEvaluation = {
+const SPIKE_DEFAULTS = { duration: 5, threshold: 1.5 }
+const READ_LIMIT = 1000
+const NO_DATA: SpikeAlertEvaluation = {
   alert: false,
   currentValue: null,
   average: null,
@@ -19,19 +19,19 @@ export async function detectSpikeAlertFromHistory(
   siteId: string,
   reference: Date
 ): Promise<SpikeAlertEvaluation> {
-  const réglage = await getAlertThreshold(db, siteId, 'pic', DÉFAUTS_PIC)
+  const setting = await getAlertThreshold(db, siteId, 'pic', SPIKE_DEFAULTS)
 
-  const début = new Date(reference.getTime() - réglage.duration * 3_600_000)
-  const fin = new Date(reference.getTime() + 1)
-  const mesures = await querySiteHistory(siteId, début.toISOString(), fin.toISOString(), LIMITE_LECTURE)
+  const startedAt = new Date(reference.getTime() - setting.duration * 3_600_000)
+  const finishedAt = new Date(reference.getTime() + 1)
+  const readingRows = await querySiteHistory(siteId, startedAt.toISOString(), finishedAt.toISOString(), READ_LIMIT)
 
-  const valeurs: TimestampedValue[] = mesures
-    .filter(mesure => mesure.consumption_kwh !== null && mesure.consumption_kwh !== undefined)
-    .map(mesure => ({ timestamp: mesure.timestamp, value: mesure.consumption_kwh! }))
+  const values: TimestampedValue[] = readingRows
+    .filter(reading => reading.consumption_kwh !== null && reading.consumption_kwh !== undefined)
+    .map(reading => ({ timestamp: reading.timestamp, value: reading.consumption_kwh! }))
 
-  const dernière = valeurs.at(-1)
-  if (dernière === undefined) return AUCUNE_DONNÉE
+  const latest = values.at(-1)
+  if (latest === undefined) return NO_DATA
 
-  const précédentes = valeurs.slice(0, -1)
-  return detectSpikeAlert(précédentes, reference, dernière.value, réglage)
+  const previous = values.slice(0, -1)
+  return detectSpikeAlert(previous, reference, latest.value, setting)
 }

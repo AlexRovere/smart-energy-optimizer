@@ -33,11 +33,11 @@ describe('requireRole', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('résout avec le compte si le rôle correspond', async () => {
-    const compte = { id: 'uuid-admin', email: 'admin@enervision.local', role: 'ADMIN' }
+    const account = { id: 'uuid-admin', email: 'admin@enervision.local', role: 'ADMIN' }
     mockGetUserSession.mockResolvedValue({ sessionId: 'session-123' })
-    mockAccountForSession.mockResolvedValue(compte)
+    mockAccountForSession.mockResolvedValue(account)
 
-    await expect(requireRole(mockEvent, 'ADMIN')).resolves.toEqual(compte)
+    await expect(requireRole(mockEvent, 'ADMIN')).resolves.toEqual(account)
   })
 
   it('rejette avec 403 si le rôle ne correspond pas', async () => {
@@ -57,19 +57,19 @@ describe('requireRole', () => {
 })
 
 describe('requireSiteAccess', () => {
-  const opérateur = { id: 'uuid-op', email: 'operator@enervision.local', role: 'OPERATOR' }
+  const operator = { id: 'uuid-op', email: 'operator@enervision.local', role: 'OPERATOR' }
 
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetUserSession.mockResolvedValue({ sessionId: 'session-789' })
-    mockAccountForSession.mockResolvedValue(opérateur)
+    mockAccountForSession.mockResolvedValue(operator)
     mockSiteExists.mockResolvedValue(true)
     mockAllowedSites.mockResolvedValue(['SITE001'])
   })
 
   it('rend le compte et le site quand le site est dans le périmètre', async () => {
     await expect(requireSiteAccess(mockEvent, 'SITE001'))
-      .resolves.toEqual({ account: opérateur, siteId: 'SITE001' })
+      .resolves.toEqual({ account: operator, siteId: 'SITE001' })
   })
 
   it('rejette avec 401 avant tout contrôle du site si la session est invalide', async () => {

@@ -9,7 +9,7 @@ definePageMeta({
 
 const { refresh } = useAccountSession()
 const route = useRoute()
-const sessionExpired = computed(() => route.query.expiree === '1')
+const sessionExpired = computed(() => route.query.expired === '1')
 
 const state = reactive<LoginInput>({
   email: '',
@@ -27,7 +27,7 @@ async function onSubmit(event: FormSubmitEvent<LoginInput>) {
     // cookie, que ce code ne peut pas lire et n'a pas à lire.
     await $fetch('/api/auth/login', { method: 'POST', body: event.data })
     await refresh()
-    await navigateTo(safeReturnPath(route.query.retour))
+    await navigateTo(safeReturnPath(route.query.redirect))
   }
   catch (err) {
     const failure = err as FetchError

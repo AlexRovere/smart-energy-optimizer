@@ -1,45 +1,46 @@
 import { ref } from 'vue'
 
-export interface DernierEntrainement {
-  statut: 'succès' | 'erreur'
-  à: Date
+export interface LastTraining {
+  status: 'success' | 'error'
+  finishedAt: Date
   message?: string
 }
 
-interface StatutEntrainement {
-  en_cours: boolean
-  dernier: {
-    statut: 'succès' | 'erreur'
-    début: string
-    fin: string
+// Réponse de GET /api/training (docs/api.md).
+interface TrainingStatus {
+  in_progress: boolean
+  last: {
+    status: 'success' | 'error'
+    started_at: string
+    finished_at: string
     message?: string
   } | null
 }
 
 export function useTraining() {
   const pending = ref(false)
-  const dernierEntrainement = ref<DernierEntrainement | null>(null)
+  const lastTraining = ref<LastTraining | null>(null)
 
-  async function rafraichir() {
-    const état = await $fetch<StatutEntrainement>('/api/training')
-    pending.value = état.en_cours
-    if (!état.en_cours && état.dernier) {
-      dernierEntrainement.value = {
-        statut: état.dernier.statut,
-        à: new Date(état.dernier.fin),
-        message: état.dernier.message,
+  async function reload() {
+    const state = await $fetch<TrainingStatus>('/api/training')
+    pending.value = state.in_progress
+    if (!state.in_progress && state.last) {
+      lastTraining.value = {
+        status: state.last.status,
+        finishedAt: new Date(state.last.finished_at),
+        message: state.last.message,
       }
     }
   }
 
-  async function déclencher() {
+  async function trigger() {
     await $fetch('/api/training', { method: 'POST' })
     pending.value = true
     const intervalId = setInterval(async () => {
-      await rafraichir()
+      await reload()
       if (!pending.value) clearInterval(intervalId)
     }, 3000)
   }
 
-  return { pending, dernierEntrainement, déclencher, rafraichir }
+  return { pending, lastTraining, trigger, reload }
 }

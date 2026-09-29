@@ -19,27 +19,27 @@ declare module 'vitest' {
   interface ProvidedContext {
     // Chaîne vide quand aucun conteneur n'a pu démarrer : les fichiers qui ont
     // besoin d'une base s'ignorent alors, au lieu d'échouer.
-    urlAdministrateur: string
+    adminUrl: string
   }
 }
 
-let conteneur: StartedPostgreSqlContainer | undefined
+let container: StartedPostgreSqlContainer | undefined
 
 // Seul endroit qui tranche entre « s'ignorer » et « échouer ». Toute valeur
 // posée dans CI vaut présence, sauf celles qui nient explicitement : les
 // forges ne s'accordent pas sur `true`, `1` ou le nom du fournisseur.
-export function exigeUnConteneur(env: NodeJS.ProcessEnv): boolean {
+export function requiresContainer(env: NodeJS.ProcessEnv): boolean {
   const ci = env.CI
   if (ci === undefined) return false
   return !['', '0', 'false'].includes(ci.toLowerCase())
 }
 
-export async function setup(projet: TestProject) {
+export async function setup(project: TestProject) {
   try {
-    conteneur = await new PostgreSqlContainer('postgres:16-alpine').start()
-    projet.provide('urlAdministrateur', conteneur.getConnectionUri())
+    container = await new PostgreSqlContainer('postgres:16-alpine').start()
+    project.provide('adminUrl', container.getConnectionUri())
   } catch (cause) {
-    if (exigeUnConteneur(process.env)) {
+    if (requiresContainer(process.env)) {
       throw new Error(
         "Aucun runtime de conteneurs joignable, alors que l'intégration continue l'exige : "
         + 'les tests de base ne peuvent pas être ignorés ici.',
@@ -47,7 +47,7 @@ export async function setup(projet: TestProject) {
       )
     }
 
-    projet.provide('urlAdministrateur', '')
+    project.provide('adminUrl', '')
     console.warn(
       "\n  Aucun runtime de conteneurs joignable : les tests qui ont besoin d'une base\n"
       + '  sont ignorés. Démarrer Docker pour les exécuter. Le reste de la suite tourne.\n'
@@ -56,5 +56,5 @@ export async function setup(projet: TestProject) {
 }
 
 export async function teardown() {
-  await conteneur?.stop()
+  await container?.stop()
 }

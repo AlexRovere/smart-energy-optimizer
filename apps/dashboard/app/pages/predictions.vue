@@ -4,18 +4,18 @@ import type { SiteId } from '~/types/api'
 import { usePredictions } from '~/composables/usePredictions'
 
 const {
-  selectedSiteId, horizonHeures, siteInfo,
+  selectedSiteId, horizonHours, siteInfo,
   historicalPoints, recommendations,
   thresholdKw, peakKw, peakTime, marginKw, exceedanceExpected,
   forecastPoints, confidenceLevel, modelVersion, predictedAt, nbPoints,
-  available, lancer, lancee, dureeMs, pending,
+  available, launch, launched, durationMs, pending,
 } = usePredictions()
 
 // Les indicateurs n'ont de sens qu'une fois la prévision revenue.
-const prévisionPrête = computed(() => lancee.value && !pending.value && available.value && forecastPoints.value.length > 0)
+const forecastReady = computed(() => launched.value && !pending.value && available.value && forecastPoints.value.length > 0)
 
-function kw(valeur: number | null): string {
-  return prévisionPrête.value && valeur != null ? String(Math.round(valeur)) : '—'
+function kw(value: number | null): string {
+  return forecastReady.value && value != null ? String(Math.round(value)) : '—'
 }
 
 const SITES: { id: SiteId; label: string }[] = [
@@ -31,7 +31,7 @@ const SITES: { id: SiteId; label: string }[] = [
 const simulationDuration = ref(15)
 const toast = useToast()
 
-function injecterPic() {
+function injectSpike() {
   toast.add({ title: 'Fonctionnalité non disponible dans cette version', color: 'warning' })
 }
 </script>
@@ -45,7 +45,7 @@ function injecterPic() {
         <h2 class="font-ev text-[28px] font-bold tracking-tight">Prédiction &amp; actions correctives</h2>
         <p class="font-ev text-sm text-ev-text-3">
           {{ selectedSiteId }} · {{ siteInfo?.site_name ?? '—' }}
-          · horizon {{ horizonHeures }} h, pas horaire.
+          · horizon {{ horizonHours }} h, pas horaire.
         </p>
       </div>
 
@@ -70,21 +70,21 @@ function injecterPic() {
               v-for="h in [24, 48]"
               :key="h"
               size="xs"
-              :variant="horizonHeures === h ? 'solid' : 'ghost'"
+              :variant="horizonHours === h ? 'solid' : 'ghost'"
               color="primary"
-              @click="horizonHeures = h"
+              @click="horizonHours = h"
             >{{ h }}h</UButton>
           </div>
           <EvPredictionTrigger
             :site-id="selectedSiteId"
-            :lancee="lancee"
+            :launched="launched"
             :pending="pending"
             :available="available"
             :predicted-at="predictedAt"
             :nb-points="nbPoints"
             :model-version="modelVersion"
-            :duree-ms="dureeMs"
-            @lancer="lancer"
+            :duration-ms="durationMs"
+            @launch="launch"
           />
         </div>
       </div>
@@ -96,7 +96,7 @@ function injecterPic() {
         label="PIC PRÉVU"
         :value="kw(peakKw)"
         unit="kW"
-        :note="prévisionPrête ? `à ${peakTime} · horizon ${horizonHeures} h` : 'en attente de prédiction'"
+        :note="forecastReady ? `à ${peakTime} · horizon ${horizonHours} h` : 'en attente de prédiction'"
       />
       <EvKpiCard
         label="MARGE AU SEUIL"
@@ -106,20 +106,20 @@ function injecterPic() {
       />
       <EvKpiCard
         label="DÉPASSEMENT ATTENDU"
-        :value="prévisionPrête ? (exceedanceExpected ? 'oui' : 'aucun') : '—'"
-        :note="!prévisionPrête ? 'en attente de prédiction' : exceedanceExpected ? 'dépassement prévu sur l\'horizon' : 'sous le seuil sur tout l\'horizon'"
-        :note-tone="prévisionPrête && exceedanceExpected ? 'amber' : 'muted'"
+        :value="forecastReady ? (exceedanceExpected ? 'oui' : 'aucun') : '—'"
+        :note="!forecastReady ? 'en attente de prédiction' : exceedanceExpected ? 'dépassement prévu sur l\'horizon' : 'sous le seuil sur tout l\'horizon'"
+        :note-tone="forecastReady && exceedanceExpected ? 'amber' : 'muted'"
       />
       <EvKpiCard
         label="VERSION DU MODÈLE"
-        :value="prévisionPrête && modelVersion ? `v${modelVersion}` : '—'"
+        :value="forecastReady && modelVersion ? `v${modelVersion}` : '—'"
         note="modèle champion du registre MLflow"
       />
     </div>
 
     <!-- Graphique -->
     <EvCard tone="light">
-      <div v-if="!lancee" class="py-16 text-center font-ev text-sm text-ev-text-3">
+      <div v-if="!launched" class="py-16 text-center font-ev text-sm text-ev-text-3">
         Choisissez un site et un horizon, puis cliquez sur « Lancer la prédiction ».
       </div>
 
@@ -191,7 +191,7 @@ function injecterPic() {
           />
         </div>
 
-        <EvButton data-testid="injecter-pic-btn" variant="accent" :block="true" @click="injecterPic()">
+        <EvButton data-testid="inject-spike-btn" variant="accent" :block="true" @click="injectSpike()">
           Injecter un pic sur {{ selectedSiteId }}
         </EvButton>
 

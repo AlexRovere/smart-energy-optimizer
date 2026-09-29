@@ -18,7 +18,7 @@ const mockFetchPredictions = vi.mocked(fetchPredictions)
 const mockGetAlertThreshold = vi.mocked(getAlertThreshold)
 const mockQuerySiteHistory = vi.mocked(querySiteHistory)
 
-const RÉFÉRENCE = new Date('2026-09-18T10:00:00Z')
+const REFERENCE = new Date('2026-09-18T10:00:00Z')
 const DB = {} as never
 
 describe('detectSpikeAlertsFromPredictions', () => {
@@ -35,9 +35,9 @@ describe('detectSpikeAlertsFromPredictions', () => {
       { site_id: 'SITE001', timestamp: '2026-09-18T11:00:00', consumption_kwh: 500 }
     ])
 
-    const résultat = await detectSpikeAlertsFromPredictions(DB, 'SITE001', RÉFÉRENCE, 1)
+    const result = await detectSpikeAlertsFromPredictions(DB, 'SITE001', REFERENCE, 1)
 
-    expect(résultat).toEqual([
+    expect(result).toEqual([
       { timestamp: '2026-09-18T11:00:00.000Z', alert: false, currentValue: 500, average: null, thresholdKw: null }
     ])
   })
@@ -49,10 +49,10 @@ describe('detectSpikeAlertsFromPredictions', () => {
       { site_id: 'SITE001', timestamp: '2026-09-18T13:00:00', consumption_kwh: 300 }
     ])
 
-    const résultat = await detectSpikeAlertsFromPredictions(DB, 'SITE001', RÉFÉRENCE, 3)
+    const result = await detectSpikeAlertsFromPredictions(DB, 'SITE001', REFERENCE, 3)
 
     // 13h : moyenne de 11h et 12h (100, 100) = 100 ; 300 >= 100 × 1.5 → alerte.
-    expect(résultat).toEqual([
+    expect(result).toEqual([
       { timestamp: '2026-09-18T11:00:00.000Z', alert: false, currentValue: 100, average: null, thresholdKw: null },
       { timestamp: '2026-09-18T12:00:00.000Z', alert: false, currentValue: 100, average: 100, thresholdKw: 150 },
       { timestamp: '2026-09-18T13:00:00.000Z', alert: true, currentValue: 300, average: 100, thresholdKw: 150 }
@@ -68,10 +68,10 @@ describe('detectSpikeAlertsFromPredictions', () => {
       { site_id: 'SITE001', timestamp: '2026-09-18T11:00:00', consumption_kwh: 200 }
     ])
 
-    const résultat = await detectSpikeAlertsFromPredictions(DB, 'SITE001', RÉFÉRENCE, 1)
+    const result = await detectSpikeAlertsFromPredictions(DB, 'SITE001', REFERENCE, 1)
 
     // Moyenne du contexte (100, 100) = 100 ; 200 >= 100 × 1.5 (150) → alerte.
-    expect(résultat).toEqual([
+    expect(result).toEqual([
       { timestamp: '2026-09-18T11:00:00.000Z', alert: true, currentValue: 200, average: 100, thresholdKw: 150 }
     ])
   })

@@ -17,7 +17,7 @@ describe('EvTrainingButton', () => {
   it('affiche un badge succès après un entraînement réussi', async () => {
     const wrapper = await mountSuspended(EvTrainingButton, {
       props: {
-        dernierEntrainement: { statut: 'succès', à: new Date('2026-09-23T10:32:00Z') }
+        lastTraining: { status: 'success', finishedAt: new Date('2026-09-23T10:32:00Z') }
       }
     })
     const badge = wrapper.find('[data-testid="training-badge"]')
@@ -28,7 +28,7 @@ describe('EvTrainingButton', () => {
   it('affiche un badge erreur après un entraînement échoué', async () => {
     const wrapper = await mountSuspended(EvTrainingButton, {
       props: {
-        dernierEntrainement: { statut: 'erreur', à: new Date('2026-09-23T10:32:00Z') }
+        lastTraining: { status: 'error', finishedAt: new Date('2026-09-23T10:32:00Z') }
       }
     })
     const badge = wrapper.find('[data-testid="training-badge"]')
@@ -38,7 +38,7 @@ describe('EvTrainingButton', () => {
   it('affiche l\'heure du dernier entraînement dans le badge', async () => {
     const wrapper = await mountSuspended(EvTrainingButton, {
       props: {
-        dernierEntrainement: { statut: 'succès', à: new Date('2026-09-23T10:32:00Z') }
+        lastTraining: { status: 'success', finishedAt: new Date('2026-09-23T10:32:00Z') }
       }
     })
     const badge = wrapper.find('[data-testid="training-badge"]')
@@ -71,7 +71,7 @@ describe('EvTrainingButton', () => {
     const wrapper = await mountSuspended(EvTrainingButton, {
       props: {
         loading: false,
-        dernierEntrainement: { statut: 'succès', à: new Date('2026-09-23T10:32:00Z') }
+        lastTraining: { status: 'success', finishedAt: new Date('2026-09-23T10:32:00Z') }
       }
     })
     const badge = wrapper.find('[data-testid="training-badge"]')

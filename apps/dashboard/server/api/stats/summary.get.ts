@@ -42,9 +42,9 @@ export default defineEventHandler(async (event) => {
   const account = await requireAccount(event)
   const permittedIds = await allowedSites(db, account)
 
-  let réponse: unknown
+  let response: unknown
   try {
-    réponse = await fetchMockApi('/api/v1/stats/summary')
+    response = await fetchMockApi('/api/v1/stats/summary')
   } catch (error_) {
     logger.error('Source de données indisponible', {
       route: event.path,
@@ -53,7 +53,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ status: 503, statusText: 'Source de données indisponible', cause: error_ })
   }
 
-  const parse = parkSummarySchema.safeParse(réponse)
+  const parse = parkSummarySchema.safeParse(response)
   if (!parse.success) {
     throw createError({ status: 502, statusText: 'Réponse inattendue de la source' })
   }

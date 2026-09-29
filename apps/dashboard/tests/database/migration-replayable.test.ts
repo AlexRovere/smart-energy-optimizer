@@ -1,50 +1,50 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
-import { baseDisponible, creerBaseDeTest, DOSSIER_MIGRATIONS, ligneAttendue, type BaseDeTest } from './base-de-test'
+import { databaseAvailable, createTestDatabase, MIGRATIONS_DIR, expectedRow, type TestDatabase } from './test-database'
 
-interface EntreeJournal {
+interface JournalEntry {
   id: number
   hash: string
   created_at: string
 }
 
-describe.skipIf(!baseDisponible())('rejouabilité des migrations Drizzle', () => {
-  let base: BaseDeTest
-  let premierPassage: EntreeJournal[]
+describe.skipIf(!databaseAvailable())('rejouabilité des migrations Drizzle', () => {
+  let base: TestDatabase
+  let firstRun: JournalEntry[]
 
-  const journal = () => base.sql<EntreeJournal[]>`
+  const journal = () => base.sql<JournalEntry[]>`
     SELECT id, hash, created_at
       FROM drizzle.__drizzle_migrations
      ORDER BY created_at, id
   `
 
   beforeAll(async () => {
-    base = await creerBaseDeTest({ migrer: false })
-    await migrate(drizzle(base.sql), { migrationsFolder: DOSSIER_MIGRATIONS })
-    premierPassage = [...(await journal())]
+    base = await createTestDatabase({ migrate: false })
+    await migrate(drizzle(base.sql), { migrationsFolder: MIGRATIONS_DIR })
+    firstRun = [...(await journal())]
   })
 
   afterAll(async () => {
-    await base?.fermer()
+    await base?.close()
   })
 
   describe('le journal ne rejoue pas une migration déjà consignée', () => {
     it('a appliqué les trois migrations au premier passage', () => {
-      expect(premierPassage).toHaveLength(3)
+      expect(firstRun).toHaveLength(3)
     })
 
     it("ne casse rien et n'applique rien deux fois au second passage sur la même base", async () => {
       await expect(
-        migrate(drizzle(base.sql), { migrationsFolder: DOSSIER_MIGRATIONS })
+        migrate(drizzle(base.sql), { migrationsFolder: MIGRATIONS_DIR })
       ).resolves.toBeUndefined()
 
-      const secondPassage = [...(await journal())]
-      expect(secondPassage).toEqual(premierPassage)
+      const secondRun = [...(await journal())]
+      expect(secondRun).toEqual(firstRun)
     })
 
     it('laisse les six tables et le rôle etl en place', async () => {
-      const { tables } = ligneAttendue(
+      const { tables } = expectedRow(
         await base.sql<{ tables: number }[]>`
           SELECT count(*)::int AS tables
             FROM information_schema.tables
@@ -54,13 +54,13 @@ describe.skipIf(!baseDisponible())('rejouabilité des migrations Drizzle', () =>
       )
       expect(tables).toBe(6)
 
-      const { existe } = ligneAttendue(
-        await base.sql<{ existe: boolean }[]>`
-          SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'etl') AS existe
+      const { exists } = expectedRow(
+        await base.sql<{ exists: boolean }[]>`
+          SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'etl') AS "exists"
         `,
         'la présence du rôle etl dans le cluster'
       )
-      expect(existe).toBe(true)
+      expect(exists).toBe(true)
     })
   })
 
@@ -71,28 +71,28 @@ describe.skipIf(!baseDisponible())('rejouabilité des migrations Drizzle', () =>
     // IF NOT EXISTS du bloc DO. Un second passage sur la même base ne le
     // ferait pas : le journal sait déjà la migration appliquée et ne la
     // rejoue jamais, garde compris.
-    let secondeBase: BaseDeTest
+    let secondDatabase: TestDatabase
 
     beforeAll(async () => {
-      secondeBase = await creerBaseDeTest({ migrer: false })
+      secondDatabase = await createTestDatabase({ migrate: false })
     })
 
     afterAll(async () => {
-      await secondeBase?.fermer()
+      await secondDatabase?.close()
     })
 
     it('applique les migrations sans échouer sur le rôle etl déjà présent dans le cluster', async () => {
       await expect(
-        migrate(drizzle(secondeBase.sql), { migrationsFolder: DOSSIER_MIGRATIONS })
+        migrate(drizzle(secondDatabase.sql), { migrationsFolder: MIGRATIONS_DIR })
       ).resolves.toBeUndefined()
 
-      const { existe } = ligneAttendue(
-        await secondeBase.sql<{ existe: boolean }[]>`
-          SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'etl') AS existe
+      const { exists } = expectedRow(
+        await secondDatabase.sql<{ exists: boolean }[]>`
+          SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'etl') AS "exists"
         `,
         'la présence du rôle etl vue depuis la seconde base'
       )
-      expect(existe).toBe(true)
+      expect(exists).toBe(true)
     })
   })
 })

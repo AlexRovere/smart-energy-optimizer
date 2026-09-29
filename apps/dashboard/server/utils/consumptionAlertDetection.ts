@@ -9,14 +9,14 @@ export interface ConsumptionAlertEvaluation {
 }
 
 export function detectConsumptionAlert(
-  valeurs: TimestampedValue[],
+  values: TimestampedValue[],
   reference: Date,
-  réglage: AlertThreshold
+  setting: AlertThreshold
 ): ConsumptionAlertEvaluation {
-  const moyenne = rollingAverage(valeurs, reference, réglage.duration)
+  const mean = rollingAverage(values, reference, setting.duration)
   return {
-    alert: moyenne !== null && moyenne >= réglage.threshold,
-    average: moyenne,
-    thresholdKwh: réglage.threshold
+    alert: mean !== null && mean >= setting.threshold,
+    average: mean,
+    thresholdKwh: setting.threshold
   }
 }

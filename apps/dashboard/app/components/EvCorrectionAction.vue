@@ -4,7 +4,7 @@ import type { Recommendation } from '~/types/api'
 defineProps<{ recommendation: Recommendation }>()
 const toast = useToast()
 
-function appliquer() {
+function apply() {
   toast.add({ title: 'Fonctionnalité non disponible dans cette version', color: 'warning' })
 }
 </script>
@@ -29,7 +29,7 @@ function appliquer() {
       data-testid="apply-btn"
       class="shrink-0"
       variant="primary"
-      @click="appliquer()"
+      @click="apply()"
     >Appliquer</EvButton>
   </div>
 </template>

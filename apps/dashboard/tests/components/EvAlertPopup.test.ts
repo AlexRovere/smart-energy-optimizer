@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import EvAlertPopup from '../../app/components/EvAlertPopup.vue'
 import type { Recommendation } from '../../app/types/api'
 
-const RECOMMANDATION: Recommendation = {
+const RECOMMENDATION: Recommendation = {
   recommendation_id: 'REC-SITE001-pic-2026-09-18T10:00:00.000Z',
   site_id: 'SITE001',
   source: 'threshold',
@@ -22,7 +22,7 @@ const RECOMMANDATION: Recommendation = {
 describe('EvAlertPopup', () => {
   it('ne rend rien quand open est faux', async () => {
     const wrapper = await mountSuspended(EvAlertPopup, {
-      props: { open: false, siteName: 'Bureau Paris', recommendations: [RECOMMANDATION] }
+      props: { open: false, siteName: 'Bureau Paris', recommendations: [RECOMMENDATION] }
     })
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
   })
@@ -31,18 +31,18 @@ describe('EvAlertPopup', () => {
     ['le site impacté', 'Bureau Paris'],
     ['la sévérité de la règle déclenchée', 'HIGH'],
     ['la recommandation associée', 'Lisser le pic de consommation'],
-  ])('affiche %s', async (_description, texteAttendu) => {
+  ])('affiche %s', async (_description, expectedText) => {
     const wrapper = await mountSuspended(EvAlertPopup, {
-      props: { open: true, siteName: 'Bureau Paris', recommendations: [RECOMMANDATION] }
+      props: { open: true, siteName: 'Bureau Paris', recommendations: [RECOMMENDATION] }
     })
-    expect(wrapper.text()).toContain(texteAttendu)
+    expect(wrapper.text()).toContain(expectedText)
   })
 
   it('émet close au clic sur le bouton fermer', async () => {
     const wrapper = await mountSuspended(EvAlertPopup, {
-      props: { open: true, siteName: 'Bureau Paris', recommendations: [RECOMMANDATION] }
+      props: { open: true, siteName: 'Bureau Paris', recommendations: [RECOMMENDATION] }
     })
-    await wrapper.find('[data-testid="fermer-btn"]').trigger('click')
+    await wrapper.find('[data-testid="close-btn"]').trigger('click')
     expect(wrapper.emitted('close')).toHaveLength(1)
   })
 })

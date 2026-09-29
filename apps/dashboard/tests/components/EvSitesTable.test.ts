@@ -46,10 +46,10 @@ describe('EvSitesTable', () => {
 
   it('donne la date de la dernière donnée reçue pour chaque site', async () => {
     const wrapper = await mountSuspended(EvSitesTable, { props: { sites: [SITE, { ...SITE, site_id: 'SITE002', last_data_at: null }] } })
-    const lignes = wrapper.findAll('tbody tr')
+    const rows = wrapper.findAll('tbody tr')
 
-    expect(lignes[0]!.text()).toContain('29/09 13:00')
-    expect(lignes[1]!.text()).toContain('aucune')
+    expect(rows[0]!.text()).toContain('29/09 13:00')
+    expect(rows[1]!.text()).toContain('aucune')
   })
 
   it('affiche la santé en français', async () => {

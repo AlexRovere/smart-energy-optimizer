@@ -4,7 +4,7 @@ import { expiredSessionRedirect, safeReturnPath } from '../../app/utils/sessionE
 describe('expiredSessionRedirect', () => {
   it('renvoie vers la connexion avec le message et la page à retrouver', () => {
     expect(expiredSessionRedirect('/api/sites/SITE001/current', 401, true, '/sites/SITE001?w=7j'))
-      .toBe('/login?expiree=1&retour=%2Fsites%2FSITE001%3Fw%3D7j')
+      .toBe('/login?expired=1&redirect=%2Fsites%2FSITE001%3Fw%3D7j')
   })
 
   it("ignore une réponse qui n'est pas un 401", () => {
@@ -27,7 +27,7 @@ describe('expiredSessionRedirect', () => {
   })
 
   it("ne propose pas de revenir sur la page de connexion", () => {
-    expect(expiredSessionRedirect('/api/sites', 401, true, '/login')).toBe('/login?expiree=1')
+    expect(expiredSessionRedirect('/api/sites', 401, true, '/login')).toBe('/login?expired=1')
   })
 })
 
@@ -43,7 +43,7 @@ describe('safeReturnPath', () => {
     ['un chemin relatif', 'sites'],
     ['une absence', undefined],
     ['une liste', ['/a', '/b']],
-  ])('refuse %s et revient à la vue d\'ensemble', (_cas, value) => {
+  ])('refuse %s et revient à la vue d\'ensemble', (_case, value) => {
     expect(safeReturnPath(value)).toBe('/')
   })
 })

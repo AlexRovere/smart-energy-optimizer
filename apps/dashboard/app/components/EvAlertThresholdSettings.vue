@@ -11,10 +11,10 @@ function siteName(siteId: string): string {
   return sites.value.find(s => s.site_id === siteId)?.site_name ?? siteId
 }
 
-function seuilAffiché(entrée: AlertThresholdEntry): string {
-  return entrée.type === 'pic'
-    ? `${Math.round(entrée.threshold * 100)} %`
-    : `${entrée.threshold} kWh`
+function displayedThreshold(entry: AlertThresholdEntry): string {
+  return entry.type === 'pic'
+    ? `${Math.round(entry.threshold * 100)} %`
+    : `${entry.threshold} kWh`
 }
 
 const rows = computed(() =>
@@ -23,12 +23,12 @@ const rows = computed(() =>
   )
 )
 
-const édition = ref<AlertThresholdEntry | null>(null)
+const editing = ref<AlertThresholdEntry | null>(null)
 
-async function enregistrer(valeurs: AlertThresholdInput) {
-  if (!édition.value) return
-  await save(édition.value.site_id, édition.value.type, valeurs)
-  édition.value = null
+async function saveThreshold(values: AlertThresholdInput) {
+  if (!editing.value) return
+  await save(editing.value.site_id, editing.value.type, values)
+  editing.value = null
 }
 </script>
 
@@ -50,30 +50,30 @@ async function enregistrer(valeurs: AlertThresholdInput) {
       </thead>
       <tbody>
         <tr
-          v-for="entrée in rows"
-          :key="`${entrée.site_id}-${entrée.type}`"
-          data-testid="ligne-seuil"
+          v-for="entry in rows"
+          :key="`${entry.site_id}-${entry.type}`"
+          data-testid="threshold-row"
           class="border-b last:border-b-0"
           style="border-color: var(--ev-border)"
         >
-          <td class="py-4 pr-6 font-ev text-sm font-semibold">{{ siteName(entrée.site_id) }}</td>
-          <td class="py-4 pr-6 font-ev-mono text-xs text-ev-text-3">{{ TYPE_LABEL[entrée.type] }}</td>
-          <td class="py-4 pr-6 font-ev-mono text-sm">{{ entrée.duration }}</td>
-          <td class="py-4 pr-6 font-ev-mono text-sm">{{ seuilAffiché(entrée) }}</td>
+          <td class="py-4 pr-6 font-ev text-sm font-semibold">{{ siteName(entry.site_id) }}</td>
+          <td class="py-4 pr-6 font-ev-mono text-xs text-ev-text-3">{{ TYPE_LABEL[entry.type] }}</td>
+          <td class="py-4 pr-6 font-ev-mono text-sm">{{ entry.duration }}</td>
+          <td class="py-4 pr-6 font-ev-mono text-sm">{{ displayedThreshold(entry) }}</td>
           <td class="py-4">
-            <EvButton data-testid="editer-btn" variant="secondary" @click="édition = entrée">Éditer</EvButton>
+            <EvButton data-testid="edit-btn" variant="secondary" @click="editing = entry">Éditer</EvButton>
           </td>
         </tr>
       </tbody>
     </table>
 
     <EvAlertThresholdModal
-      :open="édition !== null"
-      :site-name="édition ? siteName(édition.site_id) : ''"
-      :type="édition?.type ?? 'conso'"
-      :initial="édition ? { duration: édition.duration, threshold: édition.threshold } : { duration: 5, threshold: 200 }"
-      @close="édition = null"
-      @save="enregistrer"
+      :open="editing !== null"
+      :site-name="editing ? siteName(editing.site_id) : ''"
+      :type="editing?.type ?? 'conso'"
+      :initial="editing ? { duration: editing.duration, threshold: editing.threshold } : { duration: 5, threshold: 200 }"
+      @close="editing = null"
+      @save="saveThreshold"
     />
   </EvCard>
 </template>

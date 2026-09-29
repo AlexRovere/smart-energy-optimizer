@@ -58,9 +58,9 @@ function setupMocks() {
     nbPoints: ref(0),
     available: ref(true),
     failureMessage: ref(null),
-    lancer: vi.fn(),
-    lancee: ref(false),
-    dureeMs: ref(null),
+    launch: vi.fn(),
+    launched: ref(false),
+    durationMs: ref(null),
     pending: ref(false),
   })
 }
@@ -78,7 +78,7 @@ describe('page Site détail', () => {
     useToastMock.mockReturnValue({ add: toastAdd })
     setupMocks()
     const wrapper = await mountSuspended(SiteDetailPage)
-    await wrapper.find('[data-testid="configurer-seuils-btn"]').trigger('click')
+    await wrapper.find('[data-testid="configure-thresholds-btn"]').trigger('click')
     expect(toastAdd).toHaveBeenCalledWith(expect.objectContaining({
       title: 'Fonctionnalité non disponible dans cette version',
       color: 'warning',
@@ -103,14 +103,14 @@ describe('page Site détail', () => {
     setupMocks()
     const text = await pageText()
 
-    for (const attendu of ['300 kW', '250 kW', 'Bureaux', 'En service']) expect(text).toContain(attendu)
+    for (const expected of ['300 kW', '250 kW', 'Bureaux', 'En service']) expect(text).toContain(expected)
   })
 
   it("affiche l'état de chaque capteur en français, avec la fin prévue d'une panne", async () => {
     setupMocks()
     const text = await pageText()
 
-    for (const attendu of ['Consommation', 'Humidité', 'En panne', "jusqu'à 08:15"]) expect(text).toContain(attendu)
+    for (const expected of ['Consommation', 'Humidité', 'En panne', "jusqu'à 08:15"]) expect(text).toContain(expected)
   })
 
   it('donne la date de la dernière donnée du site', async () => {
@@ -159,7 +159,7 @@ describe('page Site détail', () => {
     setupMocks()
     useSitePredictionMock.mockReturnValue({
       ...useSitePredictionMock(),
-      lancee: ref(true),
+      launched: ref(true),
       available: ref(false),
       failureMessage: ref('Historique insuffisant ou trop ancien pour prévoir'),
     })

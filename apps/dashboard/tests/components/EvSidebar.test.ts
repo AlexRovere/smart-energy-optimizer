@@ -13,7 +13,7 @@ mockNuxtImport('useTraining', () => useTrainingMock)
 const useHealthMock = vi.hoisted(() => vi.fn())
 mockNuxtImport('useHealth', () => useHealthMock)
 
-function mockDefauts(role = 'ADMIN', email = 'a.coulon@eni.fr', logout = vi.fn()) {
+function mockDefaults(role = 'ADMIN', email = 'a.coulon@eni.fr', logout = vi.fn()) {
   useAccountSessionMock.mockReturnValue({
     account: ref({ id: '1', email, role, sites: [] }),
     logout,
@@ -22,32 +22,32 @@ function mockDefauts(role = 'ADMIN', email = 'a.coulon@eni.fr', logout = vi.fn()
   useHealthMock.mockReturnValue({ health: ref(null) })
   useTrainingMock.mockReturnValue({
     pending: ref(false),
-    dernierEntrainement: ref(null),
-    déclencher: vi.fn(),
+    lastTraining: ref(null),
+    trigger: vi.fn(),
   })
 }
 
 describe('EvSidebar', () => {
   it('affiche l\'email du compte dans le pied de la barre latérale', async () => {
-    mockDefauts()
+    mockDefaults()
     const wrapper = await mountSuspended(EvSidebar)
     expect(wrapper.text()).toContain('a.coulon@eni.fr')
   })
 
   it('affiche le label du rôle en français pour ADMIN', async () => {
-    mockDefauts('ADMIN')
+    mockDefaults('ADMIN')
     const wrapper = await mountSuspended(EvSidebar)
     expect(wrapper.text()).toContain('Administrateur')
   })
 
   it('affiche le label du rôle en français pour OPERATOR', async () => {
-    mockDefauts('OPERATOR', 'marie@eni.fr')
+    mockDefaults('OPERATOR', 'marie@eni.fr')
     const wrapper = await mountSuspended(EvSidebar)
     expect(wrapper.text()).toContain('Opérateur')
   })
 
   it('dérive les initiales depuis l\'email avec point', async () => {
-    mockDefauts('ADMIN', 'a.coulon@eni.fr')
+    mockDefaults('ADMIN', 'a.coulon@eni.fr')
     const wrapper = await mountSuspended(EvSidebar)
     const avatar = wrapper.find('[data-testid="user-avatar"]')
     expect(avatar.exists()).toBe(true)
@@ -55,7 +55,7 @@ describe('EvSidebar', () => {
   })
 
   it('dérive les initiales depuis un email sans point dans la partie locale', async () => {
-    mockDefauts('ADMIN', 'marie@eni.fr')
+    mockDefaults('ADMIN', 'marie@eni.fr')
     const wrapper = await mountSuspended(EvSidebar)
     const avatar = wrapper.find('[data-testid="user-avatar"]')
     expect(avatar.text()).toBe('MA')
@@ -63,7 +63,7 @@ describe('EvSidebar', () => {
 
   it('déconnecte le compte depuis le pied de la barre latérale', async () => {
     const logout = vi.fn()
-    mockDefauts('VIEWER', 'marie@eni.fr', logout)
+    mockDefaults('VIEWER', 'marie@eni.fr', logout)
     const wrapper = await mountSuspended(EvSidebar)
 
     await wrapper.find('[aria-label="Se déconnecter"]').trigger('click')
@@ -72,7 +72,7 @@ describe('EvSidebar', () => {
   })
 
   it("affiche l'état réel du service et l'heure de la dernière collecte", async () => {
-    mockDefauts()
+    mockDefaults()
     useHealthMock.mockReturnValue({
       health: ref({ status: 'ok', db: 'ok', parquet: 'ok', version: '1.0.0', uptime: 60, last_data_at: new Date(2026, 8, 29, 14, 0).toISOString() }),
     })
@@ -85,7 +85,7 @@ describe('EvSidebar', () => {
   })
 
   it("signale un historique indisponible quand le Parquet ne se lit plus", async () => {
-    mockDefauts()
+    mockDefaults()
     useHealthMock.mockReturnValue({
       health: ref({ status: 'degraded', db: 'ok', parquet: 'unavailable', version: 'dev', uptime: 60, last_data_at: null }),
     })
@@ -96,7 +96,7 @@ describe('EvSidebar', () => {
   })
 
   it('signale un service injoignable', async () => {
-    mockDefauts()
+    mockDefaults()
     useHealthMock.mockReturnValue({
       health: ref({ status: 'down', db: 'unavailable', parquet: 'unavailable', version: '', uptime: 0, last_data_at: null }),
     })

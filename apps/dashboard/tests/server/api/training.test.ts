@@ -30,14 +30,14 @@ vi.mock('../../../server/utils/logger', () => ({
   logger: { error: mockLoggerError, warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }))
 
-const compteAdmin = { id: 'user-uuid', email: 'admin@enervision.fr', role: 'ADMIN' }
+const adminAccount = { id: 'user-uuid', email: 'admin@enervision.fr', role: 'ADMIN' }
 const mockEvent = { path: '/api/training' } as H3Event
 
 describe('POST /api/training', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     resetTrainingState()
-    mockRequireRole.mockResolvedValue(compteAdmin)
+    mockRequireRole.mockResolvedValue(adminAccount)
     mockTriggerTraining.mockResolvedValue({ model_version: 4, training_rows: 1000, sites: 7, training_start: '2026-09-23T10:00:00Z', training_end: '2026-09-23T10:02:00Z' })
   })
 
@@ -65,76 +65,76 @@ describe('POST /api/training', () => {
     expect(mockTriggerTraining).toHaveBeenCalledOnce()
   })
 
-  it('répond immédiatement avec { status: "démarré" }', async () => {
+  it('répond immédiatement avec { status: "started" }', async () => {
     // Simule un appel ML long en ne résolvant jamais
     mockTriggerTraining.mockReturnValue(new Promise(() => {}))
 
-    const résultat = await handler(mockEvent)
+    const result = await handler(mockEvent)
 
-    expect(résultat).toEqual({ status: 'démarré' })
+    expect(result).toEqual({ status: 'started' })
   })
 
-  it('retourne { status: "démarré" } même si le service ML échoue', async () => {
+  it('retourne { status: "started" } même si le service ML échoue', async () => {
     mockTriggerTraining.mockRejectedValue(new Error('connect ECONNREFUSED'))
 
-    const résultat = await handler(mockEvent)
+    const result = await handler(mockEvent)
 
-    expect(résultat).toEqual({ status: 'démarré' })
+    expect(result).toEqual({ status: 'started' })
   })
 
   it('journalise l\'erreur si le service ML échoue (après retour)', async () => {
-    const rejet = Promise.reject(new Error('timeout'))
-    mockTriggerTraining.mockReturnValue(rejet)
+    const rejection = Promise.reject(new Error('timeout'))
+    mockTriggerTraining.mockReturnValue(rejection)
 
     await handler(mockEvent)
     // Laisser la promesse rejetée se propager
-    await rejet.catch(() => {})
+    await rejection.catch(() => {})
 
     expect(mockLoggerError).toHaveBeenCalledOnce()
   })
 
   it('retourne 409 si un entraînement est déjà en cours', async () => {
-    trainingState.enCours = true
+    trainingState.inProgress = true
 
     await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 409 })
     expect(mockTriggerTraining).not.toHaveBeenCalled()
   })
 
   it('passe enCours à true immédiatement après le déclenchement', async () => {
-    let enCoursAuMomentDuLancement = false
+    let inProgressAtLaunch = false
     mockTriggerTraining.mockImplementation(async () => {
-      enCoursAuMomentDuLancement = trainingState.enCours
+      inProgressAtLaunch = trainingState.inProgress
       return { status: 'ok' }
     })
 
     await handler(mockEvent)
 
-    expect(enCoursAuMomentDuLancement).toBe(true)
+    expect(inProgressAtLaunch).toBe(true)
   })
 
-  it('met à jour dernier.statut à succès après un entraînement réussi', async () => {
-    const résolution = Promise.resolve({ status: 'ok' })
-    mockTriggerTraining.mockReturnValue(résolution)
+  it('met à jour lastRun.status à success après un entraînement réussi', async () => {
+    const resolution = Promise.resolve({ status: 'ok' })
+    mockTriggerTraining.mockReturnValue(resolution)
 
     await handler(mockEvent)
-    await résolution
+    await resolution
     // .then et .finally sont programmés en microtasks : deux ticks supplémentaires
     await Promise.resolve()
     await Promise.resolve()
 
-    expect(trainingState.dernier?.statut).toBe('succès')
-    expect(trainingState.enCours).toBe(false)
+    expect(trainingState.lastRun?.status).toBe('success')
+    expect(trainingState.inProgress).toBe(false)
   })
 
-  it('met à jour dernier.statut à erreur après un échec ML', async () => {
-    const erreur = Object.assign(new Error('422 Données invalides'), { statusCode: 422, data: { message: 'Données invalides' } })
-    const rejet = Promise.reject(erreur)
-    mockTriggerTraining.mockReturnValue(rejet)
+  it('met à jour lastRun.status à error après un échec ML', async () => {
+    const error = Object.assign(new Error('422 Données invalides'), { statusCode: 422, data: { message: 'Données invalides' } })
+    const rejection = Promise.reject(error)
+    mockTriggerTraining.mockReturnValue(rejection)
 
     await handler(mockEvent)
-    await rejet.catch(() => {})
+    await rejection.catch(() => {})
 
-    expect(trainingState.dernier?.statut).toBe('erreur')
-    expect(trainingState.enCours).toBe(false)
+    expect(trainingState.lastRun?.status).toBe('error')
+    expect(trainingState.inProgress).toBe(false)
   })
 })

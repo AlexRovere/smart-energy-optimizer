@@ -2,16 +2,16 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import * as schema from '../../../server/database/schema'
 import { getAlertThreshold, listAlertThresholds, upsertAlertThreshold } from '../../../server/utils/alertThresholdsRepository'
-import { baseDisponible, creerBaseDeTest, type BaseDeTest } from '../../database/base-de-test'
+import { databaseAvailable, createTestDatabase, type TestDatabase } from '../../database/test-database'
 
-const DEFAUT_CONSO = { duration: 5, threshold: 200 }
+const CONSUMPTION_DEFAULT = { duration: 5, threshold: 200 }
 
-describe.skipIf(!baseDisponible())('getAlertThreshold', () => {
-  let testDb: BaseDeTest
+describe.skipIf(!databaseAvailable())('getAlertThreshold', () => {
+  let testDb: TestDatabase
   let db: ReturnType<typeof drizzle<typeof schema>>
 
   beforeAll(async () => {
-    testDb = await creerBaseDeTest()
+    testDb = await createTestDatabase()
     db = drizzle(testDb.sql, { schema })
 
     await testDb.sql`
@@ -25,34 +25,34 @@ describe.skipIf(!baseDisponible())('getAlertThreshold', () => {
   })
 
   afterAll(async () => {
-    await testDb.fermer()
+    await testDb.close()
   })
 
   it('rend la règle réglée en base quand elle existe', async () => {
-    const réglage = await getAlertThreshold(db, 'SITE001', 'conso', DEFAUT_CONSO)
+    const setting = await getAlertThreshold(db, 'SITE001', 'conso', CONSUMPTION_DEFAULT)
 
-    expect(réglage).toEqual({ duration: 12, threshold: 350 })
+    expect(setting).toEqual({ duration: 12, threshold: 350 })
   })
 
   it('rend les valeurs par défaut quand aucune règle n\'est réglée pour ce site', async () => {
-    const réglage = await getAlertThreshold(db, 'SITE002', 'conso', DEFAUT_CONSO)
+    const setting = await getAlertThreshold(db, 'SITE002', 'conso', CONSUMPTION_DEFAULT)
 
-    expect(réglage).toEqual(DEFAUT_CONSO)
+    expect(setting).toEqual(CONSUMPTION_DEFAULT)
   })
 
   it('ne confond pas les règles conso et pic du même site', async () => {
-    const réglage = await getAlertThreshold(db, 'SITE001', 'pic', { duration: 5, threshold: 1.5 })
+    const setting = await getAlertThreshold(db, 'SITE001', 'pic', { duration: 5, threshold: 1.5 })
 
-    expect(réglage).toEqual({ duration: 5, threshold: 1.5 })
+    expect(setting).toEqual({ duration: 5, threshold: 1.5 })
   })
 })
 
-describe.skipIf(!baseDisponible())('listAlertThresholds', () => {
-  let testDb: BaseDeTest
+describe.skipIf(!databaseAvailable())('listAlertThresholds', () => {
+  let testDb: TestDatabase
   let db: ReturnType<typeof drizzle<typeof schema>>
 
   beforeAll(async () => {
-    testDb = await creerBaseDeTest()
+    testDb = await createTestDatabase()
     db = drizzle(testDb.sql, { schema })
 
     await testDb.sql`
@@ -68,19 +68,19 @@ describe.skipIf(!baseDisponible())('listAlertThresholds', () => {
   })
 
   afterAll(async () => {
-    await testDb.fermer()
+    await testDb.close()
   })
 
   it('rend une entrée conso et une entrée pic par site, réglée ou par défaut', async () => {
-    const entrées = await listAlertThresholds(db, ['SITE001', 'SITE002'])
+    const entries = await listAlertThresholds(db, ['SITE001', 'SITE002'])
 
-    expect(entrées).toEqual(expect.arrayContaining([
+    expect(entries).toEqual(expect.arrayContaining([
       { siteId: 'SITE001', type: 'conso', duration: 12, threshold: 350 },
       { siteId: 'SITE001', type: 'pic', duration: 5, threshold: 1.5 },
       { siteId: 'SITE002', type: 'conso', duration: 5, threshold: 200 },
       { siteId: 'SITE002', type: 'pic', duration: 5, threshold: 1.5 }
     ]))
-    expect(entrées).toHaveLength(4)
+    expect(entries).toHaveLength(4)
   })
 
   it('rend une liste vide sans site', async () => {
@@ -88,12 +88,12 @@ describe.skipIf(!baseDisponible())('listAlertThresholds', () => {
   })
 })
 
-describe.skipIf(!baseDisponible())('listAlertThresholds — isolation inter-sites', () => {
-  let testDb: BaseDeTest
+describe.skipIf(!databaseAvailable())('listAlertThresholds — isolation inter-sites', () => {
+  let testDb: TestDatabase
   let db: ReturnType<typeof drizzle<typeof schema>>
 
   beforeAll(async () => {
-    testDb = await creerBaseDeTest()
+    testDb = await createTestDatabase()
     db = drizzle(testDb.sql, { schema })
 
     await testDb.sql`
@@ -109,7 +109,7 @@ describe.skipIf(!baseDisponible())('listAlertThresholds — isolation inter-site
   })
 
   afterAll(async () => {
-    await testDb.fermer()
+    await testDb.close()
   })
 
   it('n\'expose pas les seuils d\'un site hors du périmètre demandé', async () => {
@@ -117,19 +117,19 @@ describe.skipIf(!baseDisponible())('listAlertThresholds — isolation inter-site
     // ils vérifient la présence, jamais l'exclusion. Une régression qui
     // supprimerait le filtre par siteId retournerait les seuils de SITE001
     // à un utilisateur n'ayant accès qu'à SITE002.
-    const entrées = await listAlertThresholds(db, ['SITE002'])
+    const entries = await listAlertThresholds(db, ['SITE002'])
 
-    expect(entrées.some(e => e.siteId === 'SITE001')).toBe(false)
-    expect(entrées.every(e => e.siteId === 'SITE002')).toBe(true)
+    expect(entries.some(e => e.siteId === 'SITE001')).toBe(false)
+    expect(entries.every(e => e.siteId === 'SITE002')).toBe(true)
   })
 })
 
-describe.skipIf(!baseDisponible())('upsertAlertThreshold', () => {
-  let testDb: BaseDeTest
+describe.skipIf(!databaseAvailable())('upsertAlertThreshold', () => {
+  let testDb: TestDatabase
   let db: ReturnType<typeof drizzle<typeof schema>>
 
   beforeAll(async () => {
-    testDb = await creerBaseDeTest()
+    testDb = await createTestDatabase()
     db = drizzle(testDb.sql, { schema })
 
     await testDb.sql`
@@ -139,21 +139,21 @@ describe.skipIf(!baseDisponible())('upsertAlertThreshold', () => {
   })
 
   afterAll(async () => {
-    await testDb.fermer()
+    await testDb.close()
   })
 
   it('crée la règle quand aucune ligne n\'existe pour ce site et ce type', async () => {
     await upsertAlertThreshold(db, 'SITE001', 'pic', { duration: 8, threshold: 1.8 })
 
-    const réglage = await getAlertThreshold(db, 'SITE001', 'pic', { duration: 5, threshold: 1.5 })
-    expect(réglage).toEqual({ duration: 8, threshold: 1.8 })
+    const setting = await getAlertThreshold(db, 'SITE001', 'pic', { duration: 5, threshold: 1.5 })
+    expect(setting).toEqual({ duration: 8, threshold: 1.8 })
   })
 
   it('remplace la règle existante plutôt que d\'en ajouter une deuxième', async () => {
     await upsertAlertThreshold(db, 'SITE001', 'pic', { duration: 8, threshold: 1.8 })
     await upsertAlertThreshold(db, 'SITE001', 'pic', { duration: 10, threshold: 2 })
 
-    const réglage = await getAlertThreshold(db, 'SITE001', 'pic', { duration: 5, threshold: 1.5 })
-    expect(réglage).toEqual({ duration: 10, threshold: 2 })
+    const setting = await getAlertThreshold(db, 'SITE001', 'pic', { duration: 5, threshold: 1.5 })
+    expect(setting).toEqual({ duration: 10, threshold: 2 })
   })
 })

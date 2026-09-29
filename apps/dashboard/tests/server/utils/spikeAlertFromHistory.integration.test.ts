@@ -6,31 +6,31 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import * as schema from '../../../server/database/schema'
 import { detectSpikeAlertFromHistory } from '../../../server/utils/spikeAlertFromHistory'
-import { baseDisponible, creerBaseDeTest, type BaseDeTest } from '../../database/base-de-test'
+import { databaseAvailable, createTestDatabase, type TestDatabase } from '../../database/test-database'
 
-const RÉPERTOIRE_TEMP = join(tmpdir(), `parquet-pic-test-${Date.now()}`)
-const RÉFÉRENCE = new Date('2026-09-18T10:00:00Z')
+const TEMP_DIR = join(tmpdir(), `parquet-pic-test-${Date.now()}`)
+const REFERENCE = new Date('2026-09-18T10:00:00Z')
 
-async function écrireHeuresDeConsommation(siteId: string, valeursParHeure: number[]): Promise<void> {
+async function writeConsumptionHours(siteId: string, valuesByHour: number[]): Promise<void> {
   const instance = await DuckDBInstance.create(':memory:')
-  const connexion = await instance.connect()
+  const connection = await instance.connect()
 
-  for (const [index, kwh] of valeursParHeure.entries()) {
-    const horodatage = new Date(RÉFÉRENCE.getTime() - (valeursParHeure.length - 1 - index) * 3_600_000)
-    const dossier = join(
-      RÉPERTOIRE_TEMP,
+  for (const [index, kwh] of valuesByHour.entries()) {
+    const stamp = new Date(REFERENCE.getTime() - (valuesByHour.length - 1 - index) * 3_600_000)
+    const directory = join(
+      TEMP_DIR,
       `site_id=${siteId}`,
-      `year=${horodatage.getUTCFullYear()}`,
-      `month=${String(horodatage.getUTCMonth() + 1).padStart(2, '0')}`,
-      `day=${String(horodatage.getUTCDate()).padStart(2, '0')}`
+      `year=${stamp.getUTCFullYear()}`,
+      `month=${String(stamp.getUTCMonth() + 1).padStart(2, '0')}`,
+      `day=${String(stamp.getUTCDate()).padStart(2, '0')}`
     )
-    mkdirSync(dossier, { recursive: true })
-    const fichier = join(dossier, `readings-${index}.parquet`).replace(/\\/g, '/')
+    mkdirSync(directory, { recursive: true })
+    const file = join(directory, `readings-${index}.parquet`).replace(/\\/g, '/')
 
-    await connexion.run(`
+    await connection.run(`
       COPY (
         SELECT
-          TIMESTAMPTZ '${horodatage.toISOString()}' AS timestamp,
+          TIMESTAMPTZ '${stamp.toISOString()}' AS timestamp,
           '${siteId}'                                AS site_id,
           'office'                                    AS site_type,
           ${kwh}::DOUBLE                              AS consumption_kw,
@@ -43,20 +43,20 @@ async function écrireHeuresDeConsommation(siteId: string, valeursParHeure: numb
           NULL::DOUBLE                                AS humidity_percent,
           []::VARCHAR[]                               AS null_reasons,
           'good'                                       AS data_quality
-      ) TO '${fichier}' (FORMAT PARQUET)
+      ) TO '${file}' (FORMAT PARQUET)
     `)
   }
 }
 
-describe.skipIf(!baseDisponible())('detectSpikeAlertFromHistory — Parquet réel', () => {
-  let testDb: BaseDeTest
+describe.skipIf(!databaseAvailable())('detectSpikeAlertFromHistory — Parquet réel', () => {
+  let testDb: TestDatabase
   let db: ReturnType<typeof drizzle<typeof schema>>
-  const envSauvegarde = process.env.NUXT_PARQUET_DIR
+  const savedEnv = process.env.NUXT_PARQUET_DIR
 
   beforeAll(async () => {
-    testDb = await creerBaseDeTest()
+    testDb = await createTestDatabase()
     db = drizzle(testDb.sql, { schema })
-    process.env.NUXT_PARQUET_DIR = RÉPERTOIRE_TEMP
+    process.env.NUXT_PARQUET_DIR = TEMP_DIR
 
     await testDb.sql`
       INSERT INTO sites (id, name, type, capacity_kw, status)
@@ -71,19 +71,19 @@ describe.skipIf(!baseDisponible())('detectSpikeAlertFromHistory — Parquet rée
 
     // Moyenne des 3 heures précédentes : 100. Dernière heure (la valeur courante) : 200.
     // 200 >= 100 × 1.5 (150) : dépassement.
-    await écrireHeuresDeConsommation('SITE001', [100, 100, 100, 200])
+    await writeConsumptionHours('SITE001', [100, 100, 100, 200])
     // Même moyenne (100), dernière heure 120 < 150 : pas de dépassement.
-    await écrireHeuresDeConsommation('SITE002', [100, 100, 100, 120])
+    await writeConsumptionHours('SITE002', [100, 100, 100, 120])
   })
 
   afterAll(async () => {
-    await testDb.fermer()
-    rmSync(RÉPERTOIRE_TEMP, { recursive: true, force: true })
-    process.env.NUXT_PARQUET_DIR = envSauvegarde
+    await testDb.close()
+    rmSync(TEMP_DIR, { recursive: true, force: true })
+    process.env.NUXT_PARQUET_DIR = savedEnv
   })
 
   it('déclenche sur un pic réel au-delà de la moyenne × seuil, règle réglée en base', async () => {
-    expect(await detectSpikeAlertFromHistory(db, 'SITE001', RÉFÉRENCE)).toEqual({
+    expect(await detectSpikeAlertFromHistory(db, 'SITE001', REFERENCE)).toEqual({
       alert: true,
       currentValue: 200,
       average: 100,
@@ -92,7 +92,7 @@ describe.skipIf(!baseDisponible())('detectSpikeAlertFromHistory — Parquet rée
   })
 
   it('ne déclenche pas quand la valeur courante reste sous la moyenne × seuil par défaut', async () => {
-    expect(await detectSpikeAlertFromHistory(db, 'SITE002', RÉFÉRENCE)).toEqual({
+    expect(await detectSpikeAlertFromHistory(db, 'SITE002', REFERENCE)).toEqual({
       alert: false,
       currentValue: 120,
       average: 100,

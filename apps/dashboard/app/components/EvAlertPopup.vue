@@ -13,7 +13,7 @@ const emit = defineEmits<{ close: [] }>()
           <span class="font-ev-mono text-[11px] font-semibold tracking-widest text-ev-text-3">ALERTE DÉTECTÉE</span>
           <h3 class="font-ev text-base font-semibold">{{ siteName }}</h3>
         </div>
-        <button data-testid="fermer-btn" class="font-ev text-ev-text-3 cursor-pointer" @click="emit('close')">✕</button>
+        <button data-testid="close-btn" class="font-ev text-ev-text-3 cursor-pointer" @click="emit('close')">✕</button>
       </div>
 
       <div v-for="recommendation in recommendations" :key="recommendation.recommendation_id" class="flex flex-col gap-2">

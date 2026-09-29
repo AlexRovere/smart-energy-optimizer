@@ -14,19 +14,19 @@ function getInstance() {
   return instancePromise
 }
 
-function résoudreRépertoireParquet(): string {
+function resolveParquetDir(): string {
   const dir = process.env.NUXT_PARQUET_DIR
   if (!dir) throw new Error("NUXT_PARQUET_DIR n'est pas défini — historique indisponible")
   return dir
 }
 
-function normaliserLigne(ligne: Record<string, unknown>): Record<string, unknown> {
-  const ts = ligne.timestamp
+function normalizeRow(row: Record<string, unknown>): Record<string, unknown> {
+  const ts = row.timestamp
   return {
-    ...ligne,
+    ...row,
     // DuckDB renvoie les timestamps comme objets Date ; on les convertit en chaîne ISO 8601
     timestamp: ts instanceof Date ? ts.toISOString() : ts,
-    null_reasons: ligne.null_reasons ?? []
+    null_reasons: row.null_reasons ?? []
   }
 }
 
@@ -36,7 +36,7 @@ export async function querySiteHistory(
   to: string,
   limit: number
 ): Promise<EnergyReading[]> {
-  const dir = résoudreRépertoireParquet()
+  const dir = resolveParquetDir()
 
   const sql = `
     SELECT
@@ -54,22 +54,22 @@ export async function querySiteHistory(
   `
 
   const instance = await getInstance()
-  const connexion = await instance.connect()
-  const déclaration = await connexion.prepare(sql)
-  const résultat = await déclaration.runAndReadAll()
+  const connection = await instance.connect()
+  const statement = await connection.prepare(sql)
+  const result = await statement.runAndReadAll()
 
-  const mesures: EnergyReading[] = []
-  for (const ligne of résultat.getRowObjectsJS()) {
-    const parse = energyReadingSchema.safeParse(normaliserLigne(ligne as Record<string, unknown>))
+  const readingRows: EnergyReading[] = []
+  for (const row of result.getRowObjectsJS()) {
+    const parse = energyReadingSchema.safeParse(normalizeRow(row as Record<string, unknown>))
     if (parse.success) {
-      mesures.push(parse.data)
+      readingRows.push(parse.data)
     }
     else {
       console.warn(
-        `[parquetReader] ligne rejetée site_id=${(ligne as Record<string, unknown>).site_id} timestamp=${(ligne as Record<string, unknown>).timestamp} :`,
+        `[parquetReader] ligne rejetée site_id=${(row as Record<string, unknown>).site_id} timestamp=${(row as Record<string, unknown>).timestamp} :`,
         parse.error.issues
       )
     }
   }
-  return mesures
+  return readingRows
 }

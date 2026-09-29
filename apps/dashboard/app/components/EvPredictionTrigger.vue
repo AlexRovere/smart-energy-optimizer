@@ -1,20 +1,20 @@
 <script setup lang="ts">
 const props = defineProps<{
   siteId: string
-  lancee?: boolean
+  launched?: boolean
   pending?: boolean
   available?: boolean
   predictedAt?: string | null
   nbPoints?: number
   modelVersion?: string | null
-  dureeMs?: number | null
+  durationMs?: number | null
 }>()
 
 const emit = defineEmits<{
-  lancer: []
+  launch: []
 }>()
 
-function formaterHeure(iso: string): string {
+function formatHour(iso: string): string {
   return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 </script>
@@ -32,15 +32,15 @@ function formaterHeure(iso: string): string {
         color="primary"
         :loading="props.pending"
         :disabled="props.pending"
-        @click="emit('lancer')"
+        @click="emit('launch')"
       >
-        {{ props.lancee ? 'Relancer' : 'Lancer la prédiction' }}
+        {{ props.launched ? 'Relancer' : 'Lancer la prédiction' }}
       </UButton>
     </div>
 
     <div
-      v-if="props.lancee"
-      data-testid="prediction-retour"
+      v-if="props.launched"
+      data-testid="prediction-result"
       class="flex items-center gap-1.5 font-ev-mono text-[10px] leading-none text-ev-text-muted"
     >
       <template v-if="props.pending">
@@ -50,14 +50,14 @@ function formaterHeure(iso: string): string {
       <template v-else-if="props.available === false">
         <span class="size-1.5 rounded-full shrink-0 bg-ev-red" />
         Service de prédiction indisponible
-        <template v-if="props.dureeMs != null">· {{ props.dureeMs }} ms</template>
+        <template v-if="props.durationMs != null">· {{ props.durationMs }} ms</template>
       </template>
       <template v-else>
         <span class="size-1.5 rounded-full shrink-0 bg-ev-green" />
         {{ props.nbPoints ?? 0 }} points
         <template v-if="props.modelVersion">· v{{ props.modelVersion }}</template>
-        <template v-if="props.predictedAt">· {{ formaterHeure(props.predictedAt) }}</template>
-        <template v-if="props.dureeMs != null">· {{ props.dureeMs }} ms</template>
+        <template v-if="props.predictedAt">· {{ formatHour(props.predictedAt) }}</template>
+        <template v-if="props.durationMs != null">· {{ props.durationMs }} ms</template>
       </template>
     </div>
   </div>

@@ -51,20 +51,20 @@ describe('GET /api/sensors/status', () => {
     mockAllowedSites.mockResolvedValue(['SITE001', 'SITE002'])
     mockFetchMockApi.mockResolvedValue(source)
 
-    const résultat = await handler(mockEvent)
+    const result = await handler(mockEvent)
 
     expect(mockFetchMockApi).toHaveBeenCalledWith('/api/v1/sensors/status')
-    expect(Object.keys(résultat)).toEqual(['SITE001', 'SITE002'])
-    expect(résultat.SITE002).toEqual(source.SITE002)
+    expect(Object.keys(result)).toEqual(['SITE001', 'SITE002'])
+    expect(result.SITE002).toEqual(source.SITE002)
   })
 
   it('accepte un état inconnu de la source sans le rejeter', async () => {
     mockAllowedSites.mockResolvedValue(['SITE001'])
     mockFetchMockApi.mockResolvedValue({ SITE001: site('Bureau', 'unknown', 'rebooting') })
 
-    const résultat = await handler(mockEvent)
+    const result = await handler(mockEvent)
 
-    expect(résultat.SITE001?.overall).toBe('unknown')
+    expect(result.SITE001?.overall).toBe('unknown')
   })
 
   it('rend 401 sans session', async () => {
@@ -83,7 +83,7 @@ describe('GET /api/sensors/status', () => {
 
   it('rend 502 sur une réponse de forme inattendue', async () => {
     mockAllowedSites.mockResolvedValue(['SITE001'])
-    mockFetchMockApi.mockResolvedValue([{ pas: 'la bonne forme' }])
+    mockFetchMockApi.mockResolvedValue([{ wrong: 'la bonne forme' }])
 
     await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 502 })
   })

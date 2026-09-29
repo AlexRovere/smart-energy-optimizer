@@ -11,9 +11,9 @@ const usePredictionsMock = vi.hoisted(() => vi.fn())
 vi.mock('../../app/composables/usePredictions', () => ({ usePredictions: usePredictionsMock }))
 
 // Forme de retour de usePredictions depuis #257 : la prévision n'est lancée qu'au clic.
-const predictionDefaut = {
+const predictionDefault = {
   selectedSiteId: ref('SITE001'),
-  horizonHeures: ref(24),
+  horizonHours: ref(24),
   siteInfo: ref({ site_name: 'Bureau Paris' }),
   historicalPoints: ref([]),
   recommendations: ref([]),
@@ -28,9 +28,9 @@ const predictionDefaut = {
   predictedAt: ref(null),
   nbPoints: ref(0),
   available: ref(true),
-  lancer: vi.fn(),
-  lancee: ref(false),
-  dureeMs: ref(null),
+  launch: vi.fn(),
+  launched: ref(false),
+  durationMs: ref(null),
   pending: ref(false),
   error: ref(null),
 }
@@ -38,14 +38,14 @@ const predictionDefaut = {
 describe('page Prédictions', () => {
   it('affiche le bouton Injecter un pic', async () => {
     useToastMock.mockReturnValue({ add: vi.fn() })
-    usePredictionsMock.mockReturnValue(predictionDefaut)
+    usePredictionsMock.mockReturnValue(predictionDefault)
     const wrapper = await mountSuspended(PredictionsPage)
     expect(wrapper.text()).toContain('Injecter un pic')
   })
 
   it('n\'affiche pas le gain cumulé appliqué', async () => {
     useToastMock.mockReturnValue({ add: vi.fn() })
-    usePredictionsMock.mockReturnValue(predictionDefaut)
+    usePredictionsMock.mockReturnValue(predictionDefault)
     const wrapper = await mountSuspended(PredictionsPage)
     expect(wrapper.text()).not.toContain('gain cumulé appliqué')
   })
@@ -53,9 +53,9 @@ describe('page Prédictions', () => {
   it('affiche un toast au clic sur Injecter un pic', async () => {
     const toastAdd = vi.fn()
     useToastMock.mockReturnValue({ add: toastAdd })
-    usePredictionsMock.mockReturnValue(predictionDefaut)
+    usePredictionsMock.mockReturnValue(predictionDefault)
     const wrapper = await mountSuspended(PredictionsPage)
-    await wrapper.find('[data-testid="injecter-pic-btn"]').trigger('click')
+    await wrapper.find('[data-testid="inject-spike-btn"]').trigger('click')
     expect(toastAdd).toHaveBeenCalledWith(expect.objectContaining({
       title: 'Fonctionnalité non disponible dans cette version',
       color: 'warning',
@@ -64,10 +64,10 @@ describe('page Prédictions', () => {
 
   it('lance la prédiction au clic sur « Lancer la prédiction »', async () => {
     useToastMock.mockReturnValue({ add: vi.fn() })
-    const lancer = vi.fn()
-    usePredictionsMock.mockReturnValue({ ...predictionDefaut, lancer })
+    const launch = vi.fn()
+    usePredictionsMock.mockReturnValue({ ...predictionDefault, launch })
     const wrapper = await mountSuspended(PredictionsPage)
     await wrapper.find('[data-testid="prediction-trigger"]').trigger('click')
-    expect(lancer).toHaveBeenCalledOnce()
+    expect(launch).toHaveBeenCalledOnce()
   })
 })
