@@ -70,7 +70,7 @@ function mockReadings(siteId: SiteId): Reading[] {
 }
 
 export function useFleetOverview() {
-  const { summary: stats, pending } = useFleetSummary()
+  const { summary: stats, pending, refreshedAt, refreshFailed, refresh } = useFleetSummary()
   const { sites: rawSites } = useSitesList()
   const { alerts } = useAlerts()
   const sensors = ref<SensorStatus[]>(mockSensors())
@@ -197,6 +197,7 @@ export function useFleetOverview() {
 
   return {
     stats, alerts, sensors, siteDetails, currentReadings, pending,
+    refreshedAt, refreshFailed, refresh,
     getReadingsForSite,
     totalConsumptionDisplay, totalCapacityDisplay, avgLoadDisplay, loadPercent,
     healthPercent, healthRatio, healthDisplay, healthNote, healthColor,

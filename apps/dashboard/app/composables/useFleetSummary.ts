@@ -1,5 +1,5 @@
 import { useFetch, useRoute } from 'nuxt/app'
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { ParkSummary } from '~~/shared/parkSummarySchema'
 import type { StatsSummary, SiteId } from '../types/api'
 import { observerErreurFetch } from '../utils/erreurFetch'
@@ -23,6 +23,12 @@ export function useFleetSummary() {
   const { data, pending, error, refresh } = useFetch<ParkSummary>('/api/stats/summary')
   const route = useRoute()
 
+  const refreshedAt = ref<number | null>(null)
+  watch(data, (value) => {
+    if (value) refreshedAt.value = Date.now()
+  }, { immediate: true })
+  const refreshFailed = computed(() => error.value != null)
+
   onMounted(() => {
     const timer = setInterval(() => refresh(), POLLING_INTERVAL_MS)
     onUnmounted(() => clearInterval(timer))
@@ -36,5 +42,5 @@ export function useFleetSummary() {
   const summary = computed<StatsSummary | null>(() =>
     data.value ? normaliser(data.value) : null
   )
-  return { summary, pending, error }
+  return { summary, pending, error, refreshedAt, refreshFailed, refresh }
 }

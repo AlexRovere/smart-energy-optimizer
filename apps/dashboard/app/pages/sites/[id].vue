@@ -149,29 +149,29 @@ const lastSeen = computed(() => {
           <!-- Métadonnées -->
           <div class="flex items-center gap-4 flex-wrap font-ev-mono text-[12px] text-ev-text-3">
             <span>
-              <span class="text-ev-text-4">site_type</span>
+              <span class="text-ev-text-4">Type</span>
               <span class="mx-1 text-ev-text-4">·</span>
-              <span class="text-ev-text font-semibold">{{ site.site_type ?? '—' }}</span>
+              <span class="text-ev-text font-semibold">{{ siteTypeLabel(site.site_type) }}</span>
             </span>
             <span v-if="info?.location">
-              <span class="text-ev-text-4">location</span>
+              <span class="text-ev-text-4">Localisation</span>
               <span class="mx-1 text-ev-text-4">·</span>
               <span class="text-ev-text font-semibold">{{ info.location }}</span>
             </span>
             <span>
-              <span class="text-ev-text-4">capacity_kw</span>
+              <span class="text-ev-text-4">Capacité</span>
               <span class="mx-1 text-ev-text-4">·</span>
-              <span class="text-ev-text font-semibold">{{ site.capacity_kw }}</span>
+              <span class="text-ev-text font-semibold">{{ site.capacity_kw.toLocaleString('fr-FR') }} kW</span>
             </span>
             <span v-if="info?.threshold_kw">
-              <span class="text-ev-text-4">seuil</span>
+              <span class="text-ev-text-4">Seuil d'alerte</span>
               <span class="mx-1 text-ev-text-4">·</span>
-              <span style="color: var(--ev-amber)" class="font-semibold">{{ info.threshold_kw }}</span>
+              <span style="color: var(--ev-amber)" class="font-semibold">{{ info.threshold_kw.toLocaleString('fr-FR') }} kW</span>
             </span>
             <span v-if="info?.status">
-              <span class="text-ev-text-4">status</span>
+              <span class="text-ev-text-4">Statut</span>
               <span class="mx-1 text-ev-text-4">·</span>
-              <span style="color: var(--ev-green)" class="font-semibold">{{ info.status }}</span>
+              <span style="color: var(--ev-green)" class="font-semibold">{{ siteStatusLabel(info.status) }}</span>
             </span>
           </div>
         </div>
@@ -233,7 +233,7 @@ const lastSeen = computed(() => {
             <div>
               <span class="font-ev text-base font-semibold">Prévision de consommation</span>
               <div v-if="modelVersion" class="font-ev-mono text-[11px] text-ev-text-3 mt-0.5">
-                model_version · {{ modelVersion }}
+                Modèle version {{ modelVersion }}
               </div>
             </div>
             <div class="flex items-start gap-3">
@@ -335,7 +335,7 @@ const lastSeen = computed(() => {
               style="border-color: var(--ev-border)"
             >
               <div>
-                <div class="font-ev-mono text-sm text-ev-text">current_a</div>
+                <div class="font-ev text-sm text-ev-text">Courant</div>
                 <div class="font-ev text-[11px] text-ev-text-3 mt-0.5">courant triphasé calculé</div>
               </div>
               <div class="text-right">
@@ -351,7 +351,7 @@ const lastSeen = computed(() => {
               style="border-color: var(--ev-border)"
             >
               <div>
-                <div class="font-ev-mono text-sm text-ev-text">humidity_pct</div>
+                <div class="font-ev text-sm text-ev-text">Humidité</div>
                 <div class="font-ev text-[11px] text-ev-text-3 mt-0.5">hygrométrie ambiante</div>
               </div>
               <div class="text-right">
@@ -363,7 +363,7 @@ const lastSeen = computed(() => {
             <!-- Alertes actives -->
             <div class="flex items-center justify-between py-3.5">
               <div>
-                <div class="font-ev-mono text-sm text-ev-text">alerts_active</div>
+                <div class="font-ev text-sm text-ev-text">Alertes actives</div>
                 <div class="font-ev text-[11px] text-ev-text-3 mt-0.5">alertes en cours sur ce site</div>
               </div>
               <div class="text-right">
@@ -392,9 +392,6 @@ const lastSeen = computed(() => {
       <EvCard>
         <template #title>
           <span class="font-ev text-base font-semibold">Recommandations</span>
-          <span class="font-ev-mono text-[11px] text-ev-text-3 ml-2">
-            GET /api/sites/{{ id }}/recommendations
-          </span>
         </template>
 
         <div v-if="pending" class="py-6 text-center font-ev text-sm text-ev-text-3">
