@@ -108,9 +108,19 @@ la prediction suivante.
 ## Prediction
 
 `POST /predictions` relit l'historique a chaque appel afin d'utiliser les
-mesures les plus recentes. Avec les Parquet, DuckDB ne selectionne que les sites
-demandes et leur historique recent. Seuls le modele CatBoost et la configuration
-des horaires restent en memoire.
+mesures les plus recentes. Seuls le modèle CatBoost et la configuration des
+horaires restent en mémoire.
+
+La lecture n'ouvre que les partitions utiles (`read_recent_history`,
+`src/data/history.py`, #41). Pour chaque site demandé, elle descend
+`site_id=/year=/month=/day=` et ne remet à DuckDB que les jours les plus récents :
+assez pour le double de la fenêtre (336 lignes pour 168 heures, le surplus
+servant au forward fill), plus un jour, le jour en cours étant partiel. Si ces
+jours ne suffisent pas (trou dans l'historique, ETL arrêté), la fenêtre double
+jusqu'à les réunir ou jusqu'à couvrir tout le site. Le coût ne croît donc plus
+avec la profondeur de l'historique. Sur la pile de dev, avec un an de données
+lues depuis un dossier Windows monté, une prédiction 24 h est passée de 63 s à
+1,5 s. L'entraînement, lui, lit toujours tout.
 
 Deux conditions sont verifiees pour chaque site avant la premiere prediction :
 

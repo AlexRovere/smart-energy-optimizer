@@ -1,3 +1,4 @@
+import math
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -49,33 +50,105 @@ def read_recent_history(
     if hours < 1:
         raise ValueError("History hours must be greater than zero")
 
-    files = _find_parquet_files(Path(path))
-    source = _parquet_source(files)
-    placeholders = ", ".join("?" for _ in unique_site_ids)
+    directory = Path(path)
+    if not directory.is_dir():
+        raise FileNotFoundError(f"Expected a Parquet directory: {directory}")
+    if next(_site_parquet_files(directory), None) is None:
+        raise FileNotFoundError(f"No Parquet files found in: {directory}")
+
     # Read extra rows so forward fill can use values preceding the final
     # 168-hour window when its first consumption values are missing.
     query_limit = hours * 2
-    query = f"""
-        WITH recent AS (
-            SELECT *, ROW_NUMBER() OVER (
-                PARTITION BY site_id
-                ORDER BY CAST(timestamp AS TIMESTAMP) DESC
-            ) AS row_number
-            FROM {source}
-            WHERE site_id IN ({placeholders})
-        )
-        SELECT * EXCLUDE (row_number)
-        FROM recent
-        WHERE row_number <= ?
-    """
-    parameters = [*unique_site_ids, query_limit]
-    with duckdb.connect() as connection:
-        data = connection.execute(query, parameters).fetch_df()
+    frames = [_read_site_tail(directory, site_id, query_limit) for site_id in unique_site_ids]
+    data = pd.concat([frame for frame in frames if not frame.empty] or [_empty_history()])
 
     history = _prepare_history(data)
     return (
         history.groupby("site_id", sort=False, group_keys=False).tail(hours).reset_index(drop=True)
     )
+
+
+def _read_site_tail(directory: Path, site_id: str, rows: int) -> pd.DataFrame:
+    """Read the last rows of one site, opening only its most recent days.
+
+    The ETL writes one file per site and per day, so the history grows by
+    thousands of files a year. Starting from enough days for the requested
+    rows, the window doubles until it holds them or covers the whole site: a
+    gap or a stopped ETL costs a second read, never fewer rows.
+    """
+    # One more day than the rows need: the most recent day is usually partial.
+    days = math.ceil(rows / 24) + 1
+    while True:
+        files, complete = _recent_site_files(directory, site_id, days)
+        if not files:
+            return pd.DataFrame()
+        query = f"""
+            SELECT *
+            FROM {_parquet_source(files)}
+            WHERE site_id = ?
+            ORDER BY CAST(timestamp AS TIMESTAMP) DESC
+            LIMIT ?
+        """
+        with duckdb.connect() as connection:
+            data = connection.execute(query, [site_id, rows]).fetch_df()
+        if len(data) >= rows or complete:
+            return data
+        days *= 2
+
+
+def _recent_site_files(directory: Path, site_id: str, days: int) -> tuple[list[Path], bool]:
+    """Files of the ``days`` most recent day partitions of a site.
+
+    Returns the files and whether they cover the whole site. A site written
+    without date partitions is read whole.
+    """
+    site_directory = directory / f"site_id={site_id}"
+    if not site_directory.is_dir():
+        return [], True
+    day_directories = sorted(
+        (
+            day
+            for year in _partitions(site_directory, "year")
+            for month in _partitions(year, "month")
+            for day in _partitions(month, "day")
+        ),
+        key=_partition_date,
+        reverse=True,
+    )
+    if not day_directories:
+        return sorted(_parquet_files(site_directory)), True
+    selected = day_directories[:days]
+    files = sorted(file for day in selected for file in _parquet_files(day))
+    return files, len(selected) == len(day_directories)
+
+
+def _partitions(directory: Path, key: str) -> list[Path]:
+    return [
+        child
+        for child in directory.iterdir()
+        if child.is_dir() and child.name.startswith(f"{key}=")
+    ]
+
+
+def _partition_date(day: Path) -> tuple[int, int, int]:
+    # Numeric, so month=10 comes after month=9 with or without a leading zero.
+    return tuple(int(part.name.split("=", 1)[1]) for part in (day.parent.parent, day.parent, day))
+
+
+def _parquet_files(directory: Path):
+    return (
+        file
+        for file in directory.rglob("*")
+        if file.is_file() and file.suffix.lower() in {".parquet", ".pq"}
+    )
+
+
+def _site_parquet_files(directory: Path):
+    return (file for file in _parquet_files(directory) if "site_id=" in file.as_posix())
+
+
+def _empty_history() -> pd.DataFrame:
+    return pd.DataFrame({column: pd.Series(dtype="object") for column in REQUIRED_COLUMNS})
 
 
 def read_history(path: str | Path) -> pd.DataFrame:
