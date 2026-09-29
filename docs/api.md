@@ -39,7 +39,7 @@ La colonne « Rôle » décrit le mécanisme complet. **Un seul rôle est exploi
 | POST | `/api/auth/login` | `{ email, password }` | `{ success: true }` + cookie | 401, 422, 429 | public |
 | POST | `/api/auth/logout` | | `{ success: true }` | 401 | authentifié |
 | GET | `/api/auth/session` | | `{ user: { id, email, role, sites } }` | 401 | authentifié |
-| GET | `/api/health` | | `{ status, db, parquet, version, uptime }` | | public |
+| GET | `/api/health` | | `Health` | | public |
 | GET | `/api/admin/users` | | `User[]` | 401, 403 | `ADMIN` |
 | POST | `/api/admin/users` | `{ email, password, role, sites }` | `User` | 401, 403, 409, 422 | `ADMIN` |
 | PUT | `/api/admin/users/{id}` | `{ email?, role?, sites?, is_active? }` | `User` | 401, 403, 404, 422 | `ADMIN` |
@@ -140,11 +140,12 @@ Vers l'**API Mock** en entrée, base `MOCK_API_URL`. Vers le **répertoire Parqu
   "capacity_kw": 200,
   "status": "active",
   "warning_threshold_kw": 160,
-  "present_in_source": true
+  "present_in_source": true,
+  "last_data_at": "2026-09-29T13:00:00.000Z"
 }
 ```
 
-Les six premiers champs viennent de la source. `warning_threshold_kw` à `null` vaut 80 % de `capacity_kw`.
+Les six premiers champs viennent de la source. `warning_threshold_kw` à `null` vaut 80 % de `capacity_kw`. `last_data_at` est l'horodatage de la dernière mesure écrite dans le Parquet pour ce site. Il vaut `null` si le site n'a aucune donnée, ou si le répertoire est illisible : dans ce cas, la liste reste servie et l'échec est journalisé. Le calcul ne lit que la partition du jour le plus récent de chaque site, jamais tout l'historique.
 
 ### `EnergyReading`
 
@@ -201,6 +202,23 @@ Les six premiers champs viennent de la source. `warning_threshold_kw` à `null` 
   }
 }
 ```
+
+La route ne garde que les sites du périmètre du compte. Les états (`status`, `overall`) restent des chaînes libres : l'interface range un `overall` inconnu en dégradé. `failing_until` arrive de la source **sans fuseau**, en UTC. L'interface le lit comme tel.
+
+### `Health`
+
+```json
+{
+  "status": "ok",
+  "db": "ok",
+  "parquet": "ok",
+  "version": "1.2.0",
+  "uptime": 7563,
+  "last_data_at": "2026-09-29T13:00:00.000Z"
+}
+```
+
+`status` vaut `down` si la base ne répond pas, `degraded` si seul le Parquet est illisible (l'historique manque, le temps réel fonctionne), `ok` sinon. La réponse est toujours un `200` : c'est son contenu qui dit l'état. `uptime` est en secondes. `last_data_at` est la dernière collecte, tous sites confondus. La route étant publique, elle ne nomme aucun site. `version` vient de `NUXT_APP_VERSION`, et vaut `dev` à défaut.
 
 ### `ParkSummary`
 
@@ -305,6 +323,7 @@ Deux nommages coexistent volontairement : `.env` porte des noms neutres, la comp
 | *(constante `/data`)* | applicatif, ETL, ML | `NUXT_PARQUET_DIR` / `PARQUET_DIR` |
 | `ML_API_URL` | applicatif | `NUXT_ML_SERVICE_URL`, la clé `mlServiceUrl` du `runtimeConfig` |
 | `LOG_LEVEL` | tous | `NUXT_LOG_LEVEL` / `LOG_LEVEL` |
+| *(à poser au déploiement)* | applicatif | `NUXT_APP_VERSION`, la version rendue par `/api/health`, `dev` à défaut |
 
 **L'URL de connexion ne se transporte pas, elle s'assemble.** L'applicatif la construit depuis ces morceaux, comme l'ETL, parce que l'hôte et le port ne sont pas des secrets et changent selon d'où l'on appelle. `NUXT_DATABASE_URL` reste une surcharge explicite, pour la boucle locale et les tests, et l'emporte quand elle est posée (#158).
 

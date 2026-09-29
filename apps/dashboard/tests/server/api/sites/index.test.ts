@@ -2,12 +2,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { H3Event } from 'h3'
 import handler from '../../../../server/api/sites/index.get'
 
-const { mockRequireAccount, mockAllowedSites, mockQuerySitesList } = vi.hoisted(() => {
-  const mockRequireAccount = vi.fn()
-  const mockAllowedSites = vi.fn()
-  const mockQuerySitesList = vi.fn()
-  return { mockRequireAccount, mockAllowedSites, mockQuerySitesList }
-})
+const { mockRequireAccount, mockAllowedSites, mockQuerySitesList, mockLatestDataPerSite, mockLoggerWarn } = vi.hoisted(() => ({
+  mockRequireAccount: vi.fn(),
+  mockAllowedSites: vi.fn(),
+  mockQuerySitesList: vi.fn(),
+  mockLatestDataPerSite: vi.fn(),
+  mockLoggerWarn: vi.fn(),
+}))
+
+vi.mock('../../../../server/utils/parquetFreshness', () => ({
+  latestDataPerSite: mockLatestDataPerSite
+}))
+
+vi.mock('../../../../server/utils/logger', () => ({
+  logger: { error: vi.fn(), warn: mockLoggerWarn, info: vi.fn(), debug: vi.fn() }
+}))
 
 vi.mock('../../../../server/utils/guard', () => ({
   requireAccount: mockRequireAccount
@@ -44,6 +53,8 @@ describe('GET /api/sites', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockRequireAccount.mockResolvedValue(compteFixture)
+    mockLatestDataPerSite.mockResolvedValue({})
+    process.env.NUXT_PARQUET_DIR = '/data'
   })
 
   it('retourne les sites autorisés de l\'utilisateur', async () => {
@@ -52,7 +63,7 @@ describe('GET /api/sites', () => {
 
     const résultat = await handler(mockEvent)
 
-    expect(résultat).toEqual([siteFixture])
+    expect(résultat).toEqual([{ ...siteFixture, last_data_at: null }])
     expect(mockAllowedSites).toHaveBeenCalledWith({}, compteFixture)
     expect(mockQuerySitesList).toHaveBeenCalledWith({}, ['SITE001'])
   })
@@ -79,5 +90,27 @@ describe('GET /api/sites', () => {
     mockQuerySitesList.mockRejectedValue(new Error('DB indisponible'))
 
     await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 503 })
+  })
+
+  it('donne la date de la dernière donnée de chaque site dans le Parquet', async () => {
+    mockAllowedSites.mockResolvedValue(['SITE001'])
+    mockQuerySitesList.mockResolvedValue([siteFixture])
+    mockLatestDataPerSite.mockResolvedValue({ SITE001: '2026-09-29T13:00:00.000Z', SITE009: '2026-09-29T13:00:00.000Z' })
+
+    const résultat = await handler(mockEvent)
+
+    expect(mockLatestDataPerSite).toHaveBeenCalledWith('/data')
+    expect(résultat).toEqual([{ ...siteFixture, last_data_at: '2026-09-29T13:00:00.000Z' }])
+  })
+
+  it('sert la liste même quand le Parquet est illisible, et le journalise', async () => {
+    mockAllowedSites.mockResolvedValue(['SITE001'])
+    mockQuerySitesList.mockResolvedValue([siteFixture])
+    mockLatestDataPerSite.mockRejectedValue(new Error('ENOENT'))
+
+    const résultat = await handler(mockEvent)
+
+    expect(résultat).toEqual([{ ...siteFixture, last_data_at: null }])
+    expect(mockLoggerWarn).toHaveBeenCalledOnce()
   })
 })

@@ -8,7 +8,10 @@ export const siteApiItemSchema = z.object({
   capacity_kw: z.number().int().positive(),
   status: z.enum(['active', 'inactive', 'maintenance']),
   warning_threshold_kw: z.number().int().positive().nullable(),
-  present_in_source: z.boolean()
+  present_in_source: z.boolean(),
+  // Horodatage de la dernière mesure écrite dans le Parquet ; ajouté par la
+  // route, absent du référentiel en base.
+  last_data_at: z.string().nullable().optional()
 })
 
 export const siteListSchema = z.array(siteApiItemSchema)
