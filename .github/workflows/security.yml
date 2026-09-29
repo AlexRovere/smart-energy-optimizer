@@ -16,13 +16,19 @@ name: Sécurité
 # d'événement push dans le dépôt d'origine (sans objet ici, dépôt privé
 # sans fork).
 
+# Temporaire, tant que le dépôt est privé et que les minutes gratuites sont
+# comptées : plus de scan sur chaque push de branche de travail, seulement
+# sur les pull requests, sur main après fusion et à la main. Au passage en
+# public, rétablir push "**" et retirer pull_request (motif ci-dessus).
 on:
   push:
-    branches: ["**"]
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
 
-# cancel-in-progress simple : un seul événement déclenche ce workflow, donc
-# l'annulation ne porte que sur un push dépassé par un plus récent sur la
-# même branche, jamais sur un doublon avec une pull request.
+# Un commit de branche ne déclenche plus que pull_request, et main que push :
+# pas de doublon sur un même commit, l'annulation ne vise qu'un run dépassé.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref_name }}
   cancel-in-progress: true
