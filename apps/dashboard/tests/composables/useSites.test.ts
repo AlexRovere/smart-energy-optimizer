@@ -14,24 +14,8 @@ vi.mock('../../app/composables/useAlerts', () => ({
   })
 }))
 
-vi.mock('../../app/composables/useSensorsStatus', () => {
-  const famille = (family: string, status = 'ok') => ({ family, status, failing_until: null })
-  const capteurs = (overall: string) => ({
-    overall,
-    sensors: ['consumption', 'electrical', 'temperature', 'humidity', 'network'].map(f => famille(f)),
-  })
-  return {
-    useSensorsStatus: () => ({
-      sensors: ref([
-        { site_id: 'SITE001', site_name: 'Bureau Paris La Défense', ...capteurs('critical') },
-        { site_id: 'SITE002', site_name: 'Usine Lyon Vénissieux', ...capteurs('degraded') },
-        { site_id: 'SITE003', site_name: 'Data Center Marseille', ...capteurs('ok') },
-      ]),
-      pending: ref(false),
-      error: ref(null),
-    }),
-  }
-})
+vi.mock('../../app/composables/useSensorsStatus', async () =>
+  (await import('../fixtures/sensorsStatus')).sensorsStatusModule)
 
 vi.mock('../../app/composables/useSitesList', () => ({
   useSitesList: () => ({

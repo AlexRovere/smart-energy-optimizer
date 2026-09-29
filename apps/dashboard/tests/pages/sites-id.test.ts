@@ -84,69 +84,48 @@ describe('page Site détail', () => {
     }))
   })
 
-  it.each(['capacity_kw', 'site_type', 'current_a', 'humidity_pct', 'alerts_active', 'model_version', 'GET /api'])(
-    "n'affiche plus le nom technique %s",
-    async (technicalName) => {
-      useToastMock.mockReturnValue({ add: vi.fn() })
-      setupMocks()
-      const wrapper = await mountSuspended(SiteDetailPage)
-      expect(wrapper.text()).not.toContain(technicalName)
-    },
-  )
-
-  it('affiche capacité et seuil avec leur unité, le type et le statut en français', async () => {
+  // Monte la page avec les mocks par défaut et rend son texte.
+  async function pageText(): Promise<string> {
     useToastMock.mockReturnValue({ add: vi.fn() })
-    setupMocks()
-    const wrapper = await mountSuspended(SiteDetailPage)
-    const text = wrapper.text()
+    return (await mountSuspended(SiteDetailPage)).text()
+  }
 
-    expect(text).toContain('300 kW')
-    expect(text).toContain('250 kW')
-    expect(text).toContain('Bureaux')
-    expect(text).toContain('En service')
+  it.each([
+    'capacity_kw', 'site_type', 'current_a', 'humidity_pct', 'alerts_active', 'model_version', 'GET /api',
+    'sensors/status', 'last_seen', 'failing', 'humidity',
+  ])("n'affiche plus le nom technique %s", async (technicalName) => {
+    setupMocks()
+    expect(await pageText()).not.toContain(technicalName)
   })
 
-  it.each(['sensors/status', 'last_seen', 'failing', 'humidity'])(
-    "n'affiche plus le nom technique de capteur %s",
-    async (technicalName) => {
-      useToastMock.mockReturnValue({ add: vi.fn() })
-      setupMocks()
-      const wrapper = await mountSuspended(SiteDetailPage)
-      expect(wrapper.text()).not.toContain(technicalName)
-    },
-  )
+  it('affiche capacité et seuil avec leur unité, le type et le statut en français', async () => {
+    setupMocks()
+    const text = await pageText()
+
+    for (const attendu of ['300 kW', '250 kW', 'Bureaux', 'En service']) expect(text).toContain(attendu)
+  })
 
   it("affiche l'état de chaque capteur en français, avec la fin prévue d'une panne", async () => {
-    useToastMock.mockReturnValue({ add: vi.fn() })
     setupMocks()
-    const wrapper = await mountSuspended(SiteDetailPage)
-    const text = wrapper.text()
+    const text = await pageText()
 
-    expect(text).toContain('Consommation')
-    expect(text).toContain('Humidité')
-    expect(text).toContain('En panne')
-    expect(text).toContain("jusqu'à 08:15")
+    for (const attendu of ['Consommation', 'Humidité', 'En panne', "jusqu'à 08:15"]) expect(text).toContain(attendu)
   })
 
   it('donne la date de la dernière donnée du site', async () => {
-    useToastMock.mockReturnValue({ add: vi.fn() })
     setupMocks()
-    const wrapper = await mountSuspended(SiteDetailPage)
-
-    expect(wrapper.text()).toContain('Dernière donnée')
-    expect(wrapper.text()).toContain('29/09 13:00')
+    expect(await pageText()).toMatch(/Dernière donnée.*29\/09 13:00/)
   })
 
   it('reporte la dernière valeur connue quand la consommation courante manque', async () => {
-    useToastMock.mockReturnValue({ add: vi.fn() })
     setupMocks()
     useSiteCurrentReadingMock.mockReturnValue({ data: ref({ ...READING, consumption_kw: null }), pending: ref(false), error: ref(null) })
     useSiteHistoryMock.mockReturnValue({
       readings: ref([{ ...READING, timestamp: new Date(2026, 8, 29, 12, 0).toISOString(), consumption_kw: null, consumption_kw_corrected: 104 }]),
     })
-    const wrapper = await mountSuspended(SiteDetailPage)
+    const text = await pageText()
 
-    expect(wrapper.text()).toContain('104')
-    expect(wrapper.text()).toContain('valeur reportée de 12:00')
+    expect(text).toContain('104')
+    expect(text).toContain('valeur reportée de 12:00')
   })
 })
