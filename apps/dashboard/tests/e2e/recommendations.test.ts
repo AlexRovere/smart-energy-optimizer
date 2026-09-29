@@ -83,7 +83,7 @@ describe.skipIf(!baseDisponible())('recommandations', async () => {
     expect(response.status).toBe(422)
   })
 
-  it('retourne un tableau vide quand aucune donnée historique ni ML n\'est disponible', async () => {
+  it("rend une liste vide qui dit ses sources manquantes quand ni l'historique ni le ML ne répondent", async () => {
     const cookie = await signIn()
 
     const response = await fetch('/api/sites/SITE001/recommendations', {
@@ -92,7 +92,8 @@ describe.skipIf(!baseDisponible())('recommandations', async () => {
 
     expect(response.status).toBe(200)
     const body = await response.json()
-    expect(Array.isArray(body)).toBe(true)
+    expect(body.recommendations).toEqual([])
+    expect(body.unavailable).toContain('history')
   })
 
   it.each([

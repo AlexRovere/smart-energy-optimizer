@@ -27,3 +27,11 @@ export type RecommendationSource = z.infer<typeof recommendationSourceSchema>
 export type RecommendationType = z.infer<typeof recommendationTypeSchema>
 export type RecommendationPriority = z.infer<typeof recommendationPrioritySchema>
 export type Recommendation = z.infer<typeof recommendationSchema>
+
+// Réponse de GET /api/sites/{id}/recommendations : `unavailable` dit quelle
+// source n'a pas pu être consultée, pour qu'une liste vide ne passe pas pour
+// « aucune anomalie ».
+export interface SiteRecommendationsResponse {
+  recommendations: Recommendation[]
+  unavailable: ('history' | 'forecast')[]
+}

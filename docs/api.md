@@ -52,7 +52,7 @@ La colonne « Rôle » décrit le mécanisme complet. **Un seul rôle est exploi
 | GET | `/api/alerts` | `?site_id=&severity=` | `Alert[]` | 401, 422, 503 | tous |
 | GET | `/api/sensors/status` | | `SensorStatus` | 401, 503 | tous |
 | POST | `/api/sites/{id}/prediction` | `{ horizon_hours }`, 1 à 48, défaut 24 | `Prediction` | 401, 403, 404, 422, 503 | tous |
-| GET | `/api/sites/{id}/recommendations` | | `Recommendation[]` | 401, 403, 404, 422, 503 | tous |
+| GET | `/api/sites/{id}/recommendations` | | `SiteRecommendations` | 401, 403, 404, 422, 503 | tous |
 | GET | `/api/alert-thresholds` | | `AlertThreshold[]` | 401, 503 | tous |
 | PUT | `/api/sites/{id}/alert-thresholds/{type}` | `{ duration, threshold }` | `AlertThreshold` | 401, 403, 404, 422 | `ADMIN`, `OPERATOR` |
 
@@ -114,6 +114,15 @@ Réseau interne, pas d'authentification, non exposé par le proxy. Base : `ML_AP
 Le contrat réel du service ML est décrit dans `apps/ml/src/api/schemas.py` : l'appel attend un tableau d'items horaires, un par heure de l'horizon. La couche Nuxt construit ce tableau depuis `horizon_hours` via `hoursInHorizon` et le `mlClient`. Le champ `version` de `GET /model` est l'identifiant du registre MLflow, exposé dans la réponse `Prediction` sous `model_version`.
 
 **L'horizon est limité à 48 heures par la couche Nuxt** (décision du daily du 16 septembre 2026 — au-delà, la prévision n'est plus actionnable et les biais s'accumulent). Le service ML lui-même peut techniquement aller plus loin ; c'est le handler `/api/sites/{id}/prediction` qui impose le `422` au-delà de 48.
+
+**Le motif d'un échec du service ML est relayé** (#6), plutôt qu'un `503` muet, dans `statusMessage`, que l'écran affiche tel quel :
+
+| Réponse du service ML | Réponse de l'applicatif |
+| :--- | :--- |
+| `422` | `422` « Historique insuffisant ou trop ancien pour prévoir » (dernière mesure à plus de 168 h, ou 168 h consécutives manquantes) |
+| `503` « Aucun modèle champion disponible » | `503` « Aucun modèle entraîné disponible » |
+| `503` pour une autre raison | `503` « Historique illisible par le service de prédiction » |
+| injoignable, délai dépassé | `503` « Service de prédiction indisponible » |
 
 Le service ML n'a **aucune notion d'utilisateur** : l'autorisation est résolue avant l'appel.
 
@@ -278,7 +287,18 @@ Les sites sans mesure sont **exclus des totaux et nommés** dans `excluded_sites
 }
 ```
 
-`source` vaut `threshold` ou `forecast`. Les recommandations de seuil sont calculées par l'applicatif et ne dépendent pas du modèle ; celles de prévision s'ajoutent quand le service ML répond. `trigger` porte la mesure qui a déclenché.
+`source` vaut `threshold` ou `forecast`. Les recommandations de seuil sont calculées par l'applicatif et ne dépendent pas du modèle ; celles de prévision s'ajoutent quand le service ML répond, sur les **48 prochaines heures** (#6). `trigger` porte la mesure qui a déclenché. Pour une prévision, `trigger.timestamp` est l'heure pleine où le dépassement est prévu. `confidence` reste dans le schéma, mais vaut 0 et n'est pas affichée : le modèle ne produit pas de confiance par heure.
+
+### `SiteRecommendations`
+
+```json
+{
+  "recommendations": [ { "…": "Recommendation" } ],
+  "unavailable": ["forecast"]
+}
+```
+
+`unavailable` liste les sources qui n'ont pas pu être consultées : `history` (Parquet illisible) ou `forecast` (service ML en échec). Une liste de recommandations vide avec `unavailable` non vide ne veut pas dire « aucune anomalie ». L'écran affiche alors « Recommandations partielles : prévision indisponible ». Une alerte constatée aujourd'hui dispense d'interroger la prévision pour son type : elle ne compte pas comme un manque.
 
 ### `AlertThreshold`
 

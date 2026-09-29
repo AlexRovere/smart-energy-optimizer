@@ -1,6 +1,7 @@
 import { useFetch } from 'nuxt/app'
 import { ref, computed } from 'vue'
 import type { Recommendation, SiteId } from "~/types/api";
+import type { SiteRecommendationsResponse } from "~~/shared/recommendationSchema";
 import { useSites } from "../composables/useSites";
 import { useSitePrediction } from "../composables/useSitePrediction";
 import { useSiteHistory } from "../composables/useSiteHistory";
@@ -16,11 +17,11 @@ export function usePredictions() {
   const prediction = useSitePrediction(selectedSiteId, horizonHeures)
   const { readings: historicalPoints } = useSiteHistory(selectedSiteId, ref<'24h' | '7j'>('24h'))
 
-  const { data: recommendationsData } = useFetch<Recommendation[]>(
+  const { data: recommendationsData } = useFetch<SiteRecommendationsResponse>(
     () => `/api/sites/${selectedSiteId.value}/recommendations`,
     { watch: [selectedSiteId] }
   )
-  const recommendations = computed(() => recommendationsData.value ?? [])
+  const recommendations = computed<Recommendation[]>(() => recommendationsData.value?.recommendations ?? [])
 
   const siteInfo = computed(() => getSiteInfo(selectedSiteId.value))
   const thresholdKw = computed(() => siteInfo.value?.threshold_kw ?? 240)

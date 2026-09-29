@@ -48,7 +48,7 @@ function setupMocks() {
     getSiteInfo: () => ({ location: 'Paris', threshold_kw: 250, status: 'active', last_data_at: new Date(2026, 8, 29, 13, 0).toISOString() }),
   })
   useSiteCurrentReadingMock.mockReturnValue({ data: ref(READING), pending: ref(false), error: ref(null) })
-  useSiteRecommendationsMock.mockReturnValue({ recommendations: ref([]), pending: ref(false) })
+  useSiteRecommendationsMock.mockReturnValue({ recommendations: ref([]), unavailable: ref([]), pending: ref(false) })
   useSiteHistoryMock.mockReturnValue({ readings: ref([]) })
   useSitePredictionMock.mockReturnValue({
     forecastPoints: ref([]),
@@ -57,6 +57,7 @@ function setupMocks() {
     predictedAt: ref(null),
     nbPoints: ref(0),
     available: ref(true),
+    failureMessage: ref(null),
     lancer: vi.fn(),
     lancee: ref(false),
     dureeMs: ref(null),
@@ -127,5 +128,42 @@ describe('page Site détail', () => {
 
     expect(text).toContain('104')
     expect(text).toContain('valeur reportée de 12:00')
+  })
+
+  it("donne l'échéance d'une recommandation tirée de la prévision", async () => {
+    setupMocks()
+    useSiteRecommendationsMock.mockReturnValue({
+      recommendations: ref([{
+        recommendation_id: 'REC-1', site_id: 'SITE001', source: 'forecast', type: 'load_balancing', priority: 'high',
+        title: 'Lisser le pic', description: 'Décaler les charges',
+        trigger: { timestamp: new Date(2026, 8, 30, 14, 0).toISOString(), value_kw: 310, threshold_kw: 300 },
+        estimated_saving_kwh: 0, gain_kw: 0, confidence: 0, window: 'N/A',
+      }]),
+      unavailable: ref([]),
+      pending: ref(false),
+    })
+
+    expect(await pageText()).toContain('prévu le 30/09 14:00')
+  })
+
+  it("dit que les recommandations sont partielles au lieu d'annoncer « aucune anomalie »", async () => {
+    setupMocks()
+    useSiteRecommendationsMock.mockReturnValue({ recommendations: ref([]), unavailable: ref(['forecast']), pending: ref(false) })
+    const text = await pageText()
+
+    expect(text).toContain('Recommandations partielles : prévision indisponible')
+    expect(text).not.toContain('Aucune anomalie')
+  })
+
+  it('affiche le motif réel quand la prédiction échoue', async () => {
+    setupMocks()
+    useSitePredictionMock.mockReturnValue({
+      ...useSitePredictionMock(),
+      lancee: ref(true),
+      available: ref(false),
+      failureMessage: ref('Historique insuffisant ou trop ancien pour prévoir'),
+    })
+
+    expect(await pageText()).toContain('Historique insuffisant ou trop ancien pour prévoir')
   })
 })

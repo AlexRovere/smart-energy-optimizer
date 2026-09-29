@@ -54,8 +54,20 @@ describe('useSiteRecommendations', () => {
   })
 
   it('rend les recommandations reçues', () => {
-    useFetchMock.mockReturnValue({ data: ref([RECOMMANDATION]), pending: ref(false), error: ref(null) })
+    useFetchMock.mockReturnValue({ data: ref({ recommendations: [RECOMMANDATION], unavailable: [] }), pending: ref(false), error: ref(null) })
     const { recommendations } = useSiteRecommendations(ref<SiteId>('SITE001'))
     expect(recommendations.value).toEqual([RECOMMANDATION])
+  })
+
+  it('dit quelles sources ont manqué au calcul', () => {
+    useFetchMock.mockReturnValue({ data: ref({ recommendations: [], unavailable: ['forecast'] }), pending: ref(false), error: ref(null) })
+    const { unavailable } = useSiteRecommendations(ref<SiteId>('SITE001'))
+    expect(unavailable.value).toEqual(['forecast'])
+  })
+
+  it("ne signale aucun manque avant résolution", () => {
+    useFetchMock.mockReturnValue({ data: ref(null), pending: ref(true), error: ref(null) })
+    const { unavailable } = useSiteRecommendations(ref<SiteId>('SITE001'))
+    expect(unavailable.value).toEqual([])
   })
 })

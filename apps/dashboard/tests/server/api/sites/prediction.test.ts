@@ -162,4 +162,47 @@ describe('POST /api/sites/[id]/prediction', () => {
     await expect(handler(mockEvent)).rejects.toMatchObject({ statusCode: 503 })
     expect(mockLoggerError).toHaveBeenCalledOnce()
   })
+
+  describe('relaie le motif du service ML', () => {
+    // Forme d'une erreur ofetch : le code HTTP et le corps FastAPI `{ detail }`.
+    function erreurML(statusCode: number, detail: string) {
+      return Object.assign(new Error(`[POST] /predictions: ${statusCode}`), { statusCode, data: { detail } })
+    }
+
+    it('422 du ML : historique insuffisant ou trop ancien', async () => {
+      mockFetchPredictions.mockRejectedValue(erreurML(422, 'The latest 168 hours are incomplete'))
+
+      await expect(handler(mockEvent)).rejects.toMatchObject({
+        statusCode: 422,
+        statusMessage: 'Historique insuffisant ou trop ancien pour prévoir',
+      })
+    })
+
+    it('503 du ML sans modèle champion : aucun modèle entraîné', async () => {
+      mockFetchModelInfo.mockRejectedValue(erreurML(503, 'Aucun modèle champion disponible'))
+
+      await expect(handler(mockEvent)).rejects.toMatchObject({
+        statusCode: 503,
+        statusMessage: 'Aucun modèle entraîné disponible',
+      })
+    })
+
+    it("503 du ML pour une autre raison : historique illisible par le service", async () => {
+      mockFetchPredictions.mockRejectedValue(erreurML(503, 'Expected a Parquet directory: /data'))
+
+      await expect(handler(mockEvent)).rejects.toMatchObject({
+        statusCode: 503,
+        statusMessage: 'Historique illisible par le service de prédiction',
+      })
+    })
+
+    it('ML injoignable : service de prédiction indisponible', async () => {
+      mockFetchPredictions.mockRejectedValue(new Error('connect ECONNREFUSED'))
+
+      await expect(handler(mockEvent)).rejects.toMatchObject({
+        statusCode: 503,
+        statusMessage: 'Service de prédiction indisponible',
+      })
+    })
+  })
 })

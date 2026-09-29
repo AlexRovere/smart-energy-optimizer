@@ -17,12 +17,11 @@ function appliquer() {
       <p class="font-ev text-xs text-ev-text-3 mt-0.5">{{ recommendation.description }}</p>
     </div>
 
-    <!-- Gain + confiance -->
+    <!-- Gain -->
     <div class="shrink-0 text-right font-ev-mono">
       <p class="text-sm font-bold" style="color: var(--ev-red)">
         {{ recommendation.gain_kw }} <span class="text-xs font-normal text-ev-text-3">kW</span>
       </p>
-      <p class="text-xs text-ev-text-3">{{ recommendation.confidence.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</p>
     </div>
 
     <!-- Bouton -->

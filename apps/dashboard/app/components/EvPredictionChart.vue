@@ -20,13 +20,16 @@ const option = computed(() => predictionChartOption({
 }))
 const title = computed(() => predictionTitle(props.historicalPoints, props.forecastPoints))
 const confidencePct = computed(() => Math.round(props.confidenceLevel * 100))
+// Le modèle actuel ne fournit pas de bornes : pas de bande, donc pas de légende.
+const hasBand = computed(() => props.forecastPoints.length > 0
+  && props.forecastPoints.every(p => p.confidence_lower != null && p.confidence_upper != null))
 </script>
 
 <template>
   <div>
     <div class="flex items-center justify-between mb-3 font-ev">
       <span class="text-sm font-semibold">{{ title }}</span>
-      <span class="text-xs opacity-60">bande = intervalle de confiance {{ confidencePct }} %</span>
+      <span v-if="hasBand" class="text-xs opacity-60">bande = intervalle de confiance {{ confidencePct }} %</span>
     </div>
 
     <div v-if="option" data-testid="prediction-chart" class="h-65">

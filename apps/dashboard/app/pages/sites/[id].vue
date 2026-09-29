@@ -14,7 +14,9 @@ const { getSite, getSiteSensors, getSiteAlerts, getSiteHealth, getSiteInfo } = u
 
 const { data: reading, pending: readingPending, error: readingError } = useSiteCurrentReading(id)
 
-const { recommendations, pending } = useSiteRecommendations(id)
+const { recommendations, unavailable, pending } = useSiteRecommendations(id)
+const SOURCE_LABELS = { history: 'historique indisponible', forecast: 'prévision indisponible' } as const
+const unavailableLabel = computed(() => unavailable.value.map(source => SOURCE_LABELS[source]).join(', '))
 const popupFermée = ref(false)
 watch(id, () => { popupFermée.value = false })
 const popupOuverte = computed(() => recommendations.value.length > 0 && !popupFermée.value)
@@ -46,7 +48,7 @@ const { readings } = useSiteHistory(id, chartWindow)
 const horizonHeures = ref(24)
 const {
   forecastPoints, modelVersion, confidenceLevel, predictedAt, nbPoints,
-  available: predictionDisponible, lancer: lancerPrediction, lancee: predictionLancee,
+  available: predictionDisponible, failureMessage: predictionFailure, lancer: lancerPrediction, lancee: predictionLancee,
   dureeMs: predictionDureeMs, pending: predictionPending
 } = useSitePrediction(id, horizonHeures)
 
@@ -280,7 +282,7 @@ function sensorStatusColor(status: string): string {
           class="flex items-center gap-2.5 px-4 py-3 rounded-ev-md border text-sm font-ev"
           style="border-color: var(--ev-amber-bd); background: var(--ev-amber-bg); color: var(--ev-amber)"
         >
-          Service de prédiction indisponible — la prévision n'est pas affichée.
+          {{ predictionFailure ?? 'Service de prédiction indisponible' }} : la prévision n'est pas affichée.
         </div>
 
         <EvPredictionChart
@@ -404,12 +406,20 @@ function sensorStatusColor(status: string): string {
           Chargement des recommandations…
         </div>
 
-        <div v-else-if="recommendations.length === 0" class="py-6 flex flex-col items-center gap-2 text-center">
+        <output
+          v-else-if="unavailable.length"
+          class="block mb-2 px-4 py-3 rounded-ev-md border text-sm font-ev"
+          style="border-color: var(--ev-amber-bd); background: var(--ev-amber-bg); color: var(--ev-amber)"
+        >
+          Recommandations partielles : {{ unavailableLabel }}
+        </output>
+
+        <div v-if="!pending && recommendations.length === 0 && !unavailable.length" class="py-6 flex flex-col items-center gap-2 text-center">
           <span class="font-ev text-sm font-semibold text-ev-text-3">Aucune recommandation active</span>
           <span class="font-ev text-xs text-ev-text-4">Aucune anomalie de consommation ni pic prévu sur ce site.</span>
         </div>
 
-        <div v-else class="flex flex-col divide-y" style="border-color: var(--ev-border)">
+        <div v-if="!pending && recommendations.length" class="flex flex-col divide-y" style="border-color: var(--ev-border)">
           <div
             v-for="rec in recommendations"
             :key="rec.recommendation_id"
@@ -423,7 +433,7 @@ function sensorStatusColor(status: string): string {
               <p class="font-ev text-xs text-ev-text-3 mt-0.5">{{ rec.description }}</p>
               <p class="font-ev-mono text-[11px] text-ev-text-4 mt-1.5">
                 {{ rec.trigger.value_kw }} kW / seuil {{ rec.trigger.threshold_kw }} kW
-                · {{ rec.source === 'forecast' ? 'prévision' : 'seuil dépassé' }}
+                · {{ rec.source === 'forecast' ? `prévu le ${fmtShortDateTime(rec.trigger.timestamp)}` : 'seuil dépassé' }}
               </p>
             </div>
           </div>
