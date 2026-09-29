@@ -21,8 +21,8 @@ ARCHIVE=$(cd "$(dirname "$ARCHIVE")" && pwd)/$(basename "$ARCHIVE")
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$REPO_ROOT"
 
-for outil in docker age tar; do
-  command -v "$outil" >/dev/null 2>&1 || { echo "restore: '$outil' est requis mais introuvable dans le PATH" >&2; exit 1; }
+for tool in docker age tar; do
+  command -v "$tool" >/dev/null 2>&1 || { echo "restore: '$tool' est requis mais introuvable dans le PATH" >&2; exit 1; }
 done
 
 AGE_IDENTITY=${SOPS_AGE_KEY_FILE:-$HOME/.config/sops/age/keys.txt}

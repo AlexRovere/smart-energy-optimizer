@@ -98,10 +98,10 @@ def test_historique_rend_la_mesure_generee_pour_chaque_instant(client):
             "limit": 1,
         },
     ).json()
-    mesure = dict(body[0])
-    del mesure["timestamp"]
+    received = dict(body[0])
+    del received["timestamp"]
 
-    assert mesure == reading(SITES_BY_ID["SITE002"], datetime(2026, 9, 22, 10, tzinfo=UTC))
+    assert received == reading(SITES_BY_ID["SITE002"], datetime(2026, 9, 22, 10, tzinfo=UTC))
 
 
 def test_historique_par_defaut_partage_limit_entre_tous_les_sites_sur_24h(client):
@@ -127,10 +127,10 @@ def test_historique_refuse_une_limite_invalide_comme_l_api_reelle(client):
     response = client.get("/api/v1/readings", params={"limit": "abc"})
 
     assert response.status_code == 422
-    erreur = response.json()["detail"][0]
-    attendu = capture["detail"][0]
-    assert {k: erreur[k] for k in ("type", "loc", "msg", "input")} == {
-        k: attendu[k] for k in ("type", "loc", "msg", "input")
+    error = response.json()["detail"][0]
+    expected = capture["detail"][0]
+    assert {k: error[k] for k in ("type", "loc", "msg", "input")} == {
+        k: expected[k] for k in ("type", "loc", "msg", "input")
     }
 
 

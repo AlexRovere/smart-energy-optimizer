@@ -204,7 +204,7 @@ def test_model_endpoint_retourne_les_metriques(monkeypatch):
     response = client.get("/model")
 
     assert response.status_code == 200
-    assert response.json()["metriques"] == {"training_rows": 5000.0}
+    assert response.json()["metrics"] == {"training_rows": 5000.0}
 
 
 def test_metrics_endpoint_retourne_503_si_aucun_champion(monkeypatch):
@@ -325,12 +325,12 @@ def test_predictions_retourne_503_si_aucun_champion(monkeypatch):
 
     monkeypatch.setenv("PARQUET_DIR", "/data")
 
-    def aucun_modele(alias: str = "champion"):
+    def no_model(alias: str = "champion"):
         raise mlflow.exceptions.MlflowException(
             f"Registered Model with name={MLFLOW_MODEL_NAME} not found"
         )
 
-    monkeypatch.setattr(api_main, "load_model", aucun_modele)
+    monkeypatch.setattr(api_main, "load_model", no_model)
     api_main.get_prediction_model.cache_clear()
     client = TestClient(app)
 

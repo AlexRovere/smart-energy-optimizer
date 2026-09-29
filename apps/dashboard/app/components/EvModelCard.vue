@@ -49,11 +49,11 @@ function formatDate(ms: number): string {
       </div>
 
       <div
-        v-if="props.model.metriques?.training_rows"
+        v-if="props.model.metrics?.training_rows"
         data-testid="model-metrics"
         class="font-ev-mono text-[10px] text-ev-text-muted"
       >
-        {{ props.model.metriques.training_rows.toLocaleString('fr-FR') }} lignes d'entraînement
+        {{ props.model.metrics.training_rows.toLocaleString('fr-FR') }} lignes d'entraînement
       </div>
     </template>
   </div>

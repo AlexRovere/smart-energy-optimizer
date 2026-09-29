@@ -69,7 +69,7 @@ def test_etat_des_capteurs_porte_les_champs_de_l_api_reelle(client):
 
 def test_etat_des_capteurs_signale_les_pannes_de_la_lecture_courante(client):
     body = client.get("/api/v1/sensors/status").json()
-    capteur_de = {
+    sensor_of = {
         "consumption_sensor_failure": "consumption",
         "electrical_sensor_failure": "electrical",
         "temperature_sensor_failure": "temperature",
@@ -79,7 +79,7 @@ def test_etat_des_capteurs_signale_les_pannes_de_la_lecture_courante(client):
 
     for site in SITES:
         reasons = _current(site.site_id)["null_reasons"]
-        failing = {capteur_de[r] for r in reasons}
+        failing = {sensor_of[r] for r in reasons}
         status = body[site.site_id]
         assert {
             name for name, s in status["sensors"].items() if s["status"] == "failing"
@@ -92,16 +92,16 @@ def test_etat_des_capteurs_signale_les_pannes_de_la_lecture_courante(client):
 def test_alertes_une_par_site_en_panne_ou_en_depassement(client):
     body = client.get("/api/v1/alerts").json()
 
-    attendus = set()
+    expected = set()
     for site in SITES:
         current = _current(site.site_id)
         if current["null_reasons"]:
-            attendus.add((site.site_id, "sensor"))
+            expected.add((site.site_id, "sensor"))
         kw = current["consumption_kw"]
         if kw is not None and kw > site.capacity_kw * 0.9:
-            attendus.add((site.site_id, "consumption"))
+            expected.add((site.site_id, "consumption"))
 
-    assert {(a["site_id"], a["type"]) for a in body} == attendus
+    assert {(a["site_id"], a["type"]) for a in body} == expected
 
 
 def test_alertes_portent_les_champs_de_l_api_reelle(client):
@@ -110,30 +110,30 @@ def test_alertes_portent_les_champs_de_l_api_reelle(client):
     body = client.get("/api/v1/alerts").json()
 
     assert body, "l'instant figé doit produire au moins une alerte"
-    for alerte in body:
-        assert list(alerte) == list(capture[0])
-        assert alerte["timestamp"] == "2026-09-29T08:07:00.368439"
+    for alert in body:
+        assert list(alert) == list(capture[0])
+        assert alert["timestamp"] == "2026-09-29T08:07:00.368439"
 
 
 def test_alertes_filtrees_par_site_et_par_severite(client):
-    toutes = client.get("/api/v1/alerts").json()
-    site_id = toutes[0]["site_id"]
-    severity = toutes[0]["severity"]
+    all_alerts = client.get("/api/v1/alerts").json()
+    site_id = all_alerts[0]["site_id"]
+    severity = all_alerts[0]["severity"]
 
-    par_site = client.get("/api/v1/alerts", params={"site_id": site_id}).json()
-    par_severite = client.get("/api/v1/alerts", params={"severity": severity}).json()
+    by_site = client.get("/api/v1/alerts", params={"site_id": site_id}).json()
+    by_severity = client.get("/api/v1/alerts", params={"severity": severity}).json()
 
-    assert par_site == [a for a in toutes if a["site_id"] == site_id]
-    assert par_severite == [a for a in toutes if a["severity"] == severity]
+    assert by_site == [a for a in all_alerts if a["site_id"] == site_id]
+    assert by_severity == [a for a in all_alerts if a["severity"] == severity]
 
 
 def test_fin_de_panne_annoncee_dans_le_futur(client):
     body = client.get("/api/v1/sensors/status").json()
-    fins = [
+    ends = [
         s["failing_until"]
         for site in body.values()
         for s in site["sensors"].values()
         if s["failing_until"]
     ]
 
-    assert all(fin > (NOW + timedelta(seconds=1)).strftime("%Y-%m-%dT%H:%M:%S.%f") for fin in fins)
+    assert all(end > (NOW + timedelta(seconds=1)).strftime("%Y-%m-%dT%H:%M:%S.%f") for end in ends)

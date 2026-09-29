@@ -31,17 +31,17 @@ def test_la_mesure_porte_les_champs_de_l_api_reelle_dans_le_meme_ordre():
 
 
 def test_la_consommation_suit_le_profil_de_semaine_et_de_week_end():
-    def moyenne(heure: int, week_end: bool) -> float:
+    def mean(hour: int, weekend: bool) -> float:
         values = [
             reading(SITE001, moment)["consumption_kw"]
             for moment in HOURS_OF_TWO_YEARS
-            if moment.hour == heure and (moment.weekday() >= 5) == week_end
+            if moment.hour == hour and (moment.weekday() >= 5) == weekend
         ]
         return statistics.mean(v for v in values if v is not None)
 
-    assert abs(moyenne(12, week_end=False) - SITE001.weekday_kw[12]) < 3
-    assert abs(moyenne(3, week_end=False) - SITE001.weekday_kw[3]) < 3
-    assert abs(moyenne(12, week_end=True) - SITE001.weekend_kw[12]) < 3
+    assert abs(mean(12, weekend=False) - SITE001.weekday_kw[12]) < 3
+    assert abs(mean(3, weekend=False) - SITE001.weekday_kw[3]) < 3
+    assert abs(mean(12, weekend=True) - SITE001.weekend_kw[12]) < 3
 
 
 def test_l_energie_horaire_egale_la_puissance_moyenne():
@@ -54,15 +54,15 @@ def test_les_pannes_suivent_les_taux_observes_sur_l_api_reelle():
     readings = [reading(SITE001, moment) for moment in HOURS_OF_TWO_YEARS]
     total = len(readings)
 
-    def taux(raison: str) -> float:
-        return sum(raison in r["null_reasons"] for r in readings) / total
+    def rate(reason: str) -> float:
+        return sum(reason in r["null_reasons"] for r in readings) / total
 
     # Taux mesurés sur 1 176 lectures (7 sites, une semaine), à la louche.
-    assert 0.06 < taux("temperature_sensor_failure") < 0.09
-    assert 0.05 < taux("humidity_sensor_failure") < 0.08
-    assert 0.035 < taux("consumption_sensor_failure") < 0.06
-    assert 0.025 < taux("electrical_sensor_failure") < 0.045
-    assert 0.01 < taux("network_loss") < 0.02
+    assert 0.06 < rate("temperature_sensor_failure") < 0.09
+    assert 0.05 < rate("humidity_sensor_failure") < 0.08
+    assert 0.035 < rate("consumption_sensor_failure") < 0.06
+    assert 0.025 < rate("electrical_sensor_failure") < 0.045
+    assert 0.01 < rate("network_loss") < 0.02
 
 
 def test_chaque_panne_vide_exactement_ses_champs():
@@ -91,14 +91,14 @@ def test_la_qualite_decoule_des_pannes_comme_sur_l_api_reelle():
 
 
 def test_une_perte_reseau_est_la_seule_raison_affichee():
-    pertes = [
+    losses = [
         reading(SITE001, moment)
         for moment in HOURS_OF_TWO_YEARS
         if "network_loss" in reading(SITE001, moment)["null_reasons"]
     ]
 
-    assert pertes
-    assert all(p["null_reasons"] == ["network_loss"] for p in pertes)
+    assert losses
+    assert all(p["null_reasons"] == ["network_loss"] for p in losses)
 
 
 def test_les_grandeurs_electriques_restent_dans_les_plages_observees():

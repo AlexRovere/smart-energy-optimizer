@@ -6,8 +6,8 @@ set -euo pipefail
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$REPO_ROOT"
 
-for outil in docker age tar; do
-  command -v "$outil" >/dev/null 2>&1 || { echo "backup: '$outil' est requis mais introuvable dans le PATH" >&2; exit 1; }
+for tool in docker age tar; do
+  command -v "$tool" >/dev/null 2>&1 || { echo "backup: '$tool' est requis mais introuvable dans le PATH" >&2; exit 1; }
 done
 
 if [[ ! -f .sops.yaml ]]; then
@@ -17,7 +17,7 @@ fi
 
 PARQUET_DIR_HOST=${PARQUET_DIR_HOST:-./data/parquet}
 BACKUP_DIR=${BACKUP_DIR:-./backups}
-HORODATAGE=$(date -u +%Y%m%dT%H%M%SZ)
+TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
 
 WORKDIR=$(mktemp -d)
 chmod 700 "$WORKDIR"
@@ -50,12 +50,12 @@ fi
 echo "backup: archive du répertoire Parquet ($PARQUET_DIR_HOST)" >&2
 tar -C "$(dirname "$PARQUET_DIR_HOST")" -czf "$WORKDIR/parquet.tar.gz" "$(basename "$PARQUET_DIR_HOST")"
 
-BUNDLE="$WORKDIR/enervision-backup-$HORODATAGE.tar"
+BUNDLE="$WORKDIR/enervision-backup-$TIMESTAMP.tar"
 tar -C "$WORKDIR" -cf "$BUNDLE" postgres.dump parquet.tar.gz
 
 RECIPIENTS=()
-while IFS= read -r cle; do
-  RECIPIENTS+=(-r "$cle")
+while IFS= read -r key; do
+  RECIPIENTS+=(-r "$key")
 done < <(grep -oE 'age1[0-9a-z]{58}' .sops.yaml | sort -u)
 
 if [[ ${#RECIPIENTS[@]} -eq 0 ]]; then
@@ -63,7 +63,7 @@ if [[ ${#RECIPIENTS[@]} -eq 0 ]]; then
   exit 1
 fi
 
-DESTINATION="$BACKUP_DIR/enervision-backup-$HORODATAGE.tar.age"
+DESTINATION="$BACKUP_DIR/enervision-backup-$TIMESTAMP.tar.age"
 age -e "${RECIPIENTS[@]}" -o "$DESTINATION" "$BUNDLE"
 
 if [[ ! -s "$DESTINATION" ]]; then
