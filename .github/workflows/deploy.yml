@@ -3,11 +3,11 @@ name: CD
 # La VM n'est pas joignable depuis un runner GitHub hébergé. Le déploiement
 # s'exécute donc sur le runner auto-hébergé installé sur la VM, après une CI
 # réussie sur main. workflow_dispatch conserve une sortie de secours manuelle.
+#
+# Suspendu depuis la reprise en solo (29 septembre 2026) : ce dépôt n'a pas de
+# runner `enervision`, et un job lancé après chaque CI resterait en file. Le
+# déclencheur workflow_run revient avec le déploiement sur Kubernetes.
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
-    branches: [main]
   workflow_dispatch:
 
 permissions: {}

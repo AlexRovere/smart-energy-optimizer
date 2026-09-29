@@ -270,7 +270,7 @@ Pas de rotation de routine au MVP, la pile ne vivant que le temps de la piscine 
 
 ### Les garde-fous de la CI, et leur sortie de secours
 
-Dans [`security.yml`](../.github/workflows/security.yml), sur chaque pull request vers `main` et chaque push sur `main`, en attendant de revenir à tout push une fois le dépôt public (le reste du pipeline, dans [`ci.yml`](../.github/workflows/ci.yml), reste lié aux pull requests, pour le coût sur une offre gratuite plafonnée).
+Dans [`security.yml`](../.github/workflows/security.yml), sur chaque pull request vers `main` et chaque push, quelle que soit la branche (le reste du pipeline, dans [`ci.yml`](../.github/workflows/ci.yml), reste lié aux pull requests, pour le coût sur une offre gratuite plafonnée).
 
 | Contrôle | Ce qu'il refuse |
 |---|---|
