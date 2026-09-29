@@ -8,8 +8,8 @@ Un lecteur qui n'a pas écrit ces fichiers doit pouvoir rejouer une étape sur s
 
 | Fichier | Nom affiché | Déclencheur | Ce qu'il vérifie |
 |---|---|---|---|
-| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | CI | pull request vers `main`, et push sur `main` | Lint, types, tests, validation de la composition, construction **et scan** des images |
-| [`.github/workflows/security.yml`](../.github/workflows/security.yml) | Sécurité | **tout** push, sur n'importe quelle branche | Vulnérabilités, secrets dans l'arbre et dans l'historique, cohérence du chiffrement SOPS |
+| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | CI | pull request vers `main`, ou lancement manuel (temporaire : plus de push sur `main` tant que le dépôt est privé) | Lint, types, tests, validation de la composition, construction **et scan** des images |
+| [`.github/workflows/security.yml`](../.github/workflows/security.yml) | Sécurité | pull request vers `main`, push sur `main`, ou lancement manuel (temporaire : **tout** push au passage en public) | Vulnérabilités, secrets dans l'arbre et dans l'historique, cohérence du chiffrement SOPS |
 | [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | CD | fin réussie de `CI` sur `main`, ou lancement manuel | Exécution locale du playbook Ansible sur la VM |
 
 La séparation n'est pas cosmétique : un secret poussé par erreur ne doit pas attendre une pull request pour être détecté, donc `Sécurité` tourne dès le premier push. Le reste coûte des minutes de runner et reste attaché aux pull requests.

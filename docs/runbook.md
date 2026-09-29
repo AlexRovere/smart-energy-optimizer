@@ -76,8 +76,29 @@ ETL_METRICS_DIR=/var/lib/enervision/metrics ./etl_cron.sh >> /var/log/enervision
 
 ### Rattraper l'historique
 
-*Non rejouée.* `etl_ensure_history.sh` relit deux ans et saute les jours présents. Il appelle
-`docker compose` sans les secrets : sur la VM, il faut l'envelopper. Long, à lancer dans `tmux`.
+`periods` saute tout jour qui a déjà une partition : un jour auquel il manque quelques heures
+compte comme couvert. Deux cas.
+
+**Heures manquantes dans des jours existants** (rejouée sur la VM le 24 septembre). Les
+trouver, puis relire 8 jours en forçant, comme `hour` :
+
+```bash
+docker exec $(docker ps -qf name=enervision-ml) python -c "
+import pandas as pd
+df = pd.read_parquet('/data', columns=['site_id','timestamp'])
+df['timestamp'] = pd.to_datetime(df['timestamp'])
+for s, g in df.groupby('site_id'):
+    t = g['timestamp'].sort_values()
+    manque = pd.date_range(t.max() - pd.Timedelta(hours=167), t.max(), freq='h').difference(pd.DatetimeIndex(t))
+    print(s, 'manquantes:', len(manque))
+"
+$SOPS 'docker compose run --rm -T etl python -c "from datetime import datetime, timedelta, timezone; from main import run_periods; n = datetime.now(timezone.utc); run_periods(start_time=n - timedelta(days=8), end_time=n, skip_coverage_check=True)"' >> /var/log/enervision/etl.jsonl
+```
+
+Attendu : `manquantes: 0` pour chaque site au second passage de la première commande.
+
+**Jours entiers manquants** (*non rejouée*) : `etl_ensure_history.sh` relit deux ans. Il appelle
+`docker compose` sans les secrets, il faut donc l'envelopper. Long, à lancer dans `tmux`.
 
 ```bash
 $SOPS './etl_ensure_history.sh' >> /var/log/enervision/etl.jsonl
@@ -123,6 +144,7 @@ l'ETL (rouge à 26 h), part libre du disque (rouge à 10 %), puis machine et con
 | Vue historique en 503 dès qu'il y a des Parquet | Colonne `consumption_kw_raw` inexistante, lots DuckDB lus comme des lignes | Corrigé dans `parquetReader.ts` | #167 |
 | 503 et `Hive partition mismatch ... key "day"` | Le glob lisait `sites.parquet`, hors partition | Glob restreint à `site_id=*/**/*.parquet` | #207 |
 | Dernier passage ETL orange ou rouge, trous dans l'historique | `hour` ne relit que la dernière heure : un passage manqué est perdu | [Rattraper l'historique](#rattraper-lhistorique). Fenêtre de 24 h en cours (#246) | #243 |
+| Prédiction en 503 dans le dashboard, `422 Unprocessable Entity` dans son journal | Le ML refuse : `history must contain consecutive hours`. Le dashboard rend tout échec du ML en 503 et ne journalise pas le `detail` | Lire le `detail` avec `curl -X POST http://127.0.0.1:8000/predictions`, puis [rattraper les heures manquantes](#rattraper-lhistorique) | #243 |
 | Panneaux par conteneur vides | Label `name` absent des séries cAdvisor, cause non établie | Diagnostic dans l'issue. En attendant : `docker stats --no-stream` | #229, ouverte |
 | Job CD bloqué en `Queued` | Runner arrêté (lancé par `run.sh`) ou label `enervision` absent | `sudo ./svc.sh start` dans `~/actions-runner`, vérifier le label | [`DEPLOIEMENT.md`](../DEPLOIEMENT.md#dépannage-rapide) |
 | Runner incapable de déployer, secrets à recopier en clair (16 septembre) | Aucune clé pour déchiffrer sur place | Clé age de machine depuis le 17. Lisible par tout le compte `apprenant` : la retirer impose de changer les valeurs | [`secrets.md`](./secrets.md#les-amorçages-faits-une-fois) |
