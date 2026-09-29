@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { DuckDBInstance } from '@duckdb/node-api'
 import { energyReadingSchema, type EnergyReading } from '../../shared/energyReadingSchema'
 
@@ -30,6 +32,30 @@ function normalizeRow(row: Record<string, unknown>): Record<string, unknown> {
   }
 }
 
+const DAY_MS = 86_400_000
+
+// Fichiers des seuls jours de la plage, d'après le partitionnement de l'ETL
+// (docs/data.md : year=AAAA/month=MM/day=JJ/). Le motif site_id=*/**/*.parquet
+// faisait ouvrir tout l'historique du site à chaque lecture, quelle que soit
+// la plage demandée (#41, #46).
+export function dayFiles(dir: string, siteId: string, from: string, to: string): string[] {
+  const files: string[] = []
+  const end = Date.parse(to)
+  for (let day = Math.floor(Date.parse(from) / DAY_MS) * DAY_MS; day < end; day += DAY_MS) {
+    const date = new Date(day)
+    const dayDir = join(
+      dir,
+      `site_id=${siteId}`,
+      `year=${date.getUTCFullYear()}`,
+      `month=${String(date.getUTCMonth() + 1).padStart(2, '0')}`,
+      `day=${String(date.getUTCDate()).padStart(2, '0')}`
+    )
+    // Tout .parquet du jour : l'ETL n'en écrit qu'un, rien n'oblige à s'y fier.
+    if (existsSync(dayDir)) files.push(join(dayDir, '*.parquet').replaceAll('\\', '/'))
+  }
+  return files
+}
+
 export async function querySiteHistory(
   siteId: string,
   from: string,
@@ -37,6 +63,9 @@ export async function querySiteHistory(
   limit: number
 ): Promise<EnergyReading[]> {
   const dir = resolveParquetDir()
+  const files = dayFiles(dir, siteId, from, to)
+  if (!files.length) return []
+  const source = files.map(file => `'${file.replaceAll("'", "''")}'`).join(', ')
 
   const sql = `
     SELECT
@@ -45,7 +74,7 @@ export async function querySiteHistory(
       voltage_v, current_a, power_factor,
       temperature_celsius, humidity_percent,
       null_reasons, data_quality
-    FROM read_parquet('${dir}/site_id=*/**/*.parquet', hive_partitioning = true)
+    FROM read_parquet([${source}], hive_partitioning = true)
     WHERE site_id = '${siteId}'
       AND timestamp >= TIMESTAMPTZ '${from}'
       AND timestamp < TIMESTAMPTZ '${to}'

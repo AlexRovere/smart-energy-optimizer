@@ -16,6 +16,7 @@ function siteApiItemToSite(item: SiteApiItem): Site {
     capacity_kw: item.capacity_kw,
     status: item.status as SiteStatus,
     threshold_kw: item.warning_threshold_kw,
+    first_data_at: item.first_data_at ?? null,
     last_data_at: item.last_data_at ?? null
   }
 }

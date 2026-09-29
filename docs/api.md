@@ -49,7 +49,7 @@ La colonne « Rôle » décrit le mécanisme complet. **Un seul rôle est exploi
 | DELETE | `/api/admin/users/{id}` | | `{ success: true }` | 401, 403, 404 | `ADMIN` |
 | GET | `/api/sites` | | `Site[]` | 401 | tous |
 | GET | `/api/sites/{id}/current` | | `EnergyReading` | 401, 403, 404, 422, 503 | tous |
-| GET | `/api/sites/{id}/history` | `?from=&to=&limit=` | `EnergyReading[]` | 401, 403, 404, 422 | tous |
+| GET | `/api/sites/{id}/history` | `?from=&to=&limit=`, 92 jours au plus | `EnergyReading[]` | 401, 403, 404, 422 | tous |
 | PUT | `/api/sites/{id}/settings` | `{ warning_threshold_kw }` | `Site` | 401, 403, 404, 422 | `ADMIN`, `OPERATOR` |
 | GET | `/api/stats/summary` | | `ParkSummary` | 401, 503 | tous |
 | GET | `/api/alerts` | `?site_id=&severity=` | `Alert[]` | 401, 422, 503 | tous |
@@ -64,6 +64,7 @@ Ce que le tableau ne dit pas :
 - **`403` et non `404`** sur un site hors périmètre : distinguer « n'existe pas » de « pas pour vous » est nécessaire au diagnostic.
 - **`401` et non `404`** sur un compte inconnu, avec le message d'un mot de passe faux : distinguer les deux ferait de `/api/auth/login` un annuaire des comptes. Pour la même raison, une adresse absente est tout de même confrontée à une empreinte leurre, sinon le temps de réponse rétablit la distinction.
 - Un identifiant de site reçu du client est **comparé** au périmètre autorisé, il ne sert jamais de source. Toutes les routes `sites/{id}/*` passent par `requireSiteAccess`, dans cet ordre : `401` sans session, `422` si le format est faux, `404` si le site n'existe pas, `403` s'il est hors périmètre. Pour le `PUT` de seuil, le rôle est vérifié ensuite.
+- `sites/{id}/history` refuse en `422` une fin qui ne suit pas le début (« La fin de la plage doit suivre son début ») et une plage de plus de **92 jours** (« Plage trop longue : 92 jours au plus »), une heure de marge couvrant le passage à l'heure d'hiver. Sans `limit`, il rend un point par heure de la plage, pour ne rien tronquer. Il n'ouvre que les dossiers des jours demandés (`year=/month=/day=`), jamais tout l'historique du site : 20 ms pour un jour, 0,27 s pour 92 jours.
 - `stats/summary` est **recalculé sur le périmètre** : `sites` et `excluded_sites` sont filtrés, puis `total_sites`, les deux totaux et `average_load_percent` sont refaits sur les sites restants. Un compte sans site reçoit des totaux vides, pas ceux du parc.
 - Le `POST` de prédiction **ne modifie rien** : un rejeu après timeout est sans risque. L'applicatif garde le résultat quelques secondes, le proxy ne pouvant pas le mettre en cache.
 
@@ -153,11 +154,12 @@ Vers l'**API Mock** en entrée, base `MOCK_API_URL`. Vers le **répertoire Parqu
   "status": "active",
   "warning_threshold_kw": 160,
   "present_in_source": true,
+  "first_data_at": "2025-09-29T00:00:00.000Z",
   "last_data_at": "2026-09-29T13:00:00.000Z"
 }
 ```
 
-Les six premiers champs viennent de la source. `warning_threshold_kw` à `null` vaut 80 % de `capacity_kw`. `last_data_at` est l'horodatage de la dernière mesure écrite dans le Parquet pour ce site. Il vaut `null` si le site n'a aucune donnée, ou si le répertoire est illisible : dans ce cas, la liste reste servie et l'échec est journalisé. Le calcul ne lit que la partition du jour le plus récent de chaque site, jamais tout l'historique.
+Les six premiers champs viennent de la source. `warning_threshold_kw` à `null` vaut 80 % de `capacity_kw`. `first_data_at` et `last_data_at` sont les horodatages de la première et de la dernière mesure écrites dans le Parquet pour ce site ; l'écran en borne le choix de dates de l'historique. Il vaut `null` si le site n'a aucune donnée, ou si le répertoire est illisible : dans ce cas, la liste reste servie et l'échec est journalisé. Le calcul ne lit que la partition du jour le plus récent de chaque site, jamais tout l'historique.
 
 ### `EnergyReading`
 

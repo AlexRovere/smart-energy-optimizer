@@ -114,6 +114,13 @@ describe('consumptionChartOption', () => {
   })
 })
 
+describe('historyTitle : plage choisie', () => {
+  it('annonce les deux bornes', () => {
+    const range = { from: new Date(2026, 8, 1).toISOString(), to: new Date(2026, 8, 16).toISOString() }
+    expect(historyTitle('custom', range)).toBe('Historique de consommation, du 01/09 au 15/09')
+  })
+})
+
 describe('historyTitle', () => {
   it.each([
     ['24h', 'Historique de consommation, 24 dernières heures'],
@@ -201,5 +208,17 @@ describe('predictionTitle', () => {
   it('passe en jours au-delà de deux jours mesurés', () => {
     const history = Array.from({ length: 168 }, (_, i) => reading(i, 100))
     expect(predictionTitle(history, [forecast(0, 100)])).toBe('Mesuré (7 j) puis prévu (1 h)')
+  })
+})
+
+describe('consumptionChartOption : plage choisie', () => {
+  it("étiquette l'axe selon la durée de la plage", () => {
+    const base = { readings, capacityKw: 450, thresholdKw: 300, tone: 'dark' as const }
+    const oneDay = consumptionChartOption({ ...base, window: 'custom' })
+    expect((oneDay as Loose).xAxis.axisLabel.formatter).toBe('{HH}:{mm}')
+
+    const longer = [reading(0, 120), { ...reading(0, 130), timestamp: new Date(T0 + 72 * HOUR).toISOString() }]
+    const several = consumptionChartOption({ ...base, readings: longer, window: 'custom' })
+    expect((several as Loose).xAxis.axisLabel.formatter).toBe('{dd}/{MM}')
   })
 })

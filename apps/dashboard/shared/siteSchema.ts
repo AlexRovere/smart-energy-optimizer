@@ -9,8 +9,9 @@ export const siteApiItemSchema = z.object({
   status: z.enum(['active', 'inactive', 'maintenance']),
   warning_threshold_kw: z.number().int().positive().nullable(),
   present_in_source: z.boolean(),
-  // Horodatage de la dernière mesure écrite dans le Parquet ; ajouté par la
-  // route, absent du référentiel en base.
+  // Première et dernière mesure écrites dans le Parquet ; ajoutées par la
+  // route, absentes du référentiel en base.
+  first_data_at: z.string().nullable().optional(),
   last_data_at: z.string().nullable().optional()
 })
 

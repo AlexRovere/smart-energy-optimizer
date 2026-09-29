@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync } from 'node:fs'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DuckDBInstance } from '@duckdb/node-api'
@@ -61,5 +61,20 @@ describe('querySiteHistory — vrai fichier Parquet', () => {
     expect(result[0]!.consumption_kw).toBeCloseTo(87.34)
     expect(result[0]!.data_quality).toBe('good')
     expect(result[0]!.timestamp).toMatch(/^2026-09-16T14:00:00/)
+  })
+
+  it("n'ouvre que les jours de la plage demandée", async () => {
+    // Un fichier illisible hors de la plage : s'il était ouvert, DuckDB échouerait.
+    const outside = join(tempDir, 'site_id=SITE001', 'year=2026', 'month=09', 'day=20')
+    mkdirSync(outside, { recursive: true })
+    writeFileSync(join(outside, 'readings.parquet'), 'pas un fichier Parquet')
+
+    const result = await querySiteHistory('SITE001', '2026-09-16T00:00:00Z', '2026-09-17T00:00:00Z', 500)
+
+    expect(result).toHaveLength(1)
+  })
+
+  it("rend une liste vide quand aucun jour de la plage n'a de fichier", async () => {
+    expect(await querySiteHistory('SITE001', '2026-01-01T00:00:00Z', '2026-01-03T00:00:00Z', 500)).toEqual([])
   })
 })

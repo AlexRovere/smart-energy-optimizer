@@ -2,16 +2,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { H3Event } from 'h3'
 import handler from '../../../../server/api/sites/index.get'
 
-const { mockRequireAccount, mockAllowedSites, mockQuerySitesList, mockLatestDataPerSite, mockLoggerWarn } = vi.hoisted(() => ({
+const { mockRequireAccount, mockAllowedSites, mockQuerySitesList, mockLatestDataPerSite, mockEarliestDataPerSite, mockLoggerWarn } = vi.hoisted(() => ({
   mockRequireAccount: vi.fn(),
   mockAllowedSites: vi.fn(),
   mockQuerySitesList: vi.fn(),
   mockLatestDataPerSite: vi.fn(),
+  mockEarliestDataPerSite: vi.fn(),
   mockLoggerWarn: vi.fn(),
 }))
 
 vi.mock('../../../../server/utils/parquetFreshness', () => ({
-  latestDataPerSite: mockLatestDataPerSite
+  latestDataPerSite: mockLatestDataPerSite,
+  earliestDataPerSite: mockEarliestDataPerSite
 }))
 
 vi.mock('../../../../server/utils/logger', () => ({
@@ -54,6 +56,7 @@ describe('GET /api/sites', () => {
     vi.clearAllMocks()
     mockRequireAccount.mockResolvedValue(accountFixture)
     mockLatestDataPerSite.mockResolvedValue({})
+    mockEarliestDataPerSite.mockResolvedValue({})
     process.env.NUXT_PARQUET_DIR = '/data'
   })
 
@@ -63,7 +66,7 @@ describe('GET /api/sites', () => {
 
     const result = await handler(mockEvent)
 
-    expect(result).toEqual([{ ...siteFixture, last_data_at: null }])
+    expect(result).toEqual([{ ...siteFixture, first_data_at: null, last_data_at: null }])
     expect(mockAllowedSites).toHaveBeenCalledWith({}, accountFixture)
     expect(mockQuerySitesList).toHaveBeenCalledWith({}, ['SITE001'])
   })
@@ -96,11 +99,12 @@ describe('GET /api/sites', () => {
     mockAllowedSites.mockResolvedValue(['SITE001'])
     mockQuerySitesList.mockResolvedValue([siteFixture])
     mockLatestDataPerSite.mockResolvedValue({ SITE001: '2026-09-29T13:00:00.000Z', SITE009: '2026-09-29T13:00:00.000Z' })
+    mockEarliestDataPerSite.mockResolvedValue({ SITE001: '2025-09-29T00:00:00.000Z' })
 
     const result = await handler(mockEvent)
 
     expect(mockLatestDataPerSite).toHaveBeenCalledWith('/data')
-    expect(result).toEqual([{ ...siteFixture, last_data_at: '2026-09-29T13:00:00.000Z' }])
+    expect(result).toEqual([{ ...siteFixture, first_data_at: '2025-09-29T00:00:00.000Z', last_data_at: '2026-09-29T13:00:00.000Z' }])
   })
 
   it('sert la liste même quand le Parquet est illisible, et le journalise', async () => {
@@ -110,7 +114,7 @@ describe('GET /api/sites', () => {
 
     const result = await handler(mockEvent)
 
-    expect(result).toEqual([{ ...siteFixture, last_data_at: null }])
+    expect(result).toEqual([{ ...siteFixture, first_data_at: null, last_data_at: null }])
     expect(mockLoggerWarn).toHaveBeenCalledOnce()
   })
 })

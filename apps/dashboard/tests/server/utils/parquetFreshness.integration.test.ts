@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DuckDBInstance } from '@duckdb/node-api'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { latestDataPerSite } from '../../../server/utils/parquetFreshness'
+import { earliestDataPerSite, latestDataPerSite } from '../../../server/utils/parquetFreshness'
 
 const rootDir = join(tmpdir(), `parquet-fraicheur-${Date.now()}`)
 
@@ -40,5 +40,12 @@ describe('latestDataPerSite', () => {
 
   it('échoue sur un répertoire absent, pour que l’appelant le signale', async () => {
     await expect(latestDataPerSite(join(rootDir, 'absent'))).rejects.toThrow()
+  })
+
+  it("donne pour chaque site l'horodatage le plus ancien de sa première partition", async () => {
+    expect(await earliestDataPerSite(rootDir)).toEqual({
+      SITE001: '2026-09-30T23:00:00.000Z',
+      SITE002: '2025-12-31T10:00:00.000Z',
+    })
   })
 })
