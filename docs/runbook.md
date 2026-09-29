@@ -69,7 +69,7 @@ tail -n 50 /var/log/enervision/etl.err               # erreurs Compose, SOPS, tr
 Attendu : une ligne `ok` par heure. Passage immédiat :
 
 ```bash
-ETL_METRICS_DIR=/var/lib/enervision/metrics ./etl_cron.sh >> /var/log/enervision/etl.jsonl 2>> /var/log/enervision/etl.err
+ETL_METRICS_DIR=/var/lib/enervision/metrics scripts/etl_cron.sh >> /var/log/enervision/etl.jsonl 2>> /var/log/enervision/etl.err
 ```
 
 [`DEPLOIEMENT.md`](../DEPLOIEMENT.md#passage-horaire-de-letl),
@@ -98,28 +98,35 @@ $SOPS 'docker compose run --rm -T etl python -c "from datetime import datetime, 
 
 Attendu : `manquantes: 0` pour chaque site au second passage de la première commande.
 
-**Jours entiers manquants** (*non rejouée*) : `etl_ensure_history.sh` relit deux ans. Il appelle
+**Jours entiers manquants** (rejouée sur la pile de dev le 29 septembre 2026) : `scripts/etl_ensure_history.sh` relit deux ans. Il appelle
 `docker compose` sans les secrets, il faut donc l'envelopper. Long, à lancer dans `tmux`.
 
 ```bash
-$SOPS './etl_ensure_history.sh' >> /var/log/enervision/etl.jsonl
+$SOPS 'scripts/etl_ensure_history.sh' >> /var/log/enervision/etl.jsonl
 ```
 
 Période précise : [`apps/etl/README.md`](../apps/etl/README.md#commandes).
 
 ### Sauvegarder et restaurer
 
-*Non rejouée.* Une archive chiffrée age : dump PostgreSQL et Parquet. Les scripts ne lisent pas
-le `.env` de la machine : sans `PARQUET_DIR_HOST`, la sauvegarde échoue après le dump. `./backups`
-n'est pas ignoré par git, d'où `BACKUP_DIR`.
+Rejouée sur la pile de dev le 29 septembre 2026 : sauvegarde, restauration dans une base neuve
+(comptes, sites, droits du rôle `etl` et 2 563 fichiers Parquet identiques), refus sans `--force`.
+Une archive chiffrée age : dump PostgreSQL et Parquet. Les scripts se lancent de n'importe où,
+ils se placent eux-mêmes à la racine du dépôt. Ils ne demandent ni `sops` ni les secrets :
+l'utilisateur, la base et le mot de passe PostgreSQL sont lus dans le conteneur `postgres`.
+Ils ne lisent pas le `.env` de la machine : sans `PARQUET_DIR_HOST`, la sauvegarde échoue après
+le dump. `./backups` n'est pas ignoré par git, d'où `BACKUP_DIR`.
 
 ```bash
-PARQUET_DIR_HOST=/data/output BACKUP_DIR="$HOME/backups" ./postgre_backup.sh
-PARQUET_DIR_HOST=/data/output ./postgre_restore.sh "$HOME/backups/enervision-backup-<horodatage>.tar.age"
+PARQUET_DIR_HOST=/data/output BACKUP_DIR="$HOME/backups" scripts/postgre_backup.sh
+PARQUET_DIR_HOST=/data/output scripts/postgre_restore.sh "$HOME/backups/enervision-backup-<horodatage>.tar.age"
 ```
 
-La restauration refuse une base ou un `/data/output` non vides. `--force` écrase la base et
-extrait par-dessus les Parquet existants : arrêter la pile avant.
+La restauration refuse une base ou un `/data/output` non vides, avant toute écriture. `--force`
+écrase la base et extrait par-dessus les Parquet existants : arrêter la pile avant. Le contenu de
+l'archive va dans `PARQUET_DIR_HOST`, quel que soit le nom du dossier sauvegardé. Le rôle `etl`
+est recréé sans connexion si la base est neuve : relancer l'amorçage
+(`$SOPS 'docker compose run --rm seed'`) pour lui rendre son mot de passe.
 
 ### Faire tourner une clé
 

@@ -158,7 +158,7 @@ services:
       # filtre, les couches du moteur de conteneurs noient la seule mesure qui
       # nous intéresse, celle du disque où grossissent les Parquet.
       - "--collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker/.+)($$|/)"
-      # Dernier passage réussi de l'ETL, écrit par etl_cron.sh.
+      # Dernier passage réussi de l'ETL, écrit par scripts/etl_cron.sh.
       - "--collector.textfile.directory=/textfile"
     volumes:
       - /proc:/host/proc:ro
