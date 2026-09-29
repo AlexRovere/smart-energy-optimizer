@@ -1,38 +1,144 @@
-# Boucle de développement locale : la base seule, Nuxt restant sur le poste pour
-# garder le rechargement à chaud. Ce n'est pas un artefact de déploiement, d'où
-# des valeurs par défaut là où docker-compose.yml porte des `${VAR:?}`.
+# Pile de développement : surcharge de docker-compose.yml, jamais utilisée seule.
+# Elle ne porte que les différences : le simulateur de l'API Mock à la place de
+# la source réelle, un historique fictif amorcé au démarrage, et ni proxy ni
+# supervision. Les services communs restent définis une seule fois, dans la base.
 #
-# Passer par `pnpm dev:db`, jamais par ce fichier à la main : les scripts posent
-# `--env-file ../../.env.dev`, sans quoi Compose charge le `.env` de la racine,
-# celui de la production.
+# Passer par `node scripts/dev-stack.mjs` (ou `pnpm dev:stack` depuis
+# apps/dashboard), jamais par ce fichier à la main : le script pose
+# `--env-file dev.env`, sans quoi Compose charge `.env`, celui de la production.
 #
-# Sans `name:`, les deux compositions partagent le projet `enervision-mvp`, donc
-# le préfixe des volumes.
+# Nom de projet distinct : la pile de dev et celle de production cohabitent sur
+# un poste sans partager ni conteneurs ni volumes.
 name: enervision-dev
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: enervision-db-dev
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-enervision}
-      POSTGRES_USER: ${POSTGRES_USER:-enervision}
-      # Un défaut et non un `:?` : ce mot de passe n'ouvre qu'une base liée à la
-      # boucle locale. La valeur qui fait foi est celle de `.env.dev`.
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-enervision-dev-local}
-    # Port distinct de la production, pour que les deux coexistent sur un poste.
+  # Hors dev : proxy et supervision. Un profil que personne n'active les écarte
+  # sans les redéfinir.
+  caddy:
+    profiles: ["prod"]
+  prometheus:
+    profiles: ["prod"]
+  node-exporter:
+    profiles: ["prod"]
+  cadvisor:
+    profiles: ["prod"]
+  grafana:
+    profiles: ["prod"]
+
+  mock-api:
+    build: ./apps/mock-api
+    # Publié pour le dashboard lancé sur le poste (`pnpm dev`).
     ports:
-      - "127.0.0.1:${DEV_DB_PORT:-55432}:5432"
-    volumes:
-      - db_data_dev:/var/lib/postgresql/data
-    # Intervalle serré, là où la production interroge toutes les dix secondes :
-    # c'est ce healthcheck qu'attend `up -d --wait`, plusieurs fois par jour.
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-enervision}"]
-      interval: 2s
-      timeout: 3s
-      retries: 30
+      - "127.0.0.1:${MOCK_API_PUBLISHED_PORT:-9999}:8000"
     restart: unless-stopped
+    networks:
+      - data
+
+  postgres:
+    # Le nom de la base serait celui du conteneur de production.
+    container_name: enervision-db-dev
+    healthcheck:
+      # Intervalle serré : c'est ce healthcheck qu'attend `up --wait`.
+      interval: 2s
+      retries: 30
+
+  # Migrations puis amorçage, à chaque démarrage : les deux sont rejouables.
+  migrate:
+    profiles: !reset []
+  seed:
+    profiles: !reset []
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  # Un volume nommé neuf appartient à root, et l'ETL tourne sous l'uid 1000
+  # (docker-compose.yml). Sans objet quand PARQUET_DIR_HOST est un répertoire
+  # du poste, créé par scripts/dev-stack.mjs.
+  parquet-init:
+    image: alpine:3.22
+    command: ["chown", "1000:1000", "/data"]
+    volumes:
+      - ${PARQUET_DIR_HOST:-parquet_dev}:/data
+    network_mode: none
+
+  # L'ETL réel, contre le simulateur. Au démarrage : le référentiel, puis
+  # DEV_HISTORY_DAYS jours d'historique, puis les 8 derniers jours relus
+  # d'office. `periods` saute un jour déjà présent même incomplet (le cas du
+  # 24 septembre, docs/runbook.md) : sans cette relecture, une pile arrêtée en
+  # milieu de journée laisserait un trou que le ML refuse (heures consécutives).
+  # Ensuite, une relecture des 3 dernières heures toutes les heures, pour que
+  # l'historique suive l'horloge. Le fichier témoin dit que l'amorçage est fait :
+  # ni le ML ni le dashboard ne le lisent (ils ne voient que `site_id=*`).
+  etl:
+    profiles: !reset []
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        rm -f /data/.historique-pret
+        python main.py sites --sync-db
+        python main.py periods \
+          --start-time "$$(date -u -d "-$${DEV_HISTORY_DAYS} days" +%Y-%m-%dT00:00:00)" \
+          --end-time "$$(date -u +%Y-%m-%dT%H:%M:%S)"
+        python main.py hour --hours 192
+        touch /data/.historique-pret
+        while true; do
+          sleep 3600
+          python main.py hour --hours 3 || echo "etl: passage horaire en échec, le suivant rattrape" >&2
+        done
+    environment:
+      DEV_HISTORY_DAYS: ${DEV_HISTORY_DAYS:-365}
+    healthcheck:
+      test: ["CMD", "test", "-f", "/data/.historique-pret"]
+      interval: 5s
+      # L'amorçage d'un an prend quelques minutes.
+      start_period: 15m
+      retries: 3
+    restart: unless-stopped
+    depends_on:
+      mock-api:
+        condition: service_started
+      seed:
+        condition: service_completed_successfully
+      parquet-init:
+        condition: service_completed_successfully
+
+  # Port distinct de la production (8000), comme la base : les deux piles
+  # cohabitent sur un poste.
+  ml:
+    ports: !override
+      - "127.0.0.1:${ML_PUBLISHED_PORT:-58000}:8000"
+
+  # Entraîne le modèle une fois l'historique écrit, s'il n'existe pas encore :
+  # sans modèle champion, le ML répond 503 sur toute prédiction.
+  ml-train:
+    image: curlimages/curl:8.16.0
+    command:
+      - sh
+      - -c
+      - curl -sf http://ml:8000/model > /dev/null || curl -sf -X POST http://ml:8000/training
+    depends_on:
+      ml:
+        condition: service_healthy
+      etl:
+        condition: service_healthy
+    networks:
+      - data
+
+  dashboard:
+    # Pas de Caddy en dev : le dashboard est publié directement. Le cookie de
+    # session est `Secure`, ce que Chrome, Edge et Firefox acceptent sur
+    # http://localhost ; pas Safari.
+    ports:
+      - "127.0.0.1:${DASHBOARD_PUBLISHED_PORT:-3000}:3000"
+    depends_on:
+      seed:
+        condition: service_completed_successfully
 
 volumes:
-  db_data_dev:
+  # L'historique fictif, par défaut (dev.env). Dans la machine virtuelle de
+  # Docker Desktop plutôt que sur le disque du poste : à travers un montage
+  # Windows, le ML met une trentaine de secondes à relire l'historique d'un an
+  # (2 562 fichiers), contre moins d'une seconde ici.
+  parquet_dev:

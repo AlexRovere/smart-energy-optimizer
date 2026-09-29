@@ -75,6 +75,7 @@ jobs:
               - 'infra/**'
               - 'docker-compose.yml'
               - 'docker-compose.dev.yml'
+              - 'dev.env'
               - '.github/workflows/ci.yml'
               - '.github/workflows/deploy.yml'
             loadtest:
@@ -305,10 +306,11 @@ jobs:
           MOCK_API_URL: http://ci
           GRAFANA_ADMIN_PASSWORD: ci
         run: docker compose config --quiet
-      # Aucune variable, et c'est le contrôle : la composition de développement
-      # doit se lire sur un poste qui n'a rien configuré.
-      - name: La composition de développement est valide sans aucune variable
-        run: docker compose -f docker-compose.dev.yml config --quiet
+      # dev.env seul, et c'est le contrôle : la pile de développement doit se
+      # lire sur un poste qui n'a rien configuré. Elle n'existe qu'en surcharge
+      # de la composition de base, d'où les deux fichiers.
+      - name: La composition de développement est valide avec dev.env seul
+        run: docker compose --env-file dev.env -f docker-compose.yml -f docker-compose.dev.yml config --quiet
 
   # Les trois jobs qui suivent construisent les images sans les publier. Le
   # quota de paquets privés de l'offre gratuite est de 500 Mo et l'image du
