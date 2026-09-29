@@ -38,13 +38,13 @@ describe('recommendationsForSite', () => {
   })
 
   it('ne rend rien quand rien ne se déclenche', async () => {
-    expect(await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)).toEqual([])
+    expect(await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)).toEqual({ recommendations: [], unavailable: [] })
   })
 
   it('recommande sur une alerte conso réelle du jour, source threshold', async () => {
     mockConsoHistory.mockResolvedValue({ alert: true, average: 230, thresholdKwh: 200 })
 
-    const résultat = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
+    const { recommendations: résultat } = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
 
     expect(résultat).toHaveLength(1)
     expect(résultat[0]).toMatchObject({
@@ -58,7 +58,7 @@ describe('recommendationsForSite', () => {
   it('recommande sur une alerte pic réelle du jour, source threshold', async () => {
     mockSpikeHistory.mockResolvedValue({ alert: true, currentValue: 310, average: 200, thresholdKw: 300 })
 
-    const résultat = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
+    const { recommendations: résultat } = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
 
     expect(résultat).toHaveLength(1)
     expect(résultat[0]).toMatchObject({
@@ -75,7 +75,7 @@ describe('recommendationsForSite', () => {
       { timestamp: '2026-09-18T12:00:00.000Z', alert: true, average: 210, thresholdKwh: 200 }
     ])
 
-    const résultat = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
+    const { recommendations: résultat } = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
 
     expect(résultat).toHaveLength(1)
     expect(résultat[0]).toMatchObject({
@@ -90,7 +90,7 @@ describe('recommendationsForSite', () => {
       { timestamp: '2026-09-18T11:00:00.000Z', alert: true, average: 500, thresholdKwh: 200 }
     ])
 
-    const résultat = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
+    const { recommendations: résultat } = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
 
     expect(résultat).toHaveLength(1)
     expect(résultat[0]!.source).toBe('threshold')
@@ -101,7 +101,7 @@ describe('recommendationsForSite', () => {
     mockConsoHistory.mockResolvedValue({ alert: true, average: 230, thresholdKwh: 200 })
     mockSpikeHistory.mockResolvedValue({ alert: true, currentValue: 310, average: 200, thresholdKw: 300 })
 
-    const résultat = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
+    const { recommendations: résultat } = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
 
     expect(résultat.map(r => r.type).sort()).toEqual(['efficiency', 'load_balancing'])
   })
@@ -110,18 +110,18 @@ describe('recommendationsForSite', () => {
     mockConsoHistory.mockResolvedValue({ alert: true, average: 230, thresholdKwh: 200 })
     mockSpikeHistory.mockResolvedValue({ alert: true, currentValue: 310, average: 200, thresholdKw: 300 })
 
-    const résultat = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
+    const { recommendations: résultat } = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
 
     expect(résultat).toHaveLength(2)
     expect(résultat[0]!.priority).toBe('high')
     expect(résultat[1]!.priority).toBe('medium')
   })
 
-  it('interroge les prédictions sur l\'horizon complet de 168h', async () => {
+  it("interroge les prédictions sur 48 h, horizon au-delà duquel une alerte n'est plus actionnable", async () => {
     await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
 
-    expect(mockConsoPredictions).toHaveBeenCalledWith(DB, 'SITE001', RÉFÉRENCE, 168)
-    expect(mockSpikePredictions).toHaveBeenCalledWith(DB, 'SITE001', RÉFÉRENCE, 168)
+    expect(mockConsoPredictions).toHaveBeenCalledWith(DB, 'SITE001', RÉFÉRENCE, 48)
+    expect(mockSpikePredictions).toHaveBeenCalledWith(DB, 'SITE001', RÉFÉRENCE, 48)
   })
 
   it('retourne les recommandations de seuil même quand le ML est indisponible', async () => {
@@ -130,7 +130,7 @@ describe('recommendationsForSite', () => {
     mockConsoPredictions.mockRejectedValue(new Error('ML service unavailable'))
     mockSpikePredictions.mockRejectedValue(new Error('ML service unavailable'))
 
-    const résultat = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
+    const { recommendations: résultat } = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
 
     expect(résultat).toHaveLength(2)
     expect(résultat.every(r => r.source === 'threshold')).toBe(true)
@@ -140,7 +140,7 @@ describe('recommendationsForSite', () => {
     mockConsoPredictions.mockRejectedValue(new Error('ML service unavailable'))
     mockSpikePredictions.mockRejectedValue(new Error('ML service unavailable'))
 
-    const résultat = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
+    const { recommendations: résultat } = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
 
     expect(résultat).toEqual([])
   })
@@ -149,8 +149,36 @@ describe('recommendationsForSite', () => {
     mockConsoHistory.mockRejectedValue(new Error("NUXT_PARQUET_DIR n'est pas défini — historique indisponible"))
     mockSpikeHistory.mockRejectedValue(new Error("NUXT_PARQUET_DIR n'est pas défini — historique indisponible"))
 
-    const résultat = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
+    const { recommendations: résultat } = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
 
     expect(résultat).toEqual([])
+  })
+
+  it('dit que la prévision a manqué quand le ML est indisponible', async () => {
+    mockConsoPredictions.mockRejectedValue(new Error('ML service unavailable'))
+    mockSpikePredictions.mockRejectedValue(new Error('ML service unavailable'))
+
+    const { unavailable } = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
+
+    expect(unavailable).toEqual(['forecast'])
+  })
+
+  it("dit que l'historique a manqué quand le Parquet est inaccessible", async () => {
+    mockConsoHistory.mockRejectedValue(new Error('historique indisponible'))
+    mockSpikeHistory.mockRejectedValue(new Error('historique indisponible'))
+
+    const { unavailable } = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
+
+    expect(unavailable).toEqual(['history'])
+  })
+
+  it("ne signale rien quand une alerte du jour dispense d'interroger la prévision", async () => {
+    mockConsoHistory.mockResolvedValue({ alert: true, average: 230, thresholdKwh: 200 })
+    mockSpikeHistory.mockResolvedValue({ alert: true, currentValue: 310, average: 200, thresholdKw: 300 })
+    mockConsoPredictions.mockRejectedValue(new Error('ML service unavailable'))
+
+    const { unavailable } = await recommendationsForSite(DB, 'SITE001', RÉFÉRENCE)
+
+    expect(unavailable).toEqual([])
   })
 })

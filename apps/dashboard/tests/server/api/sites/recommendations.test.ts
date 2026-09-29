@@ -41,11 +41,11 @@ describe('GET /api/sites/[id]/recommendations', () => {
   it('rend les recommandations calculées pour un site autorisé', async () => {
     mockGetRouterParam.mockReturnValue('SITE001')
     const recommandation = { recommendation_id: 'REC-SITE001-conso-2026-09-18T10:00:00.000Z' }
-    mockRecommendationsForSite.mockResolvedValue([recommandation])
+    mockRecommendationsForSite.mockResolvedValue({ recommendations: [recommandation], unavailable: ['forecast'] })
 
     const résultat = await handler(mockEvent)
 
-    expect(résultat).toEqual([recommandation])
+    expect(résultat).toEqual({ recommendations: [recommandation], unavailable: ['forecast'] })
     expect(mockRequireSiteAccess).toHaveBeenCalledWith(mockEvent, 'SITE001')
     expect(mockRecommendationsForSite).toHaveBeenCalledWith({}, 'SITE001', expect.any(Date))
   })

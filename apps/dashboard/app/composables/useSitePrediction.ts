@@ -47,6 +47,8 @@ export function useSitePrediction(siteId: Ref<SiteId>, horizonHeures: Ref<number
     predictedAt: computed(() => data.value?.predicted_at ?? null),
     nbPoints: computed(() => forecastPoints.value.length),
     available: computed(() => error.value == null),
+    // Motif rendu par la route (#6) : historique insuffisant, modèle absent...
+    failureMessage: computed(() => error.value?.statusMessage ?? null),
     lancer,
     lancee,
     dureeMs,

@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { requireSiteAccess } from '../../../utils/guard'
 import { logger } from '../../../utils/logger'
 import { fetchModelInfo, fetchPredictions } from '../../../utils/mlClient'
+import { predictionFailure } from '../../../utils/predictionFailure'
 import { hoursInHorizon } from '../../../utils/predictionHorizon'
 
 const bodySchema = z.object({
@@ -42,11 +43,12 @@ export default defineEventHandler(async (event) => {
       }))
     }
   } catch (err) {
-    logger.error('Service de prédiction indisponible', {
+    const { status, message } = predictionFailure(err)
+    logger.error(message, {
       route: event.path,
       siteId,
       message: err instanceof Error ? err.message : String(err),
     })
-    throw createError({ status: 503, statusText: 'Service de prédiction indisponible' })
+    throw createError({ status, statusText: message })
   }
 })

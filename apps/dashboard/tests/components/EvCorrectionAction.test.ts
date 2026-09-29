@@ -27,7 +27,6 @@ describe('EvCorrectionAction', () => {
     ['le titre de la recommandation', ['Décaler la relance CVC de 45 min']],
     ['la description (fenêtre + confiance)', ['fenêtre 14:30 → 15:15 · confiance haute']],
     ['le gain en kW', ['-17', 'kW']],
-    ['le score de confiance', ['0,88']],
   ])('affiche %s', async (_description, textesAttendus) => {
     const wrapper = await mountSuspended(EvCorrectionAction, { props: { recommendation: mockRec } })
     for (const texteAttendu of textesAttendus) {
@@ -49,5 +48,11 @@ describe('EvCorrectionAction', () => {
       title: 'Fonctionnalité non disponible dans cette version',
       color: 'warning',
     }))
+  })
+
+  it("n'affiche pas de confiance : le modèle n'en produit pas", async () => {
+    useToastMock.mockReturnValue({ add: vi.fn() })
+    const wrapper = await mountSuspended(EvCorrectionAction, { props: { recommendation: mockRec } })
+    expect(wrapper.text()).not.toContain('0,88')
   })
 })

@@ -56,7 +56,7 @@ describe('usePredictions', () => {
   beforeEach(() => {
     mockUseFetch.mockReset()
     mockUseFetch.mockReturnValue({
-      data: ref([recommendationFixture]),
+      data: ref({ recommendations: [recommendationFixture], unavailable: [] }),
       pending: ref(false),
       error: ref(null)
     })
