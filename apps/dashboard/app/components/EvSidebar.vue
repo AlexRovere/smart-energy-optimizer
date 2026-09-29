@@ -75,6 +75,11 @@ const systemItems: NavigationMenuItem[] = [
     icon: 'i-heroicons-cog-6-tooth',
     to: '/settings',
   },
+  {
+    label: 'Aide',
+    icon: 'i-heroicons-question-mark-circle',
+    to: '/help',
+  },
 ]
 </script>
 

@@ -104,4 +104,11 @@ describe('EvSidebar', () => {
 
     expect(wrapper.text()).toContain('Service indisponible')
   })
+
+  it("mène à la page d'aide depuis toutes les pages", async () => {
+    mockDefaults()
+    const wrapper = await mountSuspended(EvSidebar)
+    const link = wrapper.findAll('a').find(a => a.text().includes('Aide'))
+    expect(link?.attributes('href')).toBe('/help')
+  })
 })
