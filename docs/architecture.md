@@ -42,6 +42,7 @@ flowchart TB
 | ML | Python, MLflow, FastAPI | Entraînement, registre de modèles, endpoint de prédiction | Réseau interne |
 | Base relationnelle | PostgreSQL | Comptes, rôles, référentiel des sites et leurs réglages. Rien d'autre | Réseau interne |
 | Stockage des mesures | Fichiers Parquet, dans un répertoire de la machine | Les séries nettoyées, partitionnées par site | Montages |
+| Simulateur de l'API Mock | Python, FastAPI | Rejoue le contrat de l'API Mock avec des données déterministes : développement, tests de charge, relève de la source | Hors production tant que la source existe |
 
 ## Données
 
@@ -242,6 +243,8 @@ Grafana passe derrière le proxy, ce que l'arbitrage de #55 excluait. Le motif a
 **Un port dédié plutôt qu'un sous-chemin.** Sous une adresse IP, `grafana.<domaine>` n'existe pas : il faudrait un enregistrement dans l'AD de l'école. Restaient le sous-chemin `/grafana` et le port dédié. Le port l'emporte parce qu'il ne demande rien à Grafana, là où un service sous-chemin impose de lui déclarer sa racine et de faire correspondre les chemins de ses ressources. Il se referme aussi seul, sans toucher au site principal. Ce qu'il coûte : la phrase « un seul port publié » devient « deux ports publiés, tous deux servis par le proxy », et les ports d'administration restent sur la boucle locale.
 
 **La limitation de débit reste dans l'applicatif.** Elle figurait parmi les responsabilités du proxy dans la table des briques. Caddy ne la porte pas sans module tiers, et #29 l'implémente déjà côté Nuxt, indexée sur l'IP **et** sur le compte, ce qu'un proxy ne saurait pas faire. La ligne a donc été retirée de la table plutôt que promise deux fois.
+
+**Un simulateur de l'API Mock dans le dépôt.** Tranché le 29 septembre 2026, avec #38. L'API Mock appartient à la formation et peut s'éteindre après la piscine. Sans elle l'ETL n'ingère plus rien, le temps réel tombe, et le ML finit par refuser de prédire faute d'heures récentes. `apps/mock-api` en rejoue le contrat, calé sur des réponses réelles enregistrées tant qu'elle répondait, et `MOCK_API_URL` reste le seul interrupteur : aucun consommateur ne sait à qui il parle. Il remplace le stub des tests de charge, qui ne servait qu'une route.
 
 ## Où trouver le reste
 

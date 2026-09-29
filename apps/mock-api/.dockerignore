@@ -1,0 +1,12 @@
+.venv
+**/__pycache__
+**/*.pyc
+.git
+.env
+.env.*
+.pytest_cache
+.ruff_cache
+.coverage
+
+# Tests et captures : l'image n'embarque que src.
+tests/

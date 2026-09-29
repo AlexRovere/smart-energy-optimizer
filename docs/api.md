@@ -89,6 +89,8 @@ Sur échec : trois tentatives avec attente croissante, puis `503`.
 
 **Limite de la source : 500 points par heure et par client.** Elle contraint le chargement de l'historique, pas le temps réel.
 
+**Simulateur.** [`apps/mock-api`](../apps/mock-api/README.md) rejoue ce contrat, calé sur des réponses réelles enregistrées le 29 septembre 2026. Il sert la pile de développement et les tests de charge, et prend la relève si la source disparaît : seule `MOCK_API_URL` change.
+
 ---
 
 ## 3. Applicatif et service ML vers les fichiers Parquet

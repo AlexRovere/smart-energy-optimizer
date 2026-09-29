@@ -1,0 +1,1 @@
+[{"alert_id":"ALR-SITE007-1790669221","timestamp":"2026-09-29T07:37:01.027029","site_id":"SITE007","severity":"low","type":"sensor","message":"Défaillance capteur détectée sur Usine Nantes Rezé","value":845.23,"threshold":675.0}]

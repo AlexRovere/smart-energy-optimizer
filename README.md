@@ -15,6 +15,7 @@ Monorepo. La structure du dépôt n'est pas l'architecture de déploiement : les
 | `apps/dashboard/`    | BFF Nuxt : API de restitution et tableau de bord                         | `domain:front`, `domain:api` |
 | `apps/etl/`          | Ingestion Python des capteurs simulés vers les fichiers Parquet          | `domain:data`                |
 | `apps/ml/`           | Service de prédiction (FastAPI, Prophet, MLflow)                         | `domain:ml`                  |
+| `apps/mock-api/`     | Simulateur de l'API Mock : même contrat, données déterministes           | `domain:data`                |
 | `infra/ansible/`     | Configuration de la machine sur site, rejouable                          | `domain:cloud`               |
 | `infra/grafana/`      | Supervision : source de données et tableaux, provisionnés depuis le dépôt   | `domain:cloud`               |
 | `.github/workflows/` | Pipeline build, test, scan, deploy                                       | `domain:cicd`                |
