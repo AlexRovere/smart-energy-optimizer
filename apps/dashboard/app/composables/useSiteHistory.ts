@@ -22,9 +22,10 @@ export function useSiteHistory(
 ) {
   const { data, pending, error } = useFetch<Reading[]>(
     () => {
+      const preset = timeWindow.value === '24h' ? '24h' : '7j'
       const { from, to } = timeWindow.value === 'custom' && customRange.value
         ? customRange.value
-        : timeRange(timeWindow.value === '24h' ? '24h' : '7j')
+        : timeRange(preset)
       return `/api/sites/${siteId.value}/history?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
     },
     { watch: [siteId, timeWindow, customRange] }

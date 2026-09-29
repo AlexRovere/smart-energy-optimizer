@@ -122,9 +122,9 @@ export function consumptionChartOption(input: {
 
   const yMax = niceMax(Math.max(...values, input.capacityKw ?? 0, input.thresholdKw ?? 0))
   const times = data.map(p => p[0])
-  const labelFormat = input.window === 'custom'
-    ? timeLabel(Math.max(...times) - Math.min(...times))
-    : input.window === '24h' ? '{HH}:{mm}' : '{dd}/{MM}'
+  let labelFormat = input.window === '24h' ? '{HH}:{mm}' : '{dd}/{MM}'
+  // Une plage choisie s'étiquette selon sa durée réelle.
+  if (input.window === 'custom') labelFormat = timeLabel(Math.max(...times) - Math.min(...times))
 
   const series: LineSeriesOption = {
     id: 'consumption',

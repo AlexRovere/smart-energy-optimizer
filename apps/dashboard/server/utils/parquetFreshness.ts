@@ -41,17 +41,21 @@ async function edgeTimestamp(dayDir: string, edge: Edge): Promise<string | null>
   return value instanceof Date ? value.toISOString() : null
 }
 
+// Chaque niveau dépend du précédent : la descente d'un site est séquentielle,
+// mais les sites se traitent en parallèle.
+async function siteEdge(siteDir: string, edge: Edge): Promise<string | null> {
+  const year = await edgePartition(siteDir, 'year', edge)
+  const month = year && await edgePartition(year, 'month', edge)
+  const day = month && await edgePartition(month, 'day', edge)
+  return day && edgeTimestamp(day, edge)
+}
+
 async function edgeDataPerSite(parquetDir: string, edge: Edge): Promise<Record<string, string>> {
-  const result: Record<string, string> = {}
-  for (const site of await partitions(parquetDir, 'site_id')) {
-    let dir: string | null = site.path
-    for (const key of ['year', 'month', 'day']) {
-      dir = dir && await edgePartition(dir, key, edge)
-    }
-    const timestamp = dir && await edgeTimestamp(dir, edge)
-    if (timestamp) result[site.value] = timestamp
-  }
-  return result
+  const sites = await partitions(parquetDir, 'site_id')
+  const edges = await Promise.all(sites.map(site => siteEdge(site.path, edge)))
+  return Object.fromEntries(
+    sites.flatMap((site, index) => (edges[index] ? [[site.value, edges[index]]] : []))
+  )
 }
 
 export function latestDataPerSite(parquetDir: string): Promise<Record<string, string>> {
