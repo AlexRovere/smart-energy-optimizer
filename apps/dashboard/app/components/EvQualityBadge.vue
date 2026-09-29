@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DataQuality } from '../types/api'
+import { qualityHint, qualityLabel } from '../utils/labels'
 
 const props = defineProps<{ quality: DataQuality }>()
 
@@ -15,7 +16,8 @@ const badge = computed(() => MAP[props.quality])
 
 <template>
   <UBadge
-    :label="quality"
+    :label="qualityLabel(quality)"
+    :title="qualityHint(quality)"
     :color="badge.color"
     :variant="badge.variant"
     size="xs"

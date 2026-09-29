@@ -15,15 +15,12 @@ const {
   sitesCriticalCount,
   alerts,
   alertsByLevel,
+  refreshedAt,
+  refreshFailed,
+  refresh,
 } = useFleetOverview()
 
-const lastUpdate = computed(() => {
-  if (!stats.value?.timestamp) return ''
-  return new Date(stats.value.timestamp).toLocaleString('fr-FR', {
-    hour: '2-digit', minute: '2-digit',
-    day: '2-digit', month: '2-digit',
-  })
-})
+const lastUpdate = computed(() => refreshLabel(refreshedAt.value, refreshFailed.value))
 
 type AlertFilter = 'all' | AlertSeverity
 
@@ -52,10 +49,10 @@ const filteredAlerts = computed(() =>
       <header class="flex items-start justify-between gap-4">
         <div>
           <h2 class="font-ev text-[28px] font-bold tracking-tight">Vue d'ensemble du parc</h2>
-          <p class="font-ev text-sm text-ev-text-2 mt-1">stats/summary · timestamp {{ lastUpdate }}</p>
+          <p class="font-ev text-sm mt-1" :class="refreshFailed ? 'text-ev-amber' : 'text-ev-text-2'">{{ lastUpdate }}</p>
         </div>
         <div class="flex gap-3 shrink-0 mt-1">
-          <EvButton variant="secondary">Rafraîchir</EvButton>
+          <EvButton variant="secondary" @click="refresh()">Rafraîchir</EvButton>
           <EvButton data-testid="exporter-btn" variant="primary" @click="exporter()">Exporter le relevé</EvButton>
         </div>
       </header>
@@ -87,7 +84,7 @@ const filteredAlerts = computed(() =>
           label="CAPACITÉ TOTALE"
           :value="totalCapacityDisplay"
           unit="kW"
-          :note="stats ? `Somme des capacity_kw · ${stats.sites_total} sites actifs` : ''"
+          :note="stats ? `Somme des capacités · ${stats.sites_total} sites actifs` : ''"
           note-tone="muted"
         />
         <EvKpiCard
@@ -111,7 +108,11 @@ const filteredAlerts = computed(() =>
           </div>
         </template>
 
-        <EvSitesTable :sites="siteSummary" />
+        <EvSitesTable
+          :sites="siteSummary"
+          clickable
+          @select="navigateTo(`/sites/${$event.site_id}`)"
+        />
       </EvCard>
 
     </div>

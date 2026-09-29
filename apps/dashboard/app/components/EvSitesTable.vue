@@ -22,7 +22,7 @@ function fmtLoad(pct: number | null): string {
 
 function fmtConso(kw: number | null): string {
   if (kw == null) return '—'
-  return kw.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return kw.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' kW'
 }
 </script>
 
@@ -44,7 +44,7 @@ function fmtConso(kw: number | null): string {
           v-for="site in props.sites"
           :key="site.site_id"
           class="border-b last:border-0 transition-colors"
-          :class="{ 'cursor-pointer': props.clickable }"
+          :class="{ 'cursor-pointer focus-visible:outline-2 focus-visible:outline-(--ev-green) focus-visible:-outline-offset-2': props.clickable }"
           :tabindex="props.clickable ? 0 : undefined"
           style="border-color: var(--ev-border)"
           @click="props.clickable && emit('select', site)"
@@ -56,14 +56,14 @@ function fmtConso(kw: number | null): string {
           <td class="py-3.5 pr-6">
             <div class="font-ev text-sm font-semibold">{{ site.site_name }}</div>
             <div class="font-ev-mono text-[11px] text-ev-text-3 mt-0.5">
-              {{ site.site_id }} · {{ site.site_type ?? '—' }}
+              {{ site.site_id }} · {{ siteTypeLabel(site.site_type) }}
             </div>
           </td>
           <td class="py-3.5 pr-6 text-right font-ev-mono text-sm">
             {{ fmtConso(site.current_consumption_kw) }}
           </td>
           <td class="py-3.5 pr-8 text-right font-ev-mono text-sm">
-            {{ site.capacity_kw.toLocaleString('fr-FR') }}
+            {{ site.capacity_kw.toLocaleString('fr-FR') }} kW
           </td>
           <td class="py-3.5 pr-8">
             <div class="flex items-center gap-2.5">

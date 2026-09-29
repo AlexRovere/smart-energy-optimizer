@@ -123,3 +123,34 @@ describe('useFleetSummary', () => {
     })
   })
 })
+
+describe('useFleetSummary : heure de rafraîchissement', () => {
+  afterEach(() => { vi.useRealTimers() })
+
+  it('date chaque réponse reçue, pas le timestamp de la source', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-29T14:32:00Z'))
+    const data = ref<unknown>(null)
+    mockUseFetch.mockReturnValue({ data, pending: ref(false), error: ref(null), refresh: vi.fn() })
+    const { refreshedAt } = useFleetSummary()
+    expect(refreshedAt.value).toBeNull()
+
+    data.value = { ...parkSummaryFixture }
+    await nextTick()
+
+    expect(refreshedAt.value).toBe(Date.parse('2026-09-29T14:32:00Z'))
+  })
+
+  it("signale l'échec du dernier rafraîchissement", () => {
+    mockUseFetch.mockReturnValue({ data: ref(null), pending: ref(false), error: ref(new Error('503')), refresh: vi.fn() })
+    const { refreshFailed } = useFleetSummary()
+    expect(refreshFailed.value).toBe(true)
+  })
+
+  it('expose le rafraîchissement manuel', () => {
+    const refresh = vi.fn()
+    mockUseFetch.mockReturnValue({ data: ref(null), pending: ref(false), error: ref(null), refresh })
+    useFleetSummary().refresh()
+    expect(refresh).toHaveBeenCalledOnce()
+  })
+})

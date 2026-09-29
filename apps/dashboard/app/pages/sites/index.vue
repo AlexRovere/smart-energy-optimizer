@@ -4,15 +4,9 @@ import type { AlertSeverity } from '~/types/api';
 const router = useRouter()
 
 const { sites, getSiteAlerts } = useSites()
-const { stats } = useFleetOverview()
+const { refreshedAt, refreshFailed } = useFleetOverview()
 
-const lastUpdate = computed(() => {
-  if (!stats.value) return
-  return new Date(stats.value.timestamp).toLocaleDateString('fr-FR', {
-    hour: '2-digit', minute: '2-digit',
-    day: '2-digit', month: '2-digit'
-  })
-})
+const lastUpdate = computed(() => refreshLabel(refreshedAt.value, refreshFailed.value))
 
 const sitesOk = computed(() => sites.value.filter(s => s.health === 'ok').length)
 const sitesDegraded = computed(() => sites.value.filter(s => s.health === 'degraded').length)
@@ -50,7 +44,7 @@ const alertsByLevel = computed(() => {
       <header class="flex items-start justify-between gap-4">
         <div>
           <h2 class="font-ev text-[28px] font-bold tracking-tight">Sites et capteurs</h2>
-          <p class="font-ev text-sm text-ev-text-2 mt-1">sites/summary · timestamp {{ lastUpdate }}</p>
+          <p class="font-ev text-sm mt-1" :class="refreshFailed ? 'text-ev-amber' : 'text-ev-text-2'">{{ lastUpdate }}</p>
         </div>
         <div class="flex gap-3 shrink-0 mt-1">
           <EvButton variant="secondary">Rafraîchir</EvButton>
