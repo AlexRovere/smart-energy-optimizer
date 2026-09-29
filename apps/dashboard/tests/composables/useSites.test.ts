@@ -14,6 +14,9 @@ vi.mock('../../app/composables/useAlerts', () => ({
   })
 }))
 
+vi.mock('../../app/composables/useSensorsStatus', async () =>
+  (await import('../fixtures/sensorsStatus')).sensorsStatusModule)
+
 vi.mock('../../app/composables/useSitesList', () => ({
   useSitesList: () => ({
     sites: ref([
@@ -109,14 +112,10 @@ describe('useSites', () => {
     expect(alerts).toEqual([])
   })
 
-  it('getSiteHealth returns critical for SITE003', () => {
+  it("getSiteHealth rend l'état global relevé par les capteurs", () => {
     const { getSiteHealth } = useSites()
-    expect(getSiteHealth('SITE003')).toBe('critical')
-  })
-
-  it('getSiteHealth returns ok for a healthy site', () => {
-    const { getSiteHealth } = useSites()
-    expect(getSiteHealth('SITE001')).toBe('ok')
+    expect(getSiteHealth('SITE001')).toBe('critical')
+    expect(getSiteHealth('SITE003')).toBe('ok')
   })
 
   it('SITE003 has null consumption', () => {
@@ -143,48 +142,3 @@ describe('getSiteInfo', () => {
   })
 })
 
-describe('getCurrentReading', () => {
-  it('returns current reading with electrical data for SITE001', () => {
-    const { getCurrentReading } = useSites()
-    const r = getCurrentReading('SITE001' as SiteId)
-    expect(r).not.toBeNull()
-    expect(r!.voltage_v).toBeGreaterThan(0)
-    expect(r!.power_factor).toBeGreaterThan(0)
-    expect(r!.temperature_celsius).toBeGreaterThan(0)
-  })
-
-  it('returns null for unknown id', () => {
-    const { getCurrentReading } = useSites()
-    // @ts-expect-error expected wrong type
-    expect(getCurrentReading('UNKNOWN')).toBeNull()
-  })
-
-  it('SITE003 reading has null consumption and electrical data', () => {
-    const { getCurrentReading } = useSites()
-    const r = getCurrentReading('SITE003' as SiteId)
-    expect(r).not.toBeNull()
-    expect(r!.consumption_kw).toBeNull()
-    expect(r!.voltage_v).toBeNull()
-  })
-})
-
-describe('getReadings', () => {
-  it('returns 24 hourly readings for SITE001', () => {
-    const { getReadings } = useSites()
-    const readings = getReadings('SITE001' as SiteId)
-    expect(readings).toHaveLength(24)
-    expect(readings[0]!.site_id).toBe('SITE001')
-  })
-
-  it('readings are sorted oldest first', () => {
-    const { getReadings } = useSites()
-    const readings = getReadings('SITE001' as SiteId)
-    expect(readings[0]!.timestamp < readings[23]!.timestamp).toBe(true)
-  })
-
-  it('returns empty array for unknown id', () => {
-    const { getReadings } = useSites()
-    // @ts-expect-error expected wrong type
-    expect(getReadings('UNKNOWN')).toEqual([])
-  })
-})

@@ -17,6 +17,18 @@ const initiales = computed(() => {
 
 const labelRôle = computed(() => roleLabel(account.value?.role))
 const { modele, rafraichirModele, disponible: modeleDisponible } = useModeleML()
+const { health } = useHealth()
+
+const SERVICE = {
+  ok: { badge: 'ok', label: 'Service opérationnel' },
+  degraded: { badge: 'degraded', label: 'Historique indisponible' },
+  down: { badge: 'critical', label: 'Service indisponible' },
+} as const
+
+const service = computed(() => health.value ? SERVICE[health.value.status] : null)
+const derniereCollecte = computed(() => health.value?.last_data_at
+  ? `dernière collecte ${fmtShortDateTime(health.value.last_data_at)}`
+  : 'aucune collecte connue')
 
 watch(dernierEntrainement, (val) => {
   if (val?.statut === 'succès') rafraichirModele()
@@ -133,16 +145,13 @@ const systemeItems: NavigationMenuItem[] = [
 
         <!-- Status API -->
         <div
-          v-if="!collapsed"
+          v-if="!collapsed && service"
           class="border border-ev-border rounded-ev-btn p-3.5 flex flex-col gap-2.5"
         >
           <span class="font-ev text-[11px] font-medium tracking-[0.06em] text-ev-text-4">COLLECTE</span>
-          <EvHealthBadge status="ok" label="API healthy" />
+          <EvHealthBadge :status="service.badge" :label="service.label" />
           <span class="font-ev-mono text-[11px] leading-snug text-ev-text-4">
-            polling /current · 60 s
-          </span>
-          <span class="font-ev-mono text-[11px] leading-snug text-ev-text-4">
-            dernière collecte · 14/09/2026
+            {{ derniereCollecte }}
           </span>
         </div>
 

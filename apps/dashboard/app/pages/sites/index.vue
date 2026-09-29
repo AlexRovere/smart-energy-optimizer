@@ -4,7 +4,7 @@ import type { AlertSeverity } from '~/types/api';
 const router = useRouter()
 
 const { sites, getSiteAlerts } = useSites()
-const { refreshedAt, refreshFailed } = useFleetOverview()
+const { refreshedAt, refreshFailed, refresh } = useFleetOverview()
 
 const lastUpdate = computed(() => refreshLabel(refreshedAt.value, refreshFailed.value))
 
@@ -47,7 +47,7 @@ const alertsByLevel = computed(() => {
           <p class="font-ev text-sm mt-1" :class="refreshFailed ? 'text-ev-amber' : 'text-ev-text-2'">{{ lastUpdate }}</p>
         </div>
         <div class="flex gap-3 shrink-0 mt-1">
-          <EvButton variant="secondary">Rafraîchir</EvButton>
+          <EvButton variant="secondary" @click="refresh()">Rafraîchir</EvButton>
         </div>
       </header>
 
@@ -83,9 +83,9 @@ const alertsByLevel = computed(() => {
         </template>
         <template #subtitle>
           <div class="flex gap-3 font-ev-mono text-xs">
-            <span style="color: var(--ev-green)">{{ sitesOk }} ok</span>
-            <span style="color: var(--ev-amber)">{{ sitesDegraded }} degraded</span>
-            <span style="color: var(--ev-red)">{{ sitesCritical }} critical</span>
+            <span style="color: var(--ev-green)">{{ sitesOk }} sain{{ sitesOk > 1 ? 's' : '' }}</span>
+            <span style="color: var(--ev-amber)">{{ sitesDegraded }} dégradé{{ sitesDegraded > 1 ? 's' : '' }}</span>
+            <span style="color: var(--ev-red)">{{ sitesCritical }} critique{{ sitesCritical > 1 ? 's' : '' }}</span>
           </div>
         </template>
 

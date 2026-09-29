@@ -22,6 +22,7 @@ export interface Site {
   capacity_kw: number;          // 200–1000
   status: SiteStatus;
   threshold_kw?: number | null; // paramètre local — absent de l'API Mock
+  last_data_at?: string | null; // dernière mesure dans le Parquet
 }
 
 export interface CurrentReading {
@@ -128,6 +129,7 @@ export interface SiteSummary {
   load_percent: number | null;
   data_quality: DataQuality;
   health: SensorHealth;
+  last_data_at?: string | null;
 }
 
 export interface HealthResponse {

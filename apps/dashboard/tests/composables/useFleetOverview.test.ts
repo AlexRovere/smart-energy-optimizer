@@ -19,9 +19,14 @@ vi.mock('../../app/composables/useAlerts', () => ({
   }),
 }))
 
+vi.mock('../../app/composables/useSensorsStatus', async () =>
+  (await import('../fixtures/sensorsStatus')).sensorsStatusModule)
+
 vi.mock('../../app/composables/useSitesList', () => ({
   useSitesList: () => ({
-    sites: ref([]),
+    sites: ref([
+      { site_id: 'SITE001', site_name: 'Bureau Paris La Défense', site_type: 'office', location: null, capacity_kw: 300, status: 'active', warning_threshold_kw: null, present_in_source: true, last_data_at: '2026-09-29T13:00:00.000Z' },
+    ]),
     pending: ref(false),
     error: ref(null)
   })
@@ -153,5 +158,17 @@ describe('useFleetOverview', () => {
   it('is not pending', () => {
     const { pending } = useFleetOverview()
     expect(pending.value).toBe(false)
+  })
+
+  it("tire la santé de chaque site de l'état réel des capteurs", () => {
+    const { siteSummary } = useFleetOverview()
+    const santé = Object.fromEntries(siteSummary.value.map(s => [s.site_id, s.health]))
+    expect(santé).toMatchObject({ SITE001: 'critical', SITE002: 'degraded', SITE003: 'ok' })
+  })
+
+  it('reporte la date de la dernière donnée de chaque site', () => {
+    const { siteSummary } = useFleetOverview()
+    expect(siteSummary.value.find(s => s.site_id === 'SITE001')?.last_data_at).toBe('2026-09-29T13:00:00.000Z')
+    expect(siteSummary.value.find(s => s.site_id === 'SITE002')?.last_data_at).toBeNull()
   })
 })

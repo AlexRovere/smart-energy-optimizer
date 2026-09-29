@@ -12,7 +12,8 @@ const SITE = {
   capacity_kw: 1200,
   load_percent: 7.3,
   data_quality: 'partial',
-  health: 'ok',
+  health: 'degraded',
+  last_data_at: new Date(2026, 8, 29, 13, 0).toISOString(),
 } as SiteSummary
 
 describe('EvSitesTable', () => {
@@ -41,5 +42,20 @@ describe('EvSitesTable', () => {
 
     expect(wrapper.emitted('select')).toHaveLength(2)
     expect(row.attributes('tabindex')).toBe('0')
+  })
+
+  it('donne la date de la dernière donnée reçue pour chaque site', async () => {
+    const wrapper = await mountSuspended(EvSitesTable, { props: { sites: [SITE, { ...SITE, site_id: 'SITE002', last_data_at: null }] } })
+    const lignes = wrapper.findAll('tbody tr')
+
+    expect(lignes[0]!.text()).toContain('29/09 13:00')
+    expect(lignes[1]!.text()).toContain('aucune')
+  })
+
+  it('affiche la santé en français', async () => {
+    const wrapper = await mountSuspended(EvSitesTable, { props: { sites: [SITE] } })
+
+    expect(wrapper.text()).toContain('Dégradé')
+    expect(wrapper.text()).not.toContain('degraded')
   })
 })

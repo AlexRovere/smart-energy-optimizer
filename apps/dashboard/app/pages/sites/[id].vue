@@ -19,11 +19,19 @@ const popupFermée = ref(false)
 watch(id, () => { popupFermée.value = false })
 const popupOuverte = computed(() => recommendations.value.length > 0 && !popupFermée.value)
 
+// Mesure courante, ou dernière valeur connue de l'historique si le capteur est muet.
+const consumption = computed(() => displayedConsumption(reading.value, readings.value))
+
 const loadPercent = computed(() => {
-  const kw = reading.value?.consumption_kw
+  const kw = consumption.value?.kw
   const cap = site.value?.capacity_kw
   if (kw == null || !cap) return
   return (kw / cap) * 100
+})
+
+const consumptionNote = computed(() => {
+  if (consumption.value?.reportedAt) return `valeur reportée de ${fmtTime(consumption.value.reportedAt)}`
+  return loadPercent.value != null ? fmtNum(loadPercent.value) + ' % de la capacité' : 'Données indisponibles'
 })
 
 // Mocks
@@ -95,14 +103,6 @@ function sensorStatusColor(status: string): string {
   return 'var(--ev-red)'
 }
 
-// ── Last seen ───────────────────────────────────────────────────────
-
-const lastSeen = computed(() => {
-  const ts = reading.value?.timestamp
-  if (!ts) return '—'
-  return new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-})
-
 </script>
 
 <template>
@@ -168,6 +168,11 @@ const lastSeen = computed(() => {
               <span class="mx-1 text-ev-text-4">·</span>
               <span style="color: var(--ev-amber)" class="font-semibold">{{ info.threshold_kw.toLocaleString('fr-FR') }} kW</span>
             </span>
+            <span>
+              <span class="text-ev-text-4">Dernière donnée</span>
+              <span class="mx-1 text-ev-text-4">·</span>
+              <span class="text-ev-text font-semibold">{{ fmtShortDateTime(info?.last_data_at, 'aucune') }}</span>
+            </span>
             <span v-if="info?.status">
               <span class="text-ev-text-4">Statut</span>
               <span class="mx-1 text-ev-text-4">·</span>
@@ -186,9 +191,9 @@ const lastSeen = computed(() => {
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-(--ev-gap-card) transition-opacity" :class="{ 'opacity-40': readingPending }">
         <EvGauge
           label="CONSOMMATION"
-          :value="fmtConso(reading?.consumption_kw ?? null)"
+          :value="fmtConso(consumption?.kw ?? null)"
           unit="kW"
-          :note="loadPercent != null ? fmtNum(loadPercent) + ' % de la capacité' : 'Données indisponibles'"
+          :note="consumptionNote"
           :ratio="loadPercent != null ? loadPercent / 100 : null"
           :color="chargeColor(loadPercent ?? null)"
         />
@@ -298,7 +303,6 @@ const lastSeen = computed(() => {
         <EvCard>
           <template #title>
             <span class="font-ev text-base font-semibold">Santé des capteurs</span>
-            <span class="font-ev-mono text-[11px] text-ev-text-3 ml-2">sensors/status</span>
           </template>
 
           <div class="flex flex-col divide-y" style="--tw-divide-opacity: 1; border-color: var(--ev-border)">
@@ -308,14 +312,16 @@ const lastSeen = computed(() => {
               class="flex items-center justify-between py-3.5"
               style="border-color: var(--ev-border)"
             >
-              <span class="font-ev-mono text-sm text-ev-text">{{ sensor.family }}</span>
-              <span class="font-ev-mono text-xs text-ev-text-3">last_seen {{ lastSeen }}</span>
+              <span class="font-ev text-sm text-ev-text">{{ sensorFamilyLabel(sensor.family) }}</span>
+              <span class="font-ev-mono text-xs text-ev-text-3">
+                {{ sensor.failing_until ? `jusqu'à ${fmtTime(sensor.failing_until)}` : '' }}
+              </span>
               <span
                 class="font-ev-mono text-xs font-semibold px-2.5 py-1 rounded-ev-pill flex items-center gap-1.5"
                 :style="{ background: `${sensorStatusColor(sensor.status)}22`, color: sensorStatusColor(sensor.status) }"
               >
                 <span class="size-1.5 rounded-full" :style="{ background: sensorStatusColor(sensor.status) }" />
-                {{ sensor.status }}
+                {{ sensorStateLabel(sensor.status) }}
               </span>
             </div>
           </div>

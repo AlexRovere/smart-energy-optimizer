@@ -1,8 +1,9 @@
-import { ref, computed } from 'vue'
-import type { AlertSeverity, CurrentReading, Reading, SensorHealth, SensorStatus, Site, SiteId, SiteType, SiteStatus } from '../types/api'
+import { computed } from 'vue'
+import type { AlertSeverity, SensorHealth, Site, SiteId, SiteType, SiteStatus } from '../types/api'
 import { fmtNum, fmtPct } from '../utils/format'
 import { useAlerts } from './useAlerts'
 import { useFleetSummary } from './useFleetSummary'
+import { useSensorsStatus } from './useSensorsStatus'
 import { useSitesList } from './useSitesList'
 import type { SiteApiItem } from '~~/shared/siteSchema'
 
@@ -14,72 +15,18 @@ function siteApiItemToSite(item: SiteApiItem): Site {
     location: item.location ?? '',
     capacity_kw: item.capacity_kw,
     status: item.status as SiteStatus,
-    threshold_kw: item.warning_threshold_kw
+    threshold_kw: item.warning_threshold_kw,
+    last_data_at: item.last_data_at ?? null
   }
 }
 
-
-function mockSensors(): SensorStatus[] {
-  const make = (id: SiteId, name: string, overall: SensorHealth): SensorStatus => ({
-    site_id: id, site_name: name, overall,
-    sensors: [
-      { family: 'consumption', status: overall === 'critical' ? 'failing' : 'ok',       failing_until: null },
-      { family: 'electrical',  status: overall === 'critical' ? 'failing' : overall,    failing_until: null },
-      { family: 'temperature', status: overall === 'critical' ? 'critical' : 'ok',      failing_until: null },
-      { family: 'humidity',    status: overall === 'degraded' ? 'degraded' : 'ok',      failing_until: null },
-      { family: 'network',     status: overall === 'critical' ? 'failing' : 'ok',       failing_until: null },
-    ],
-  })
-  return [
-    make('SITE001', 'Bureau Paris La Défense',  'ok'),
-    make('SITE002', 'Usine Lyon Vénissieux',    'degraded'),
-    make('SITE003', 'Data Center Marseille',    'critical'),
-    make('SITE004', 'Entrepôt Lille Seclin',    'ok'),
-    make('SITE005', 'Atelier Nantes Carquefou', 'degraded'),
-    make('SITE006', 'Bureau Bordeaux Mérignac', 'ok'),
-    make('SITE007', 'Laboratoire Grenoble',     'ok'),
-  ]
-}
-
-
-function mockCurrentReadings(): CurrentReading[] {
-  const ts = '2026-09-15T11:40:00Z'
-  return [
-    { site_id: 'SITE001', site_type: 'office',     timestamp: ts, consumption_kw: 82.6,  consumption_kwh: 82.6,  voltage_v: 399.0, current_a: 119.2, power_factor: 0.907, temperature_celsius: 25.3, humidity_percent: 47.7, data_quality: 'good',     null_reasons: [] },
-    { site_id: 'SITE002', site_type: 'factory',    timestamp: ts, consumption_kw: 571.65, consumption_kwh: 571.65, voltage_v: 402.1, current_a: 820.8, power_factor: 0.923, temperature_celsius: 28.1, humidity_percent: 62.3, data_quality: 'partial',  null_reasons: ['humidity_sensor_degraded'] },
-    { site_id: 'SITE003', site_type: 'datacenter', timestamp: ts, consumption_kw: null,  consumption_kwh: null,  voltage_v: null,  current_a: null,  power_factor: null,  temperature_celsius: 22.1, humidity_percent: 45.0, data_quality: 'critical', null_reasons: ['consumption_sensor_offline', 'electrical_sensor_offline'] },
-    { site_id: 'SITE004', site_type: 'warehouse',  timestamp: ts, consumption_kw: 85.22, consumption_kwh: 85.22, voltage_v: 400.4, current_a: 122.7, power_factor: 0.941, temperature_celsius: 18.4, humidity_percent: 55.2, data_quality: 'good',     null_reasons: [] },
-    { site_id: 'SITE005', site_type: 'factory',    timestamp: ts, consumption_kw: 193.09, consumption_kwh: 193.09, voltage_v: 398.7, current_a: 278.2, power_factor: 0.888, temperature_celsius: 31.7, humidity_percent: 71.1, data_quality: 'degraded', null_reasons: ['humidity_sensor_degraded'] },
-    { site_id: 'SITE006', site_type: 'office',     timestamp: ts, consumption_kw: 59.95, consumption_kwh: 59.95, voltage_v: 401.2, current_a: 86.2,  power_factor: 0.952, temperature_celsius: 23.8, humidity_percent: 44.1, data_quality: 'good',     null_reasons: [] },
-    { site_id: 'SITE007', site_type: 'lab',        timestamp: ts, consumption_kw: 184.12, consumption_kwh: 184.12, voltage_v: 399.8, current_a: 265.0, power_factor: 0.889, temperature_celsius: 20.5, humidity_percent: 38.9, data_quality: 'good',     null_reasons: [] },
-  ]
-}
-
-// Facteurs horaires déterministes sur 24h (index 0 = heure la plus ancienne)
-const HOURLY_FACTORS = [0.30, 0.28, 0.26, 0.25, 0.27, 0.32, 0.45, 0.68, 0.82, 0.88, 0.90, 0.87, 0.82, 0.85, 0.88, 0.86, 0.80, 0.74, 0.66, 0.58, 0.50, 0.44, 0.38, 0.34]
-
-function mockReadings(siteId: SiteId): Reading[] {
-  const base = mockCurrentReadings().find(r => r.site_id === siteId)
-  if (!base) return []
-  const now = new Date('2026-09-15T11:40:00Z').getTime()
-  return HOURLY_FACTORS.map((factor, i) => {
-    const t = new Date(now - (23 - i) * 3_600_000).toISOString()
-    const val = base.consumption_kw == null ? null : Math.round(base.consumption_kw * factor * 10) / 10
-    return { ...base, timestamp: t, consumption_kw: val, consumption_kwh: val } as Reading
-  })
-}
 
 export function useFleetOverview() {
   const { summary: stats, pending, refreshedAt, refreshFailed, refresh } = useFleetSummary()
   const { sites: rawSites } = useSitesList()
   const { alerts } = useAlerts()
-  const sensors = ref<SensorStatus[]>(mockSensors())
+  const { sensors } = useSensorsStatus()
   const siteDetails = computed<Site[]>(() => rawSites.value.map(siteApiItemToSite))
-  const currentReadings = ref<CurrentReading[]>(mockCurrentReadings())
-
-  function getReadingsForSite(id: SiteId): Reading[] {
-    return mockReadings(id)
-  }
 
   // -- KPI computeds -----------------------------------------
 
@@ -141,10 +88,11 @@ export function useFleetOverview() {
 
   const siteSummary = computed(() => {
     const sensorMap = new Map(sensors.value.map(s => [s.site_id, s.overall]))
-    const siteTypeMap = new Map(siteDetails.value.map(s => [s.site_id, s.site_type]))
+    const detailMap = new Map(siteDetails.value.map(s => [s.site_id, s]))
     return (stats.value?.sites ?? []).map(site => ({
       ...site,
-      site_type: siteTypeMap.get(site.site_id),
+      site_type: detailMap.get(site.site_id)?.site_type,
+      last_data_at: detailMap.get(site.site_id)?.last_data_at ?? null,
       health: (sensorMap.get(site.site_id) ?? 'ok') as SensorHealth
     }))
   })
@@ -196,9 +144,8 @@ export function useFleetOverview() {
   )
 
   return {
-    stats, alerts, sensors, siteDetails, currentReadings, pending,
+    stats, alerts, sensors, siteDetails, pending,
     refreshedAt, refreshFailed, refresh,
-    getReadingsForSite,
     totalConsumptionDisplay, totalCapacityDisplay, avgLoadDisplay, loadPercent,
     healthPercent, healthRatio, healthDisplay, healthNote, healthColor,
     activeAlertCount, criticalCount, alertNote, alertNoteTone,
