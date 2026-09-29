@@ -21,8 +21,8 @@ function makeHistorical(): Reading[] {
   }))
 }
 
-function makeForecast(): PredictionPoint[] {
-  return Array.from({ length: 6 }, (_, i) => ({
+function makeForecast(length = 6): PredictionPoint[] {
+  return Array.from({ length }, (_, i) => ({
     timestamp: new Date(Date.now() + (i + 1) * 3_600_000).toISOString(),
     predicted_consumption_kw: 95 + i,
     confidence_lower: 87 + i,
@@ -30,30 +30,27 @@ function makeForecast(): PredictionPoint[] {
   }))
 }
 
+const props = { historicalPoints: makeHistorical(), forecastPoints: makeForecast(), threshold: 240, confidenceLevel: 0.9 }
+
 describe('EvPredictionChart', () => {
-  it('affiche le titre du graphique', async () => {
-    const wrapper = await mountSuspended(EvPredictionChart, {
-      props: { historicalPoints: makeHistorical(), forecastPoints: makeForecast(), threshold: 240, confidenceLevel: 0.9 },
-    })
-    expect(wrapper.text()).toContain('Mesuré (24 h) puis prévu (6 h)')
+  it("annonce la durée mesurée et l'horizon prévu", async () => {
+    const wrapper = await mountSuspended(EvPredictionChart, { props: { ...props, forecastPoints: makeForecast(48) } })
+    expect(wrapper.text()).toContain('Mesuré (24 h) puis prévu (48 h)')
   })
 
   it('affiche la légende bande de confiance', async () => {
-    const wrapper = await mountSuspended(EvPredictionChart, {
-      props: { historicalPoints: makeHistorical(), forecastPoints: makeForecast(), threshold: 240, confidenceLevel: 0.9 },
-    })
+    const wrapper = await mountSuspended(EvPredictionChart, { props })
     expect(wrapper.text()).toContain('intervalle de confiance 90')
   })
 
-  it.each([
-    ['la ligne historique', 'historical-line'],
-    ['la ligne de prévision', 'forecast-line'],
-    ['la bande de confiance', 'confidence-band'],
-    ['la ligne de seuil', 'threshold-line'],
-  ])('rend %s', async (_description, testId) => {
-    const wrapper = await mountSuspended(EvPredictionChart, {
-      props: { historicalPoints: makeHistorical(), forecastPoints: makeForecast(), threshold: 240, confidenceLevel: 0.9 },
-    })
-    expect(wrapper.find(`[data-testid="${testId}"]`).exists()).toBe(true)
+  it('rend le graphique quand mesures et prévisions sont là', async () => {
+    const wrapper = await mountSuspended(EvPredictionChart, { props })
+    expect(wrapper.find('[data-testid="prediction-chart"]').exists()).toBe(true)
+  })
+
+  it('signale des données insuffisantes sans prévision', async () => {
+    const wrapper = await mountSuspended(EvPredictionChart, { props: { ...props, forecastPoints: [] } })
+    expect(wrapper.text()).toContain('Données insuffisantes')
+    expect(wrapper.find('[data-testid="prediction-chart"]').exists()).toBe(false)
   })
 })

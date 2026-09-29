@@ -49,6 +49,7 @@ Application **Nuxt 4** fullstack : le même conteneur sert l'interface et l'API 
 |---|---|
 | Framework | Nuxt 4 (Vue 3 + TypeScript) |
 | UI | NuxtUI (Radix / Tailwind) |
+| Graphiques | ECharts par `vue-echarts`, rendu SVG importé à la carte. La configuration se construit dans `app/utils/charts.ts`, en fonctions pures testées sans rendu |
 | ORM | Drizzle ORM, source de vérité du schéma (voir plus bas) |
 | Auth | nuxt-auth-utils, cookie portant un identifiant de session, état en base |
 | BDD | PostgreSQL 16 (comptes, rôles, référentiel des sites et leurs réglages) |

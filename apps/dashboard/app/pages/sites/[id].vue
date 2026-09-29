@@ -103,45 +103,6 @@ const lastSeen = computed(() => {
   return new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 })
 
-// ── Chart ───────────────────────────────────────────────────────────
-
-const W = 800
-const H = 280
-const PAD_T = 20
-const PAD_R = 10
-const PAD_B = 40
-const PAD_L = 48
-const chartW = W - PAD_L - PAD_R
-const chartH = H - PAD_T - PAD_B
-
-const chartData = computed(() => {
-  const pts = readings.value.filter(r => r.consumption_kw != null)
-  if (!pts.length) return null
-
-  const cap = site.value?.capacity_kw ?? 0
-  const thr = info.value?.threshold_kw ?? null
-  const maxVal = Math.max(...pts.map(p => p.consumption_kw!), cap) * 1.1
-  const yTicks = [0, 100, 200, 300, 400].filter(v => v <= maxVal + 50)
-
-  function sx(i: number) { return PAD_L + (i / (pts.length - 1)) * chartW }
-  function sy(v: number) { return PAD_T + (1 - v / maxVal) * chartH }
-
-  const points = pts.map((p, i) => ({ x: sx(i), y: sy(p.consumption_kw!), val: p.consumption_kw!, ts: p.timestamp }))
-  const areaPath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')
-    + ` L ${points[points.length - 1]!.x.toFixed(1)} ${(PAD_T + chartH).toFixed(1)}`
-    + ` L ${points[0]!.x.toFixed(1)} ${(PAD_T + chartH).toFixed(1)} Z`
-  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')
-
-  const xLabels = pts
-    .map((p, i) => ({ i, time: new Date(p.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }))
-    .filter((_, i) => i % 4 === 0)
-
-  const peakPt = pts.reduce((a, b) => (b.consumption_kw! > a.consumption_kw! ? b : a))
-  const peakTime = new Date(peakPt.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-
-  return { points, areaPath, linePath, maxVal, yTicks, sy, sx, cap, thr, xLabels, peakVal: peakPt.consumption_kw, peakTime }
-})
-
 </script>
 
 <template>
@@ -258,119 +219,12 @@ const chartData = computed(() => {
       </div>
 
       <!-- Historique de consommation -->
-      <EvCard>
-        <template #title>
-          <div class="flex items-center justify-between w-full">
-            <div>
-              <span class="font-ev text-base font-semibold">Historique de consommation — 24 dernières heures</span>
-              <div v-if="chartData" class="font-ev-mono text-[11px] text-ev-text-3 mt-0.5">
-                GET /readings?site_id={{ id }}&amp;limit=24
-                <template v-if="chartData.peakVal != null">
-                  · pic mesuré {{ fmtNum(chartData.peakVal) }} kW à {{ chartData.peakTime }}
-                </template>
-              </div>
-            </div>
-            <div class="flex gap-1.5 shrink-0">
-              <button
-                v-for="w in (['24h', '7j'] as const)"
-                :key="w"
-                class="font-ev-mono text-xs font-semibold px-3 py-1.5 rounded-ev-btn border transition-colors cursor-pointer"
-                :style="chartWindow === w
-                  ? 'background: var(--ev-surface-2); border-color: var(--ev-border-hover); color: var(--ev-text)'
-                  : 'border-color: var(--ev-border); color: var(--ev-text-3)'"
-                @click="chartWindow = w"
-              >{{ w }}</button>
-            </div>
-          </div>
-        </template>
-
-        <!-- SVG Chart -->
-        <div v-if="chartData" class="mt-2">
-          <svg
-            :viewBox="`0 0 ${W} ${H}`"
-            class="w-full"
-            style="height: 280px"
-            preserveAspectRatio="none"
-          >
-            <!-- Y gridlines + labels -->
-            <g v-for="tick in chartData.yTicks" :key="tick">
-              <line
-                :x1="PAD_L" :y1="chartData.sy(tick).toFixed(1)"
-                :x2="W - PAD_R" :y2="chartData.sy(tick).toFixed(1)"
-                stroke="rgba(255,255,255,0.06)" stroke-width="1"
-              />
-              <text
-                :x="PAD_L - 6" :y="chartData.sy(tick) + 4"
-                text-anchor="end"
-                font-size="11"
-                fill="rgba(255,255,255,0.3)"
-                font-family="monospace"
-              >{{ tick }}</text>
-            </g>
-
-            <!-- Capacity line -->
-            <line
-              :x1="PAD_L" :y1="chartData.sy(chartData.cap).toFixed(1)"
-              :x2="W - PAD_R" :y2="chartData.sy(chartData.cap).toFixed(1)"
-              stroke="rgba(255,255,255,0.25)" stroke-width="1.5" stroke-dasharray="6 4"
-            />
-
-            <!-- Threshold line -->
-            <line
-              v-if="chartData.thr"
-              :x1="PAD_L" :y1="chartData.sy(chartData.thr).toFixed(1)"
-              :x2="W - PAD_R" :y2="chartData.sy(chartData.thr).toFixed(1)"
-              stroke="var(--ev-amber)" stroke-width="1.5" stroke-dasharray="6 4" opacity="0.7"
-            />
-
-            <!-- Area fill -->
-            <path
-              :d="chartData.areaPath"
-              fill="rgba(16,185,129,0.12)"
-            />
-
-            <!-- Consumption line -->
-            <path
-              :d="chartData.linePath"
-              fill="none"
-              stroke="var(--ev-green)"
-              stroke-width="2"
-              stroke-linejoin="round"
-            />
-
-            <!-- X labels -->
-            <text
-              v-for="lbl in chartData.xLabels"
-              :key="lbl.i"
-              :x="chartData.sx(lbl.i).toFixed(1)"
-              :y="PAD_T + chartH + 16"
-              text-anchor="middle"
-              font-size="11"
-              fill="rgba(255,255,255,0.3)"
-              font-family="monospace"
-            >{{ lbl.time }}</text>
-          </svg>
-
-          <!-- Légende -->
-          <div class="flex items-center gap-6 mt-3 font-ev-mono text-[11px] text-ev-text-3">
-            <span class="flex items-center gap-1.5">
-              <span class="inline-block w-5 h-0.5" style="background: var(--ev-green)" />
-              consumption_kw
-            </span>
-            <span class="flex items-center gap-1.5">
-              <span class="inline-block w-5 h-0.5 border-t border-dashed border-white/40" />
-              capacity {{ chartData.cap }}
-            </span>
-            <span v-if="chartData.thr" class="flex items-center gap-1.5">
-              <span class="inline-block w-5 h-0.5 border-t border-dashed" style="border-color: var(--ev-amber)" />
-              threshold {{ chartData.thr }}
-            </span>
-          </div>
-        </div>
-        <div v-else class="py-10 text-center font-ev text-sm text-ev-text-3">
-          Aucune donnée historique disponible
-        </div>
-      </EvCard>
+      <EvConsumptionChart
+        v-model:window="chartWindow"
+        :readings="readings"
+        :capacity-kw="site?.capacity_kw ?? null"
+        :threshold-kw="info?.threshold_kw ?? null"
+      />
 
       <!-- Prévision de consommation -->
       <EvCard>
