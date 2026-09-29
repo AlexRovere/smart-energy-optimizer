@@ -224,3 +224,4 @@ expiration.
 - Santé des capteurs
 - Gestion des utilisateurs (rôle `ADMIN`) : lister tous les comptes avec leur rôle et leurs sites autorisés, créer un compte, modifier son rôle / ses sites / son statut actif, supprimer un compte
 - Avertissement explicite quand des données sont incomplètes (`data_quality`)
+- Page d'aide (`/help`, entrée « Aide » de la barre latérale) : origine de la charge et de la capacité, niveaux de qualité, kW et kWh, alertes, seuils, recommandations et prévisions. Les niveaux de qualité y reprennent les libellés de `app/utils/labels.ts`, pour ne jamais diverger de l'écran
