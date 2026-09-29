@@ -56,6 +56,8 @@ La colonne « Rôle » décrit le mécanisme complet. **Un seul rôle est exploi
 | GET | `/api/sensors/status` | | `SensorStatus` | 401, 503 | tous |
 | POST | `/api/sites/{id}/prediction` | `{ horizon_hours }`, 1 à 48, défaut 24 | `Prediction` | 401, 403, 404, 422, 503 | tous |
 | GET | `/api/sites/{id}/recommendations` | | `SiteRecommendations` | 401, 403, 404, 422, 503 | tous |
+| GET | `/api/sites/{id}/feedback` | | `Feedback[]`, votes du compte connecté | 401, 403, 404, 422 | tous |
+| PUT | `/api/sites/{id}/feedback` | `{ target_type, target_id, useful }` | `Feedback` | 401, 403, 404, 422 | tous |
 | GET | `/api/alert-thresholds` | | `AlertThreshold[]` | 401, 503 | tous |
 | PUT | `/api/sites/{id}/alert-thresholds/{type}` | `{ duration, threshold }` | `AlertThreshold` | 401, 403, 404, 422 | `ADMIN`, `OPERATOR` |
 
@@ -319,6 +321,18 @@ Les sites sans mesure sont **exclus des totaux et nommés** dans `excluded_sites
 ```
 
 `unavailable` liste les sources qui n'ont pas pu être consultées : `history` (Parquet illisible) ou `forecast` (service ML en échec). Une liste de recommandations vide avec `unavailable` non vide ne veut pas dire « aucune anomalie ». L'écran affiche alors « Recommandations partielles : prévision indisponible ». Une alerte constatée aujourd'hui dispense d'interroger la prévision pour son type : elle ne compte pas comme un manque.
+
+### `Feedback`
+
+```json
+{
+  "target_type": "recommendation",
+  "target_id": "REC-SITE001-pic-2026-09-29T20:00:00.000Z",
+  "useful": true
+}
+```
+
+Le retour « utile / pas utile » d'un compte (#47). `target_type` vaut `recommendation` (alors `target_id` est le `recommendation_id`) ou `forecast` (alors `target_id` est le `predicted_at` de la prévision). Un seul vote par compte et par cible : un `PUT` de nouveau remplace le précédent. Tout rôle qui voit le site peut voter, puisque le vote n'écrit que son propre avis. `GET` ne rend que les votes du compte connecté. Stockage : table `feedback` de [`data.md`](./data.md).
 
 ### `AlertThreshold`
 

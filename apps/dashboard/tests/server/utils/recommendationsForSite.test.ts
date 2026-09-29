@@ -181,4 +181,13 @@ describe('recommendationsForSite', () => {
 
     expect(unavailable).toEqual([])
   })
+
+  it("date une recommandation constatée de son heure pleine, pour qu'un vote la retrouve au chargement suivant", async () => {
+    mockConsumptionHistory.mockResolvedValue({ alert: true, average: 230, thresholdKwh: 200 })
+    const firstLoad = await recommendationsForSite(DB, 'SITE001', new Date('2026-09-18T10:12:30Z'))
+    const secondLoad = await recommendationsForSite(DB, 'SITE001', new Date('2026-09-18T10:47:05Z'))
+
+    expect(firstLoad.recommendations[0]!.trigger.timestamp).toBe('2026-09-18T10:00:00.000Z')
+    expect(secondLoad.recommendations[0]!.recommendation_id).toBe(firstLoad.recommendations[0]!.recommendation_id)
+  })
 })

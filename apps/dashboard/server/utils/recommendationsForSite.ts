@@ -20,6 +20,13 @@ export interface SiteRecommendations {
   unavailable: MissingSource[]
 }
 
+// Une recommandation constatée est datée de son heure pleine : son identifiant
+// en dépend, et il doit rester le même d'un chargement à l'autre pour qu'un
+// vote « utile / pas utile » s'y rattache (#47).
+function observedHour(reference: Date): string {
+  return new Date(Math.floor(reference.getTime() / 3_600_000) * 3_600_000).toISOString()
+}
+
 type Outcome = { recommendation: Recommendation | null; missing: MissingSource | null }
 
 export async function recommendationsForSite(
@@ -52,7 +59,7 @@ async function consumptionRecommendation(db: AppDatabase, siteId: string, refere
   if (today.alert) {
     return {
       recommendation: buildRecommendation(siteId, 'conso', 'threshold', {
-        timestamp: reference.toISOString(),
+        timestamp: observedHour(reference),
         valueKw: today.average!,
         thresholdKw: today.thresholdKwh
       }),
@@ -89,7 +96,7 @@ async function recommendationPic(db: AppDatabase, siteId: string, reference: Dat
   if (today.alert) {
     return {
       recommendation: buildRecommendation(siteId, 'pic', 'threshold', {
-        timestamp: reference.toISOString(),
+        timestamp: observedHour(reference),
         valueKw: today.currentValue!,
         thresholdKw: today.thresholdKw!
       }),

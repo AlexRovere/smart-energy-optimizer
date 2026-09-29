@@ -30,8 +30,8 @@ describe.skipIf(!databaseAvailable())('rejouabilité des migrations Drizzle', ()
   })
 
   describe('le journal ne rejoue pas une migration déjà consignée', () => {
-    it('a appliqué les trois migrations au premier passage', () => {
-      expect(firstRun).toHaveLength(3)
+    it('a appliqué les quatre migrations au premier passage', () => {
+      expect(firstRun).toHaveLength(4)
     })
 
     it("ne casse rien et n'applique rien deux fois au second passage sur la même base", async () => {
@@ -43,7 +43,7 @@ describe.skipIf(!databaseAvailable())('rejouabilité des migrations Drizzle', ()
       expect(secondRun).toEqual(firstRun)
     })
 
-    it('laisse les six tables et le rôle etl en place', async () => {
+    it('laisse les sept tables et le rôle etl en place', async () => {
       const { tables } = expectedRow(
         await base.sql<{ tables: number }[]>`
           SELECT count(*)::int AS tables
@@ -52,7 +52,7 @@ describe.skipIf(!databaseAvailable())('rejouabilité des migrations Drizzle', ()
         `,
         'le décompte des tables du schéma public'
       )
-      expect(tables).toBe(6)
+      expect(tables).toBe(7)
 
       const { exists } = expectedRow(
         await base.sql<{ exists: boolean }[]>`

@@ -151,6 +151,25 @@ Clé primaire composite `(site_id, type)`, qui interdit plus d'une règle de cha
 
 `ON DELETE RESTRICT` sur `site_id`, même raisonnement que pour `user_sites` : un site n'est jamais supprimé, et un `CASCADE` ferait disparaître des seuils réglés en silence.
 
+### `feedback`
+
+Le retour d'un compte sur une recommandation ou une prévision : utile ou pas (#47). Il sert à juger les règles et le modèle sur l'usage réel.
+
+| Colonne | Type | Contraintes | Description |
+| :--- | :--- | :--- | :--- |
+| `user_id` | UUID | NOT NULL, REFERENCES `users(id)` ON DELETE CASCADE | Le compte qui vote |
+| `site_id` | VARCHAR(16) | NOT NULL, REFERENCES `sites(id)` ON DELETE RESTRICT | Le site de la cible, pour relire les votes d'un site et vérifier le périmètre |
+| `target_type` | VARCHAR(20) | NOT NULL, CHECK (`target_type` IN ('recommendation', 'forecast')) | Nature de la cible |
+| `target_id` | VARCHAR(255) | NOT NULL | `recommendation_id` d'une recommandation, `predicted_at` d'une prévision |
+| `useful` | BOOLEAN | NOT NULL | Vrai si jugée utile |
+| `updated_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Date du dernier vote |
+
+Clé primaire composite `(user_id, target_type, target_id)` : un seul vote par compte et par cible. Voter de nouveau remplace le vote précédent.
+
+`ON DELETE CASCADE` sur `user_id` : un vote n'a pas de sens sans son auteur, et supprimer un compte ne doit rien laisser de personnel derrière lui. `ON DELETE RESTRICT` sur `site_id`, comme pour `user_sites`.
+
+Un identifiant de recommandation constatée porte l'heure pleine de son constat : il reste le même pendant l'heure, et le vote se retrouve d'un chargement à l'autre.
+
 ### Index
 
 ```sql

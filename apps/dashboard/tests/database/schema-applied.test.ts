@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { databaseAvailable, createTestDatabase, expectedRow, type TestDatabase } from './test-database'
 
-const TABLES = ['roles', 'users', 'sessions', 'sites', 'user_sites', 'alert_thresholds']
+const TABLES = ['roles', 'users', 'sessions', 'sites', 'user_sites', 'alert_thresholds', 'feedback']
 
 describe.skipIf(!databaseAvailable())('schéma appliqué', () => {
   let base: TestDatabase
@@ -14,7 +14,7 @@ describe.skipIf(!databaseAvailable())('schéma appliqué', () => {
     await base?.close()
   })
 
-  it('crée les six tables', async () => {
+  it('crée les sept tables', async () => {
     const rows = await base.sql<{ table_name: string }[]>`
       SELECT table_name
         FROM information_schema.tables
