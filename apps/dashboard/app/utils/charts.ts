@@ -82,9 +82,9 @@ function hasValue(point: Point): point is [number, number] {
 }
 
 export function peakReading(readings: Reading[]): { kw: number; timestamp: number } | null {
-  const values = measured(readings).filter(hasValue)
-  if (!values.length) return null
-  const [timestamp, value] = values.reduce((a, b) => (b[1] > a[1] ? b : a))
+  const [first, ...rest] = measured(readings).filter(hasValue)
+  if (!first) return null
+  const [timestamp, value] = rest.reduce((a, b) => (b[1] > a[1] ? b : a), first)
   return { kw: value, timestamp }
 }
 
@@ -145,7 +145,7 @@ export function predictionChartOption(input: {
   tone: ChartTone
 }): EChartsOption | null {
   const history = measured(input.historical)
-  const lastMeasured = history.filter(hasValue).at(-1)
+  const lastMeasured = history.findLast(hasValue)
   if (!lastMeasured || !input.forecast.length) return null
 
   const predicted: Point[] = input.forecast.map(p => [Date.parse(p.timestamp), p.predicted_consumption_kw])
