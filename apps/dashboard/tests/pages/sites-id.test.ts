@@ -26,6 +26,9 @@ vi.mock('../../app/composables/useSiteHistory', () => ({
 }))
 
 const useSitePredictionMock = vi.hoisted(() => vi.fn())
+const { voteMock, voteForMock } = vi.hoisted(() => ({ voteMock: vi.fn(), voteForMock: vi.fn(() => null) }))
+mockNuxtImport('useFeedback', () => () => ({ vote: voteMock, voteFor: voteForMock }))
+
 vi.mock('../../app/composables/useSitePrediction', () => ({
   useSitePrediction: useSitePredictionMock,
 }))
@@ -165,5 +168,44 @@ describe('page Site détail', () => {
     })
 
     expect(await pageText()).toContain('Historique insuffisant ou trop ancien pour prévoir')
+  })
+
+  describe('retour utile / pas utile (#47)', () => {
+    const recommendation = {
+      recommendation_id: 'REC-SITE001-pic-2026-09-29T10:00:00.000Z', site_id: 'SITE001', source: 'threshold',
+      type: 'load_balancing', priority: 'high', title: 'Lisser le pic', description: 'Décaler les charges',
+      trigger: { timestamp: '2026-09-29T10:00:00.000Z', value_kw: 310, threshold_kw: 300 },
+      estimated_saving_kwh: 0, gain_kw: 0, confidence: 0, window: 'N/A',
+    }
+
+    it('recueille un avis sur une recommandation', async () => {
+      setupMocks()
+      voteMock.mockReset()
+      useSiteRecommendationsMock.mockReturnValue({ recommendations: ref([recommendation]), unavailable: ref([]), pending: ref(false) })
+      useToastMock.mockReturnValue({ add: vi.fn() })
+      const wrapper = await mountSuspended(SiteDetailPage)
+
+      await wrapper.findAll('button').find(b => b.text() === 'Utile')!.trigger('click')
+
+      expect(voteMock).toHaveBeenCalledWith('recommendation', recommendation.recommendation_id, true)
+    })
+
+    it('recueille un avis sur la prévision affichée, rattaché à son calcul', async () => {
+      setupMocks()
+      voteMock.mockReset()
+      useSitePredictionMock.mockReturnValue({
+        ...useSitePredictionMock(),
+        launched: ref(true),
+        forecastPoints: ref([{ timestamp: '2026-09-29T21:00:00.000Z', predicted_consumption_kw: 100 }]),
+        predictedAt: ref('2026-09-29T20:05:00.000Z'),
+      })
+      useSiteHistoryMock.mockReturnValue({ readings: ref([READING]) })
+      useToastMock.mockReturnValue({ add: vi.fn() })
+      const wrapper = await mountSuspended(SiteDetailPage)
+
+      await wrapper.findAll('button').find(b => b.text() === 'Pas utile')!.trigger('click')
+
+      expect(voteMock).toHaveBeenCalledWith('forecast', '2026-09-29T20:05:00.000Z', false)
+    })
   })
 })

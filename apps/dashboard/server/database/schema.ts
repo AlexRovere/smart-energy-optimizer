@@ -1,7 +1,7 @@
 // Source de vérité du schéma PostgreSQL, propriété de l'applicatif et de lui
 // seul : l'ETL écrit des lignes dans `sites`, jamais du DDL (docs/data.md).
 //
-// Transcription littérale des six tables de docs/data.md. Toute différence
+// Transcription littérale des sept tables de docs/data.md. Toute différence
 // entre ce fichier et le document est un défaut, et
 // tests/database/schema-matches-document.test.ts la fait échouer.
 //
@@ -123,4 +123,27 @@ export const alertThresholds = pgTable(
     threshold: real('threshold').notNull()
   },
   t => [primaryKey({ columns: [t.siteId, t.type] })]
+)
+
+// Retour « utile / pas utile » d'un compte sur une recommandation ou une
+// prévision (#47). Un seul vote par compte et par cible, modifiable : la clé
+// primaire le garantit, et l'écriture est un upsert.
+export const feedback = pgTable(
+  'feedback',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    siteId: varchar('site_id', { length: 16 })
+      .notNull()
+      .references(() => sites.id, { onDelete: 'restrict' }),
+    targetType: varchar('target_type', { length: 20 }).notNull(),
+    targetId: varchar('target_id', { length: 255 }).notNull(),
+    useful: boolean('useful').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+  },
+  t => [
+    primaryKey({ columns: [t.userId, t.targetType, t.targetId] }),
+    check('feedback_target_type_known', sql`${t.targetType} IN ('recommendation', 'forecast')`)
+  ]
 )

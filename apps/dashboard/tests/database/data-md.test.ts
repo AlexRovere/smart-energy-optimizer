@@ -12,9 +12,10 @@ import {
 describe('lecture de docs/data.md', () => {
   const tables = readDocumentedTables()
 
-  it('trouve les six tables', () => {
+  it('trouve les sept tables', () => {
     expect([...tables.keys()].sort()).toEqual([
       'alert_thresholds',
+      'feedback',
       'roles',
       'sessions',
       'sites',
@@ -107,14 +108,17 @@ describe('lecture de docs/data.md', () => {
         column: 'site_id',
         referencedTable: 'sites',
         onDelete: 'RESTRICT'
-      }
+      },
+      { table: 'feedback', column: 'user_id', referencedTable: 'users', onDelete: 'CASCADE' },
+      { table: 'feedback', column: 'site_id', referencedTable: 'sites', onDelete: 'RESTRICT' }
     ])
   })
 
   it('dérive les colonnes portant un CHECK', () => {
     expect(documentedCheckColumns(tables)).toEqual([
       ['sites', 'capacity_kw'],
-      ['sites', 'warning_threshold_kw']
+      ['sites', 'warning_threshold_kw'],
+      ['feedback', 'target_type']
     ])
   })
 

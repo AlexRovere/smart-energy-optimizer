@@ -19,7 +19,8 @@ const EXPECTED_TABLES = [
   'sessions',
   'sites',
   'user_sites',
-  'alert_thresholds'
+  'alert_thresholds',
+  'feedback'
 ] as const
 
 export interface DocumentedColumn {
@@ -109,9 +110,9 @@ export function readDocumentedTables(): Map<string, DocumentedTable> {
     tables.set(name, readTable(rows, name))
   }
   // Pas de contrôle du nombre de tables ici : la boucle ci-dessus parcourt une
-  // constante de six entrées distinctes et lireTable lève avant de rendre, si
+  // constante de sept entrées distinctes et lireTable lève avant de rendre, si
   // bien qu'un tel contrôle ne pourrait jamais être vrai. C'est data-md.test.ts
-  // qui vérifie que les six tables sont bien celles attendues.
+  // qui vérifie que les sept tables sont bien celles attendues.
   return tables
 }
 

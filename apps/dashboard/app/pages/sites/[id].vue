@@ -17,6 +17,7 @@ const { getSite, getSiteSensors, getSiteAlerts, getSiteHealth, getSiteInfo } = u
 const { data: reading, pending: readingPending, error: readingError } = useSiteCurrentReading(id)
 
 const { recommendations, unavailable, pending } = useSiteRecommendations(id)
+const { vote, voteFor } = useFeedback(id)
 const SOURCE_LABELS = { history: 'historique indisponible', forecast: 'prévision indisponible' } as const
 const unavailableLabel = computed(() => unavailable.value.map(source => SOURCE_LABELS[source]).join(', '))
 const popupDismissed = ref(false)
@@ -294,13 +295,20 @@ function sensorStatusColor(status: string): string {
           {{ predictionFailure ?? 'Service de prédiction indisponible' }} : la prévision n'est pas affichée.
         </div>
 
-        <EvPredictionChart
-          v-else-if="recentReadings.length && forecastPoints.length"
-          :historical-points="recentReadings"
-          :forecast-points="forecastPoints"
-          :threshold="info?.threshold_kw ?? 0"
-          :confidence-level="confidenceLevel"
-        />
+        <div v-else-if="recentReadings.length && forecastPoints.length" class="flex flex-col gap-3">
+          <EvPredictionChart
+            :historical-points="recentReadings"
+            :forecast-points="forecastPoints"
+            :threshold="info?.threshold_kw ?? 0"
+            :confidence-level="confidenceLevel"
+          />
+          <!-- Un avis porte sur ce calcul-là, repéré par son heure de calcul. -->
+          <EvFeedback
+            v-if="predictedAt"
+            :current="voteFor('forecast', predictedAt)"
+            @vote="vote('forecast', predictedAt, $event)"
+          />
+        </div>
 
         <div v-else class="py-10 text-center font-ev text-sm text-ev-text-3">
           Aucune donnée de prévision disponible
@@ -444,6 +452,11 @@ function sensorStatusColor(status: string): string {
                 {{ rec.trigger.value_kw }} kW / seuil {{ rec.trigger.threshold_kw }} kW
                 · {{ rec.source === 'forecast' ? `prévu le ${fmtShortDateTime(rec.trigger.timestamp)}` : 'seuil dépassé' }}
               </p>
+              <EvFeedback
+                class="mt-2"
+                :current="voteFor('recommendation', rec.recommendation_id)"
+                @vote="vote('recommendation', rec.recommendation_id, $event)"
+              />
             </div>
           </div>
         </div>
