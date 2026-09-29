@@ -1,9 +1,9 @@
 import { computed } from 'vue'
-import type { Alert, CurrentReading, Reading, SensorHealth, SensorStatus, Site, SiteId } from '~/types/api'
+import type { Alert, SensorHealth, SensorStatus, Site, SiteId } from '~/types/api'
 import { useFleetOverview } from '../composables/useFleetOverview'
 
 export function useSites() {
-  const { siteSummary, sensors, alerts, siteDetails, currentReadings, getReadingsForSite } = useFleetOverview()
+  const { siteSummary, sensors, alerts, siteDetails } = useFleetOverview()
 
   const sites = computed(() => siteSummary.value)
 
@@ -27,13 +27,7 @@ export function useSites() {
     return siteDetails.value.find(s => s.site_id === id) ?? null
   }
 
-  function getCurrentReading(id: SiteId): CurrentReading | null {
-    return currentReadings.value.find(r => r.site_id === id) ?? null
-  }
 
-  function getReadings(id: SiteId): Reading[] {
-    return getReadingsForSite(id)
-  }
 
   return {
     sites,
@@ -42,7 +36,5 @@ export function useSites() {
     getSiteAlerts,
     getSiteHealth,
     getSiteInfo,
-    getCurrentReading,
-    getReadings,
   }
 }

@@ -36,7 +36,8 @@ function fmtConso(kw: number | null): string {
           <th class="text-right pb-3 pr-8 font-ev-mono text-[10px] font-semibold tracking-widest text-ev-text-3">CAPACITÉ</th>
           <th class="text-left pb-3 pr-8 font-ev-mono text-[10px] font-semibold tracking-widest text-ev-text-3">CHARGE</th>
           <th class="text-left pb-3 pr-4 font-ev-mono text-[10px] font-semibold tracking-widest text-ev-text-3">QUALITÉ</th>
-          <th class="text-left pb-3 font-ev-mono text-[10px] font-semibold tracking-widest text-ev-text-3">SANTÉ</th>
+          <th class="text-left pb-3 pr-4 font-ev-mono text-[10px] font-semibold tracking-widest text-ev-text-3">SANTÉ</th>
+          <th class="text-left pb-3 font-ev-mono text-[10px] font-semibold tracking-widest text-ev-text-3">DERNIÈRE DONNÉE</th>
         </tr>
       </thead>
       <tbody>
@@ -88,8 +89,11 @@ function fmtConso(kw: number | null): string {
           <td class="py-3.5 pr-4">
             <EvQualityBadge :quality="site.data_quality" />
           </td>
-          <td class="py-3.5">
+          <td class="py-3.5 pr-4">
             <EvHealthBadge :status="site.health" />
+          </td>
+          <td class="py-3.5 font-ev-mono text-[11px] text-ev-text-2 whitespace-nowrap">
+            {{ fmtShortDateTime(site.last_data_at, 'aucune') }}
           </td>
         </tr>
       </tbody>

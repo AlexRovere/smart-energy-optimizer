@@ -14,6 +14,25 @@ vi.mock('../../app/composables/useAlerts', () => ({
   })
 }))
 
+vi.mock('../../app/composables/useSensorsStatus', () => {
+  const famille = (family: string, status = 'ok') => ({ family, status, failing_until: null })
+  const capteurs = (overall: string) => ({
+    overall,
+    sensors: ['consumption', 'electrical', 'temperature', 'humidity', 'network'].map(f => famille(f)),
+  })
+  return {
+    useSensorsStatus: () => ({
+      sensors: ref([
+        { site_id: 'SITE001', site_name: 'Bureau Paris La Défense', ...capteurs('critical') },
+        { site_id: 'SITE002', site_name: 'Usine Lyon Vénissieux', ...capteurs('degraded') },
+        { site_id: 'SITE003', site_name: 'Data Center Marseille', ...capteurs('ok') },
+      ]),
+      pending: ref(false),
+      error: ref(null),
+    }),
+  }
+})
+
 vi.mock('../../app/composables/useSitesList', () => ({
   useSitesList: () => ({
     sites: ref([
@@ -109,14 +128,10 @@ describe('useSites', () => {
     expect(alerts).toEqual([])
   })
 
-  it('getSiteHealth returns critical for SITE003', () => {
+  it("getSiteHealth rend l'état global relevé par les capteurs", () => {
     const { getSiteHealth } = useSites()
-    expect(getSiteHealth('SITE003')).toBe('critical')
-  })
-
-  it('getSiteHealth returns ok for a healthy site', () => {
-    const { getSiteHealth } = useSites()
-    expect(getSiteHealth('SITE001')).toBe('ok')
+    expect(getSiteHealth('SITE001')).toBe('critical')
+    expect(getSiteHealth('SITE003')).toBe('ok')
   })
 
   it('SITE003 has null consumption', () => {
@@ -143,48 +158,3 @@ describe('getSiteInfo', () => {
   })
 })
 
-describe('getCurrentReading', () => {
-  it('returns current reading with electrical data for SITE001', () => {
-    const { getCurrentReading } = useSites()
-    const r = getCurrentReading('SITE001' as SiteId)
-    expect(r).not.toBeNull()
-    expect(r!.voltage_v).toBeGreaterThan(0)
-    expect(r!.power_factor).toBeGreaterThan(0)
-    expect(r!.temperature_celsius).toBeGreaterThan(0)
-  })
-
-  it('returns null for unknown id', () => {
-    const { getCurrentReading } = useSites()
-    // @ts-expect-error expected wrong type
-    expect(getCurrentReading('UNKNOWN')).toBeNull()
-  })
-
-  it('SITE003 reading has null consumption and electrical data', () => {
-    const { getCurrentReading } = useSites()
-    const r = getCurrentReading('SITE003' as SiteId)
-    expect(r).not.toBeNull()
-    expect(r!.consumption_kw).toBeNull()
-    expect(r!.voltage_v).toBeNull()
-  })
-})
-
-describe('getReadings', () => {
-  it('returns 24 hourly readings for SITE001', () => {
-    const { getReadings } = useSites()
-    const readings = getReadings('SITE001' as SiteId)
-    expect(readings).toHaveLength(24)
-    expect(readings[0]!.site_id).toBe('SITE001')
-  })
-
-  it('readings are sorted oldest first', () => {
-    const { getReadings } = useSites()
-    const readings = getReadings('SITE001' as SiteId)
-    expect(readings[0]!.timestamp < readings[23]!.timestamp).toBe(true)
-  })
-
-  it('returns empty array for unknown id', () => {
-    const { getReadings } = useSites()
-    // @ts-expect-error expected wrong type
-    expect(getReadings('UNKNOWN')).toEqual([])
-  })
-})

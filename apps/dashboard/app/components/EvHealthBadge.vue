@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { SensorHealth } from '../types/api'
+import { healthLabel } from '../utils/labels'
 
 const props = defineProps<{ status: SensorHealth | 'failing'; label?: string }>()
 
@@ -15,7 +16,7 @@ const badge = computed(() => MAP[props.status])
 
 <template>
   <UBadge
-    :label="label ?? status"
+    :label="label ?? healthLabel(status)"
     :color="badge.color"
     :variant="badge.variant"
     size="sm"
