@@ -8,3 +8,11 @@ allowBuilds:
   'true': true
   unrs-resolver: true
   vue-demi: true
+
+# Planchers de sécurité sur des dépendances transitives, au plus près du
+# correctif : chaque ligne relève la version minimale sans changer de majeure.
+# À retirer quand les paquets qui les tirent exigent eux-mêmes ces versions.
+overrides:
+  # CVE-2026-102276 et CVE-2026-102278, déni de service (#66), via minimatch.
+  'brace-expansion@2': ^2.1.6
+  'brace-expansion@5': ^5.0.11
