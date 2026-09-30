@@ -50,6 +50,12 @@ apps/etl/insights/*.html
 .superpowers/
 docs/superpowers/
 
+# Rapports de couverture, produits par pytest-cov et Vitest à chaque exécution
+# des tests. La CI les transmet à SonarCloud comme artefacts, jamais par git.
+.coverage
+coverage.xml
+coverage/
+
 # Divers
 *.log
 .DS_Store
