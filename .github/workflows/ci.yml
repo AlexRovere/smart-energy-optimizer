@@ -49,11 +49,15 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+    # Sur un push vers main, les quatre domaines testés tournent toujours :
+    # SonarCloud calcule la couverture de main à partir des rapports de CE run,
+    # et un domaine sauté y apparaîtrait à 0 %. Les pull requests gardent le
+    # filtrage, SonarCloud n'y juge que le code modifié.
     outputs:
-      etl: ${{ steps.filter.outputs.etl }}
-      ml: ${{ steps.filter.outputs.ml }}
-      mockapi: ${{ steps.filter.outputs.mockapi }}
-      dashboard: ${{ steps.filter.outputs.dashboard }}
+      etl: ${{ github.event_name == 'push' && 'true' || steps.filter.outputs.etl }}
+      ml: ${{ github.event_name == 'push' && 'true' || steps.filter.outputs.ml }}
+      mockapi: ${{ github.event_name == 'push' && 'true' || steps.filter.outputs.mockapi }}
+      dashboard: ${{ github.event_name == 'push' && 'true' || steps.filter.outputs.dashboard }}
       infra: ${{ steps.filter.outputs.infra }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -131,7 +135,13 @@ jobs:
       # #51 : tests unitaires, dont la gestion des null et de data_quality, et le
       # garde-fou de performance de transform_readings() (test/transform/test_readings_perf.py).
       - name: Tests (pytest)
-        run: uv run --directory apps/etl --frozen --no-build pytest
+        run: uv run --directory apps/etl --frozen --no-build pytest --cov-report=xml:coverage.xml
+
+      # Rapport transmis au job sonarcloud, seul à en avoir l'usage.
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: couverture-etl
+          path: apps/etl/coverage.xml
 
   ml:
     needs: changes
@@ -184,7 +194,13 @@ jobs:
       # Le seuil de couverture (80 % sur src) est porté par pyproject.toml : pas
       # de --cov-fail-under ici, une seule source de vérité.
       - name: Tests (pytest)
-        run: uv run --directory apps/ml --frozen --no-build pytest
+        run: uv run --directory apps/ml --frozen --no-build pytest --cov-report=xml:coverage.xml
+
+      # Rapport transmis au job sonarcloud, seul à en avoir l'usage.
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: couverture-ml
+          path: apps/ml/coverage.xml
 
   mock-api:
     needs: changes
@@ -228,7 +244,13 @@ jobs:
       # Le seuil de couverture (90 % sur src) est porté par pyproject.toml : pas
       # de --cov-fail-under ici, une seule source de vérité.
       - name: Tests (pytest)
-        run: uv run --directory apps/mock-api --frozen --no-build pytest
+        run: uv run --directory apps/mock-api --frozen --no-build pytest --cov-report=xml:coverage.xml
+
+      # Rapport transmis au job sonarcloud, seul à en avoir l'usage.
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: couverture-mock-api
+          path: apps/mock-api/coverage.xml
 
   dashboard:
     needs: changes
@@ -280,8 +302,39 @@ jobs:
       # Les tests de base démarrent eux-mêmes un conteneur postgres:16-alpine
       # par Testcontainers : le démon Docker d'ubuntu-latest suffit, il n'y a
       # aucun service à déclarer ici.
-      - run: pnpm --dir apps/dashboard test
+      - run: pnpm --dir apps/dashboard test --coverage
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: couverture-dashboard
+          path: apps/dashboard/coverage/lcov.info
       - run: pnpm --dir apps/dashboard build
+
+  # Envoie les rapports de couverture à SonarCloud avec l'analyse du code.
+  # L'analyse automatique de SonarCloud ne sait pas importer de couverture,
+  # d'où ce job : elle doit rester désactivée côté SonarCloud, qui refuse
+  # sinon l'analyse venue de la CI. Configuration : sonar-project.properties.
+  #
+  # !cancelled() plutôt que success() : un domaine sauté par le filtrage ne
+  # doit pas empêcher l'analyse des autres. Un test rouge, lui, l'empêche.
+  sonarcloud:
+    needs: [etl, ml, mock-api, dashboard]
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      # Historique complet : SonarCloud en a besoin pour distinguer le code
+      # nouveau et attribuer les lignes.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: couverture-*
+          path: couverture
+      - uses: SonarSource/sonarqube-scan-action@ba9859eae8dd6bd29e412f25ddbbef3d032000f4 # v8.2.2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   infra:
     needs: changes

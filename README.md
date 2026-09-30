@@ -1,6 +1,6 @@
 # Smart Energy Optimizer
 
-[![CI](https://github.com/AlexRovere/smart-energy-optimizer/actions/workflows/ci.yml/badge.svg)](https://github.com/AlexRovere/smart-energy-optimizer/actions/workflows/ci.yml) [![Sécurité](https://github.com/AlexRovere/smart-energy-optimizer/actions/workflows/security.yml/badge.svg)](https://github.com/AlexRovere/smart-energy-optimizer/actions/workflows/security.yml)
+[![CI](https://github.com/AlexRovere/smart-energy-optimizer/actions/workflows/ci.yml/badge.svg)](https://github.com/AlexRovere/smart-energy-optimizer/actions/workflows/ci.yml) [![Sécurité](https://github.com/AlexRovere/smart-energy-optimizer/actions/workflows/security.yml/badge.svg)](https://github.com/AlexRovere/smart-energy-optimizer/actions/workflows/security.yml) [![Couverture](https://sonarcloud.io/api/project_badges/measure?project=AlexRovere_smart-energy-optimizer&metric=coverage)](https://sonarcloud.io/summary/overall?id=AlexRovere_smart-energy-optimizer) [![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=AlexRovere_smart-energy-optimizer&metric=alert_status)](https://sonarcloud.io/summary/overall?id=AlexRovere_smart-energy-optimizer)
 
 MVP d'optimisation énergétique par l'IA, pour EnerVision. Projet piscine EADL, 2 semaines, 5 personnes.
 

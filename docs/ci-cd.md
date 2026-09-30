@@ -8,7 +8,7 @@ Un lecteur qui n'a pas écrit ces fichiers doit pouvoir rejouer une étape sur s
 
 | Fichier | Nom affiché | Déclencheur | Ce qu'il vérifie |
 |---|---|---|---|
-| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | CI | pull request vers `main`, et push sur `main` | Lint, types, tests, validation de la composition, construction **et scan** des images |
+| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | CI | pull request vers `main`, et push sur `main` | Lint, types, tests et couverture, analyse SonarCloud, validation de la composition, construction **et scan** des images |
 | [`.github/workflows/security.yml`](../.github/workflows/security.yml) | Sécurité | **tout** push, sur n'importe quelle branche | Vulnérabilités, secrets dans l'arbre et dans l'historique, cohérence du chiffrement SOPS |
 | [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | CD | lancement manuel (suspendu depuis la reprise en solo : plus de runner sur la VM, le déclencheur sur fin de `CI` revient avec Kubernetes) | Exécution locale du playbook Ansible sur la VM |
 
@@ -30,6 +30,8 @@ Le premier job de `ci.yml`, `changes`, compare les fichiers modifiés à cinq en
 
 Les tests de charge ne dépendent d'aucun chemin : ils ne partent qu'à la demande (voir plus bas).
 
+**Exception : un push sur `main` rejoue toujours les quatre domaines testés** (`etl`, `ml`, `mockapi`, `dashboard`), et donc leurs images. SonarCloud calcule la couverture de `main` à partir des rapports du run qui l'analyse : un domaine sauté y apparaîtrait à 0 %. Le filtrage reste entier sur les pull requests, où SonarCloud ne juge que le code modifié. `infra` garde son filtrage partout, il ne produit pas de couverture.
+
 Les cinq écoutent aussi `.github/workflows/ci.yml` lui-même, sans quoi une pull request qui ne touche que la CI ne déclencherait aucun job, exactement le moment où l'on voudrait une preuve.
 
 Le job `changes` interroge l'API des fichiers modifiés, d'où `pull-requests: read` dans `permissions` : sans elle, il échoue en « Resource not accessible by integration » et bloque tout le pipeline, puisqu'il conditionne les autres jobs.
@@ -44,6 +46,7 @@ L'enchaînement est **par domaine** : lint, puis tests, puis construction de l'i
 | 1 bis | Formatage | `ruff format --check` | Un fichier Python non formaté | En place pour le Python. Différé côté TypeScript |
 | 2 | Types | `dashboard` : `vue-tsc` | Une erreur de typage | En place |
 | 3 | Tests | `dashboard` : `vitest` ; `etl`, `ml` : `pytest` | Un test rouge | En place |
+| 3 bis | Couverture et analyse | `sonarcloud` : rapports de couverture de `etl`, `ml`, `mock-api` (pytest-cov) et `dashboard` (Vitest, v8), puis analyse SonarCloud | Le Quality Gate SonarCloud, affiché sur la pull request. Le taux de couverture lui-même ne bloque pas (voir « Écarts assumés ») | En place |
 | 4 | Composition | `infra` : `docker compose config` | Un `docker-compose.yml` invalide | En place |
 | 5 | Images | `image-*` : `docker build`, puis Trivy | Un Dockerfile cassé, une vulnérabilité **critique** dans l'image | En place |
 | 6 | Charge et performance | `load-test-ml`, `load-test-dashboard` : Locust | Un dépassement de seuil sur `/predictions`, `/training`, l'historique du dashboard. **Jamais** sur l'accès à l'API Mock (voir plus bas) | À la demande seulement |
@@ -234,6 +237,7 @@ Chaque étape de la CI a un équivalent local. C'est volontaire : un échec qu'o
 | Validation de la composition | `docker compose config --quiet` |
 | Images | `docker build apps/etl`, puis `apps/ml` et `apps/dashboard` |
 | Tests ETL, ML | `uv run --directory apps/etl --frozen --no-build pytest`, `uv run --directory apps/ml --frozen --no-build pytest` |
+| Couverture | `pnpm --dir apps/dashboard test --coverage` (rapport dans `apps/dashboard/coverage/lcov.info`) ; côté Python, la couverture s'affiche à chaque `pytest`, et `--cov-report=xml:coverage.xml` produit le rapport envoyé à SonarCloud |
 | Charge et performance | Voir [`load-tests/README.md`](../load-tests/README.md) : amorçage, lancement Locust, vérification des seuils |
 | Trivy | `docker run --rm -v "$PWD:/src" aquasec/trivy fs --scanners vuln,secret,misconfig --severity CRITICAL,HIGH --ignore-unfixed /src` |
 | gitleaks | `gitleaks git . --log-opts="--all -m --full-history" --redact` |
@@ -273,7 +277,7 @@ Ce qui suit est connu, décidé, et non corrigé. C'est ce qui distingue une doc
 | **Pas de registre d'images** | Quota de 500 Mo pour les paquets privés en offre gratuite, dépassé par la seule image du service ML. Le public exposerait le code. Décidé le 15 septembre 2026 (#50, #107) |
 | **`main` n'est pas protégée par règle** | Non activable sur un dépôt privé d'une organisation en offre gratuite. Règle écrite dans [`CLAUDE.md`](../CLAUDE.md) et tenue à la main. Le jour où elle devient activable : **deux** checks obligatoires, `CI` et `Sécurité`, pas un seul — prix du découpage en deux workflows |
 | **Un `HIGH` dans une image ne bloque pas** | Seule une `CRITICAL` bloque, là où le scan de code bloque dès `HIGH`. Les paquets de la base Debian ne se corrigent pas à notre rythme ; ils restent affichés dans le log du job |
-| **Pas de seuil de couverture bloquant** | Retiré le 16 septembre 2026. Sur dix jours, un seuil non tenu est une CI rouge qui empêche de fusionner : un coût sans contrepartie |
+| **Pas de seuil de couverture bloquant** | Retiré le 16 septembre 2026. Sur dix jours, un seuil non tenu est une CI rouge qui empêche de fusionner : un coût sans contrepartie. La couverture reste mesurée et publiée sur SonarCloud depuis #68 |
 | **Le scan n'est pas dans le graphe de `ci.yml`** | Il tourne sur tout push, donc plus tôt et plus souvent que s'il attendait une pull request. Le chaîner le rendrait plus tardif, pas plus sûr |
 | **La CI ne mesure jamais le bottleneck réel de l'API Mock** | `load-test-dashboard` tape sur le simulateur (`apps/mock-api`), pas sur la source réelle : quota partagé de 500 pts/h avec la formation. Le constat réel reste un geste manuel, en local |
 | **L'applicatif est construit deux fois** | Une fois par `pnpm build`, une fois dans l'image. Environ deux minutes, contre un Dockerfile réellement vérifié |
