@@ -16,7 +16,14 @@ dependencies = [
 # Hors de l'image : le Dockerfile installe avec --no-dev.
 dev = [
     "pytest>=8.0.0",
+    "pytest-cov>=7.1.0",
 ]
 
 [tool.uv]
 package = false
+
+# Mise en page plate (pas de src/) : on mesure tout le répertoire, sauf les
+# tests eux-mêmes, qui gonfleraient le taux sans rien dire du code.
+[tool.coverage.run]
+source = ["."]
+omit = ["test/*"]
