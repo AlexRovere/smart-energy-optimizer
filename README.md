@@ -1,5 +1,7 @@
 # Smart Energy Optimizer
 
+[![CI](https://github.com/AlexRovere/smart-energy-optimizer/actions/workflows/ci.yml/badge.svg)](https://github.com/AlexRovere/smart-energy-optimizer/actions/workflows/ci.yml) [![Sécurité](https://github.com/AlexRovere/smart-energy-optimizer/actions/workflows/security.yml/badge.svg)](https://github.com/AlexRovere/smart-energy-optimizer/actions/workflows/security.yml)
+
 MVP d'optimisation énergétique par l'IA, pour EnerVision. Projet piscine EADL, 2 semaines, 5 personnes.
 
 > **Reprise du projet.** Livré en `v1.0.0` par l'équipe EADL Nantes G1 (Alex Rovere, Antoine Coulon, Hugo Mrnth, Tanguy Raguenes, Pierrick Anceaux) dans le dépôt de l'école, `EADL-2026/enerVision`. Depuis le 29 septembre 2026, Alex Rovere le poursuit seul ici, historique complet conservé. Les issues ouvertes ont été reprises avec de nouveaux numéros, chacune renvoyant à son original. L'infrastructure de l'école (VM, runner auto-hébergé) n'est plus utilisée et doit laisser place à Kubernetes ; en attendant, le déploiement continu est suspendu.
